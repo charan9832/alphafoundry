@@ -10,7 +10,7 @@ from rich.table import Table
 
 from .config import Config, CONFIG_FILE, init_config
 from .workspace import create_strategy, list_strategies, strategy_dir
-from .data.providers import load_data, openbb_available
+from .data.providers import fetch_ohlcv, load_data, openbb_available, save_ohlcv, yfinance_available
 from .strategies.registry import generate_signals
 from .backtest.engine import run_backtest
 from .validate.robustness import validate_strategy
@@ -52,7 +52,8 @@ def doctor():
     table.add_column("Detail")
     table.add_row("config", "PASS" if CONFIG_FILE.exists() else "WARN", str(CONFIG_FILE))
     table.add_row("workspace", "PASS" if cfg.workspace_path.exists() else "WARN", str(cfg.workspace_path))
-    table.add_row("OpenBB", "PASS" if openbb_available() else "INFO", "optional data integration")
+    table.add_row("OpenBB", "PASS" if openbb_available() else "INFO", "optional primary data integration")
+    table.add_row("yfinance", "PASS" if yfinance_available() else "INFO", "optional fallback data integration")
     table.add_row("SimpleMem", "PASS" if simplemem_available() else "INFO", "optional memory integration")
     table.add_row("mode", "PASS" if cfg.default_mode == "paper" and not cfg.auto_trade else "FAIL", f"default_mode={cfg.default_mode} auto_trade={cfg.auto_trade}")
     console.print(table)
@@ -76,6 +77,20 @@ def create(name: str, idea: str = typer.Option("", help="Natural language strate
     chosen = template or idea_to_template(idea or name)
     dest = create_strategy(cfg, name, chosen, symbol)
     console.print(f"[green]Created strategy[/green] {name} template={chosen} path={dest}")
+
+
+@app.command()
+def fetch(
+    symbol: str,
+    output: Path = typer.Option(..., "--output", "-o", help="CSV output path"),
+    start: Optional[str] = typer.Option(None, help="Start date, e.g. 2024-01-01"),
+    end: Optional[str] = typer.Option(None, help="End date, e.g. 2024-12-31"),
+    provider: str = typer.Option("auto", help="Data provider: auto, openbb, or yfinance"),
+):
+    """Fetch OHLCV data with OpenBB first and yfinance fallback."""
+    df = fetch_ohlcv(symbol, start=start, end=end, provider=provider)  # type: ignore[arg-type]
+    out = save_ohlcv(df, output)
+    console.print(f"[green]Fetched[/green] {symbol.upper()} rows={len(df)} output={out}")
 
 
 @app.command()

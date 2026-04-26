@@ -10,6 +10,7 @@ It is not investment advice and does not promise profits. Its value is speed + r
 
 - `alphafoundry init` creates a local config and workspace.
 - `alphafoundry create` creates a strategy project from templates.
+- `alphafoundry fetch` downloads OHLCV data through OpenBB with a yfinance fallback.
 - `alphafoundry backtest` runs a deterministic backtest over CSV data.
 - `alphafoundry validate` runs train/test, cost-stress, and robustness scoring.
 - `alphafoundry optimize` performs bounded grid search over simple parameters.
@@ -94,6 +95,7 @@ pip install -e .[dev]
 alphafoundry init
 alphafoundry doctor
 alphafoundry create demo --template momentum
+alphafoundry fetch SPY --start 2024-01-01 --end 2024-03-01 --output data/spy.csv
 alphafoundry backtest demo --data examples/data/sample_prices.csv
 alphafoundry validate demo --data examples/data/sample_prices.csv
 alphafoundry report demo --data examples/data/sample_prices.csv
