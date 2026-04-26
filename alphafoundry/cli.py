@@ -21,6 +21,7 @@ from .autoresearch.loop import run_autoresearch
 from .memory.simplemem_adapter import simplemem_available
 from .wiki.brain import init_wiki
 from .agent.planner import idea_to_template
+from .chat import ChatIntent, parse_message
 
 app = typer.Typer(help="AlphaFoundry: Claude Code for trading strategies.")
 console = Console()
@@ -42,6 +43,128 @@ def _json_safe(value):
     if isinstance(value, list):
         return [_json_safe(v) for v in value]
     return value
+
+
+def _run_pipeline_payload(name: str, data: Path, template: str = "momentum", symbol: str = "SAMPLE", iterations: int = 1) -> dict:
+    cfg = _cfg()
+    sdir = strategy_dir(cfg, name)
+    created = False
+    if not sdir.exists():
+        sdir = create_strategy(cfg, name, template, symbol)
+        created = True
+
+    strategy_py = sdir / "strategy.py"
+    df = load_data(data)
+    close = df["close"]
+    signals = generate_signals(strategy_py, close)
+    backtest_result = run_backtest(close, signals)
+    validation = validate_strategy(strategy_py, data)
+    optimization = optimize_strategy(strategy_py, data)
+
+    report_path = sdir / "reports" / "report.md"
+    render_markdown(name, validation, report_path)
+
+    paper_path = sdir / "paper" / "journal.json"
+    paper_result = run_paper(strategy_py, data, paper_path)
+
+    autoresearch_result = run_autoresearch(sdir, data, iterations)
+
+    manifest_path = sdir / "run_manifest.json"
+    payload = {
+        "strategy": name,
+        "strategy_dir": str(sdir),
+        "data": str(data),
+        "steps": {
+            "created": created,
+            "backtest": {"metrics": backtest_result.metrics},
+            "validate": validation,
+            "optimize": optimization,
+            "paper": paper_result,
+            "autoresearch": autoresearch_result,
+        },
+        "artifacts": {
+            "report": str(report_path),
+            "paper_journal": str(paper_path),
+            "paper_events": str(paper_result["events_path"]),
+            "autoresearch_log": str(autoresearch_result["log"]),
+            "run_manifest": str(manifest_path),
+        },
+        "safety": {
+            "mode": _cfg().default_mode,
+            "live_trading_enabled": False,
+            "auto_trade": _cfg().auto_trade,
+            "disclaimer": "Research and paper trading only. Not financial advice.",
+        },
+    }
+    manifest_path.write_text(json.dumps(_json_safe(payload), indent=2) + "\n")
+    return payload
+
+
+def _status_payload(name: str) -> dict:
+    cfg = _cfg()
+    sdir = strategy_dir(cfg, name)
+    spec_path = sdir / "strategy.yaml"
+    report_path = sdir / "reports" / "report.md"
+    paper_path = sdir / "paper" / "journal.json"
+    paper_events_path = sdir / "paper" / "events.jsonl"
+    manifest_path = sdir / "run_manifest.json"
+    exp_dir = sdir / "experiments"
+    iteration_files = sorted(exp_dir.glob("iteration-*.json")) if exp_dir.exists() else []
+    payload = {
+        "strategy": name,
+        "strategy_dir": str(sdir),
+        "exists": sdir.exists(),
+        "spec_exists": spec_path.exists(),
+        "artifacts": {
+            "report": str(report_path),
+            "report_exists": report_path.exists(),
+            "paper_journal": str(paper_path),
+            "paper_journal_exists": paper_path.exists(),
+            "paper_events": str(paper_events_path),
+            "paper_events_exists": paper_events_path.exists(),
+            "run_manifest": str(manifest_path),
+            "run_manifest_exists": manifest_path.exists(),
+        },
+        "experiments": {
+            "directory": str(exp_dir),
+            "count": len(iteration_files),
+            "latest": str(iteration_files[-1]) if iteration_files else None,
+        },
+    }
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text())
+            payload["latest_score"] = manifest.get("steps", {}).get("validate", {}).get("robust_alpha_score")
+            payload["passed"] = manifest.get("steps", {}).get("validate", {}).get("passed")
+        except Exception:
+            payload["latest_score"] = None
+            payload["passed"] = None
+    return payload
+
+
+def _execute_chat_intent(intent: ChatIntent, data: Optional[Path], iterations: int = 1) -> dict:
+    if intent.action == "run":
+        if data is None:
+            raise typer.BadParameter("chat run requests require --data PATH")
+        return _run_pipeline_payload(intent.name or "strategy", data, intent.template, intent.symbol, iterations)
+    if intent.action == "create":
+        cfg = _cfg()
+        dest = create_strategy(cfg, intent.name or "strategy", intent.template, intent.symbol)
+        return {"strategy": intent.name or "strategy", "template": intent.template, "symbol": intent.symbol, "path": str(dest)}
+    if intent.action == "status":
+        if not intent.name:
+            raise typer.BadParameter("status requests need a strategy name")
+        return _status_payload(intent.name)
+    if intent.action == "list":
+        return {"strategies": list_strategies(_cfg())}
+    return {
+        "message": "I can create strategies, run the full paper pipeline, show status, and list strategies.",
+        "examples": [
+            "create a momentum strategy for SPY called spybot and run everything",
+            "show status for spybot",
+            "what strategies do I have?",
+        ],
+    }
 
 
 @app.command()
@@ -297,9 +420,56 @@ def autoresearch(name: str, data: Path = typer.Option(..., help="CSV file with O
 
 
 @app.command()
-def chat():
-    """Interactive planning placeholder."""
-    console.print("[cyan]AlphaFoundry chat MVP[/cyan]: use create/backtest/validate commands. Full LLM chat is planned after deterministic engine stabilization.")
+def chat(
+    message: Optional[str] = typer.Argument(None, help="Natural-language request. Omit for interactive mode."),
+    data: Optional[Path] = typer.Option(None, help="CSV OHLCV data for requests that run the full pipeline"),
+    iterations: int = typer.Option(1, min=0, help="Autoresearch iterations for run requests"),
+    json_out: bool = typer.Option(False, help="Emit machine-readable JSON for one-shot requests"),
+):
+    """Talk to AlphaFoundry in natural language and let it execute tasks."""
+    if message is not None:
+        intent = parse_message(message)
+        result = _execute_chat_intent(intent, data=data, iterations=iterations)
+        payload = {"intent": intent.to_dict(), "result": result}
+        if json_out:
+            typer.echo(json.dumps(_json_safe(payload), indent=2))
+        else:
+            console.print(f"[bold cyan]You:[/bold cyan] {message}")
+            console.print(f"[bold green]AlphaFoundry:[/bold green] action={intent.action} confidence={intent.confidence}")
+            if intent.action == "run":
+                console.print(f"Completed full paper pipeline for [bold]{result['strategy']}[/bold]")
+                console.print(f"Report: {result['artifacts']['report']}")
+                console.print(f"Paper events: {result['artifacts']['paper_events']}")
+            elif intent.action == "status":
+                console.print(json.dumps(_json_safe(result), indent=2))
+            elif intent.action == "list":
+                console.print("Strategies: " + ", ".join(result["strategies"]))
+            else:
+                console.print(json.dumps(_json_safe(result), indent=2))
+        return
+
+    console.print("[bold cyan]AlphaFoundry chat[/bold cyan] — type natural requests, or 'exit'.")
+    console.print("Example: create a momentum strategy for SPY called spybot and run everything")
+    while True:
+        try:
+            user_message = typer.prompt("alphafoundry")
+        except (EOFError, KeyboardInterrupt):
+            console.print("\n[dim]Goodbye.[/dim]")
+            break
+        if user_message.strip().lower() in {"exit", "quit", "bye"}:
+            console.print("[dim]Goodbye.[/dim]")
+            break
+        intent = parse_message(user_message)
+        try:
+            result = _execute_chat_intent(intent, data=data, iterations=iterations)
+            console.print(f"[bold green]AlphaFoundry:[/bold green] action={intent.action}")
+            if intent.action == "run":
+                console.print(f"Completed full paper pipeline for [bold]{result['strategy']}[/bold]")
+                console.print(f"Report: {result['artifacts']['report']}")
+            else:
+                console.print(json.dumps(_json_safe(result), indent=2))
+        except Exception as exc:
+            console.print(f"[red]Error:[/red] {exc}")
 
 
 if __name__ == "__main__":

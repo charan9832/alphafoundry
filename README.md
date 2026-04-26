@@ -19,6 +19,7 @@ It is not investment advice and does not promise profits. Its value is speed + r
 - `alphafoundry paper` simulates paper trading and appends replayable JSONL journal events.
 - `alphafoundry run` executes the full local create/backtest/validate/optimize/report/paper/autoresearch pipeline.
 - `alphafoundry status` summarizes a strategy project and its latest artifacts.
+- `alphafoundry chat` accepts natural-language requests and executes create/run/status/list actions.
 - `alphafoundry doctor` checks optional integrations: OpenBB, SimpleMem, LLM config, and local workspace.
 
 ## Why AlphaFoundry
@@ -99,6 +100,8 @@ alphafoundry doctor
 alphafoundry create demo --template momentum
 alphafoundry fetch SPY --start 2024-01-01 --end 2024-03-01 --output data/spy.csv
 alphafoundry run demo --data examples/data/sample_prices.csv --iterations 2
+alphafoundry chat "show status for demo"
+alphafoundry chat "what strategies do I have?"
 alphafoundry status demo
 alphafoundry backtest demo --data examples/data/sample_prices.csv
 alphafoundry validate demo --data examples/data/sample_prices.csv
