@@ -16,8 +16,9 @@ def simplemem_available() -> bool:
 
 
 def remember_local(memory_dir: Path, text: str) -> Path:
+    safe_text = " ".join(str(text).split())
     memory_dir.mkdir(parents=True, exist_ok=True)
     path = memory_dir / "memories.md"
     with path.open("a") as f:
-        f.write(f"- {text}\n")
+        f.write(f"- {safe_text}\n")
     return path
