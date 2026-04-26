@@ -1,11 +1,10 @@
 export type ProviderKind =
-  | "mock"
+  | "local"
   | "openai-compatible"
   | "azure-openai"
   | "openrouter"
   | "anthropic"
-  | "gemini"
-  | "local";
+  | "gemini";
 
 export interface LlmConfig {
   provider: ProviderKind;

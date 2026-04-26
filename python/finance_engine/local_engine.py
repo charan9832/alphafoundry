@@ -14,7 +14,6 @@ import random
 import re
 import sys
 from datetime import date, datetime, timezone
-from pathlib import Path
 from typing import Any
 
 
@@ -84,7 +83,7 @@ def run_backtest(symbol: str, start: str, end: str, strategy: str, initial_capit
     total_return_pct = round((final_equity - initial_capital) / initial_capital * 100, 2)
     validation_passed = len(prices) >= 100 and trades > 0 and all(p > 0 for p in prices)
     warnings = [
-        "Deterministic local mock data; replace with provider-backed historical data before relying on conclusions.",
+        "Deterministic local data; replace with provider-backed historical data before relying on conclusions.",
         "Research and paper validation only; no live trading or profit guarantees.",
     ]
     if not validation_passed:
@@ -96,7 +95,7 @@ def run_backtest(symbol: str, start: str, end: str, strategy: str, initial_capit
         "start": start,
         "end": end,
         "data": {
-            "provider": "deterministic-local-mock",
+            "provider": "deterministic-local-data",
             "points": len(prices),
             "firstPrice": prices[0],
             "lastPrice": prices[-1],
@@ -162,7 +161,7 @@ def report_markdown(result: dict[str, Any]) -> str:
         lines.append(f"- {name}: {str(passed).lower()}")
     lines.extend(["", "## Warnings"])
     lines.extend(f"- {warning}" for warning in warnings)
-    lines.extend(["", "## Next step", "Replace the deterministic mock data provider with audited historical data, then rerun validation before drawing conclusions."])
+    lines.extend(["", "## Next step", "Replace the deterministic local data provider with audited historical data, then rerun validation before drawing conclusions."])
     return "\n".join(lines)
 
 

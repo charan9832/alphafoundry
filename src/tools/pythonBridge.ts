@@ -24,9 +24,9 @@ export class FinanceBridgeError extends Error {
 
 export function financeEnginePath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
-  const sourcePath = resolve(here, "../../python/finance_engine/mock_engine.py");
+  const sourcePath = resolve(here, "../../python/finance_engine/local_engine.py");
   if (existsSync(sourcePath)) return sourcePath;
-  return resolve(here, "../../../python/finance_engine/mock_engine.py");
+  return resolve(here, "../../../python/finance_engine/local_engine.py");
 }
 
 export async function callFinanceEngine<T = unknown>(request: FinanceEngineRequest, timeoutMs = 10_000): Promise<FinanceEngineResponse<T>> {

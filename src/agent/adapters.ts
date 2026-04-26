@@ -24,7 +24,7 @@ function inferSymbol(message: string): string {
   return /\b([A-Z]{2,5})\b/.exec(message)?.[1] ?? "SPY";
 }
 
-export class MockAgentAdapter implements AgentAdapter {
+export class LocalAgentAdapter implements AgentAdapter {
   constructor(private readonly config: AppConfig) {}
 
   async complete(request: AgentAdapterRequest): Promise<AgentAdapterResponse> {
@@ -32,13 +32,13 @@ export class MockAgentAdapter implements AgentAdapter {
       const latest = request.observations.at(-1);
       return {
         text: `I completed ${latest?.toolName}. The result is tool-backed and saved in the workspace. Research and paper validation only; no live trading or profit guarantees.`,
-        provider: "mock",
-        model: this.config.llm?.model ?? "mock-finance-agent",
+        provider: "local",
+        model: this.config.llm?.model ?? "local-finance-agent",
       };
     }
     const lower = request.message.toLowerCase();
     if (lower.includes("readiness") || lower.includes("doctor") || lower.includes("system status")) {
-      return { text: "I will check system readiness.", toolName: "readiness", toolInput: {}, provider: "mock", model: this.config.llm?.model ?? "mock" };
+      return { text: "I will check system readiness.", toolName: "readiness", toolInput: {}, provider: "local", model: this.config.llm?.model ?? "local" };
     }
     if (lower.includes("backtest") || lower.includes("test") || lower.includes("strategy") || lower.includes("research workflow")) {
       const symbol = inferSymbol(request.message);
@@ -46,14 +46,14 @@ export class MockAgentAdapter implements AgentAdapter {
         text: `I will run a deterministic research workflow for ${symbol}: local data, backtest, validation, and report artifacts.`,
         toolName: "run_research_workflow",
         toolInput: { symbol },
-        provider: "mock",
-        model: this.config.llm?.model ?? "mock",
+        provider: "local",
+        model: this.config.llm?.model ?? "local",
       };
     }
     return {
       text: "Hey — I’m ready. I can help research markets, design strategies, run tool-backed backtests, validate assumptions, and generate reports. What should we investigate?",
-      provider: "mock",
-      model: this.config.llm?.model ?? "mock-finance-agent",
+      provider: "local",
+      model: this.config.llm?.model ?? "local-finance-agent",
     };
   }
 }
@@ -155,6 +155,6 @@ export function extractText(value: unknown): string {
 }
 
 export function makeAgentAdapter(config: AppConfig): AgentAdapter {
-  if (config.llm?.provider === "mock" || !config.llm) return new MockAgentAdapter(config);
+  if (config.llm?.provider === "local" || !config.llm) return new LocalAgentAdapter(config);
   return new PiSdkAgentAdapter(config);
 }

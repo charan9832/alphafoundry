@@ -7,7 +7,7 @@ AlphaFoundry CLI / Chat Shell
   -> Onboarding + Config + Readiness
   -> Agent Runtime Facade
       -> Pi SDK adapter when real providers are configured
-      -> Mock adapter for local tests and smoke runs
+      -> Local adapter for local tests and smoke runs
   -> Typed Tool Registry
       -> System/readiness tools
       -> Finance research workflow tools
@@ -27,7 +27,7 @@ AlphaFoundry uses Pi as infrastructure:
 
 - `@mariozechner/pi-ai` for provider/model/tool-capable LLM APIs.
 - A local facade keeps AlphaFoundry decoupled from Pi API churn.
-- Real providers are accessed through `PiSdkAgentAdapter`; tests and offline smoke use `MockAgentAdapter`.
+- Real providers are accessed through `PiSdkAgentAdapter`; tests and offline smoke use `LocalAgentAdapter`.
 
 Normal users interact with `alphafoundry`, not `pi`.
 
@@ -50,7 +50,7 @@ The LLM may never invent metrics or bypass the registry. Tool-backed results are
 
 ## Python bridge
 
-`src/tools/pythonBridge.ts` spawns `python3 python/finance_engine/mock_engine.py` with `shell: false`, sends one JSON request on stdin, and expects one JSON response on stdout.
+`src/tools/pythonBridge.ts` spawns `python3 python/finance_engine/local_engine.py` with `shell: false`, sends one JSON request on stdin, and expects one JSON response on stdout.
 
 Supported methods now:
 
@@ -58,7 +58,7 @@ Supported methods now:
 - `run_backtest`
 - `run_research_workflow`
 
-The current Python engine is deterministic and stdlib-only. It generates local mock price data, runs a moving-average trend baseline, validates checks, and returns report markdown. It does not fetch live data, connect to brokers, or place orders.
+The current Python engine is deterministic and stdlib-only. It generates local price data, runs a moving-average trend baseline, validates checks, and returns report markdown. It does not fetch live data, connect to brokers, or place orders.
 
 ## Secret handling
 

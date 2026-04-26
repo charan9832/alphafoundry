@@ -33,7 +33,7 @@ AlphaFoundry is not:
 
 Onboarding must configure:
 
-- provider: mock, OpenAI-compatible, Azure OpenAI, OpenRouter, Anthropic, Gemini, or local provider later
+- provider: local, OpenAI-compatible, Azure OpenAI, OpenRouter, Anthropic, Gemini, or local provider later
 - model name
 - base URL if applicable
 - API key environment variable name, never raw key persistence
@@ -65,7 +65,7 @@ The agent should:
 A product-complete first release must support:
 
 - first-run onboarding
-- real provider configuration path plus mock test path
+- real provider configuration path plus local test path
 - Pi-backed or Pi-compatible agent runtime
 - typed tool registry
 - deterministic finance tool bridge

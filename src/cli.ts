@@ -70,7 +70,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 async function launch(configPath: string): Promise<number> {
   const config = await loadConfig(configPath);
   if (!isConfigured(config)) {
-    console.log(`Welcome to AlphaFoundry\n\n${researchDisclaimer()}\n\nFirst run setup is required. Run:\n  alphafoundry onboard --provider mock --model mock-finance-agent --non-interactive\n\nFor real providers, set an API key env var and pass --api-key-env NAME.`);
+    console.log(`Welcome to AlphaFoundry\n\n${researchDisclaimer()}\n\nFirst run setup is required. Run:\n  alphafoundry onboard --provider local --model local-finance-agent --non-interactive\n\nFor real providers, set an API key env var and pass --api-key-env NAME.`);
     return 0;
   }
   console.log(`AlphaFoundry Agent\n${researchDisclaimer()}\n\nConfigured provider: ${config.llm.provider}/${config.llm.model}\nStart chatting with: alphafoundry chat "hey"`);
@@ -79,8 +79,8 @@ async function launch(configPath: string): Promise<number> {
 
 async function onboard(args: ParsedArgs, configPath: string): Promise<number> {
   const existing = (await loadConfig(configPath)) ?? createDefaultConfig(typeof args.flags.workspace === "string" ? args.flags.workspace : undefined);
-  const provider = (typeof args.flags.provider === "string" ? args.flags.provider : "mock") as ProviderKind;
-  const model = typeof args.flags.model === "string" ? args.flags.model : "mock-finance-agent";
+  const provider = (typeof args.flags.provider === "string" ? args.flags.provider : "local") as ProviderKind;
+  const model = typeof args.flags.model === "string" ? args.flags.model : "local-finance-agent";
   const llm: LlmConfig = { provider, model };
   if (typeof args.flags["base-url"] === "string") llm.baseUrl = args.flags["base-url"];
   if (typeof args.flags["api-key-env"] === "string") llm.apiKeyEnv = args.flags["api-key-env"];

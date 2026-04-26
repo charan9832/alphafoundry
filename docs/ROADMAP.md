@@ -13,7 +13,7 @@
 - Onboarding with provider/model/base URL/API-key-env/workspace.
 - Doctor/readiness checks.
 - Chat entrypoint.
-- Mock provider for offline tests.
+- Local provider for offline tests.
 
 ## Phase 2: Agent runtime and typed tools — mostly done
 
@@ -37,7 +37,7 @@ Remaining:
 
 Remaining:
 
-- Replace mock data with audited historical provider data.
+- Replace deterministic local data with audited historical provider data.
 - Add richer validation: walk-forward, sensitivity, regime, cost stress.
 
 ## Phase 4: Full research workflow — initial version done

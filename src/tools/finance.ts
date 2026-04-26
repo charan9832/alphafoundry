@@ -72,7 +72,7 @@ async function persistWorkflowArtifacts(workspace: string, result: ResearchWorkf
 export function researchWorkflowTool(): ToolDefinition<BacktestInput, BacktestResult> {
   return {
     name: "run_research_workflow",
-    description: "Run a deterministic local research workflow: mock data, trend strategy backtest, validation checks, artifact persistence, and Markdown report generation.",
+    description: "Run a deterministic local research workflow: deterministic local data, trend strategy backtest, validation checks, artifact persistence, and Markdown report generation.",
     category: "backtest",
     schema: {
       type: "object",
@@ -111,10 +111,10 @@ export function researchWorkflowTool(): ToolDefinition<BacktestInput, BacktestRe
   };
 }
 
-export function mockBacktestTool(): ToolDefinition<BacktestInput, BacktestResult> {
+export function localBacktestTool(): ToolDefinition<BacktestInput, BacktestResult> {
   return {
     ...researchWorkflowTool(),
-    name: "run_mock_backtest",
+    name: "run_local_backtest",
     description: "Compatibility alias for the deterministic local research workflow backtest tool.",
   };
 }

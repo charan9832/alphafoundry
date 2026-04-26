@@ -25,7 +25,7 @@ It onboards an LLM provider, checks finance tooling, opens a natural chat shell,
 npm install
 npm run check
 npm run dev -- doctor
-npm run dev -- onboard --provider mock --model mock-finance-agent --non-interactive
+npm run dev -- onboard --provider local --model local-finance-agent --non-interactive
 npm run dev -- chat hey --json
 npm run dev -- chat "build and test a simple SPY trend strategy" --json
 ```
@@ -36,7 +36,7 @@ The offline product path now works end-to-end:
 
 ```text
 chat request
--> mock/Pi-compatible agent adapter
+-> local/Pi-compatible agent adapter
 -> typed run_research_workflow tool
 -> Python deterministic finance engine
 -> backtest + validation + report markdown

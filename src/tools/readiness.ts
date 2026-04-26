@@ -8,7 +8,7 @@ export interface ReadinessReport {
   config: "ok" | "missing";
   workspace: "ok" | "created" | "error";
   llm: "ok" | "missing";
-  llmProvider: "mock" | "configured" | "missing-key" | "missing";
+  llmProvider: "local" | "configured" | "missing-key" | "missing";
   safety: "ok";
   financeEngine: "ok" | "error";
   liveTrading: "disabled";
@@ -38,7 +38,7 @@ export async function buildReadinessReport(config: AppConfig | null): Promise<Re
   }
 
   let llmProvider: ReadinessReport["llmProvider"] = "missing";
-  if (config?.llm?.provider === "mock") llmProvider = "mock";
+  if (config?.llm?.provider === "local") llmProvider = "local";
   else if (config?.llm?.apiKeyEnv && process.env[config.llm.apiKeyEnv]) llmProvider = "configured";
   else if (config?.llm?.apiKeyEnv) {
     llmProvider = "missing-key";

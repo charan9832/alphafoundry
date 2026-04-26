@@ -1,7 +1,8 @@
 import { mkdtemp, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { applyLlmConfig, createDefaultConfig, saveConfig } from "../src/config.js";
 
 async function tempConfigPath() {
@@ -19,18 +20,18 @@ describe("config", () => {
     });
     await saveConfig(config, path);
     const raw = await readFile(path, "utf8");
-    expect(raw).toContain("OPENROUTER_API_KEY");
-    expect(raw).not.toContain("sk-");
+    assert.match(raw, /OPENROUTER_API_KEY/);
+    assert.doesNotMatch(raw, /sk-/);
   });
 
   it("rejects raw secret-like values in apiKeyEnv", () => {
     const config = createDefaultConfig();
-    expect(() => applyLlmConfig(config, { provider: "openrouter", model: "x", apiKeyEnv: "sk_testSecretValue12345" })).toThrow(/environment variable name/);
+    assert.throws(() => applyLlmConfig(config, { provider: "openrouter", model: "x", apiKeyEnv: "sk_testSecretValue12345" }), /environment variable name/);
   });
 
   it("allows environment variable names that contain provider words but no raw secret syntax", () => {
     const config = createDefaultConfig();
     const updated = applyLlmConfig(config, { provider: "openrouter", model: "x", apiKeyEnv: "PROJECT_SK_TEST_KEY" });
-    expect(updated.llm?.apiKeyEnv).toBe("PROJECT_SK_TEST_KEY");
+    assert.equal(updated.llm?.apiKeyEnv, "PROJECT_SK_TEST_KEY");
   });
 });

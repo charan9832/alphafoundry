@@ -4,7 +4,7 @@ import { SessionLog } from "../sessions.js";
 import { makeAgentAdapter } from "./adapters.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { readinessTool } from "../tools/readiness.js";
-import { mockBacktestTool, reportTool, researchWorkflowTool } from "../tools/finance.js";
+import { localBacktestTool, reportTool, researchWorkflowTool } from "../tools/finance.js";
 
 export function systemPrompt(): string {
   return [
@@ -21,7 +21,7 @@ export function buildRegistry(configProvider: () => Promise<AppConfig | null>): 
   const registry = new ToolRegistry();
   registry.register(readinessTool(configProvider));
   registry.register(researchWorkflowTool());
-  registry.register(mockBacktestTool());
+  registry.register(localBacktestTool());
   registry.register(reportTool());
   return registry;
 }
@@ -41,8 +41,8 @@ export async function respondToMessage(config: AppConfig, message: string, confi
   const toolSummaries = registry.list().map((tool) => ({ name: tool.name, description: tool.description, schema: tool.schema }));
   const observations: { toolName: string; result: unknown }[] = [];
   let lastText = "";
-  let provider: string = config.llm?.provider ?? "mock";
-  let model = config.llm?.model ?? "mock";
+  let provider: string = config.llm?.provider ?? "local";
+  let model = config.llm?.model ?? "local";
   let lastTool: string | undefined;
 
   for (let step = 0; step < 5; step += 1) {
@@ -77,7 +77,7 @@ export async function respondToMessage(config: AppConfig, message: string, confi
       return { response, source: "tool", metadata: { provider, model, tool: adapterResponse.toolName, failed: true } };
     }
 
-    if (config.llm?.provider === "mock") {
+    if (config.llm?.provider === "local") {
       const response = formatFinalResponse(adapterResponse.text, observations);
       await session.append({ type: "assistant", data: { response, provider, model, observations } });
       return { response, source: "tool", metadata: { provider, model, tool: adapterResponse.toolName, observations: observations.length } };
