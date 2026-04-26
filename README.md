@@ -1,0 +1,42 @@
+# AlphaFoundry
+
+AlphaFoundry is a new, standalone, Pi-powered terminal product for local-first finance research. It is **not** a live trading bot and it is **not** a fork of Pi. Pi is used as internal agent infrastructure; AlphaFoundry owns the product experience, finance tools, safety rules, reports, and workflows.
+
+## Product promise
+
+Launch a serious AI finance research agent from the terminal:
+
+```bash
+alphafoundry
+```
+
+It onboards an LLM provider, checks finance tooling, opens a natural chat shell, and uses typed deterministic tools for research, strategy creation, backtesting, validation, reporting, memory, and paper simulation.
+
+## Safety boundary
+
+- Research, backtesting, validation, reports, and paper simulation only.
+- No broker integration, live trading, order placement, or transaction execution.
+- Performance numbers must come from deterministic tools and saved artifacts.
+- Data provenance and assumptions must be shown.
+
+## Development
+
+```bash
+npm install
+npm run check
+npm run dev -- doctor
+npm run dev -- onboard --provider mock --model mock-finance-agent --non-interactive
+npm run dev -- chat hey --json
+npm run dev -- chat "run a simple backtest for SPY" --json
+```
+
+## Architecture
+
+See:
+
+- `AGENTS.md`
+- `docs/PRODUCT_SPEC.md`
+- `docs/ARCHITECTURE.md`
+- `docs/WORKFLOW.md`
+- `docs/ROADMAP.md`
+- `docs/research/RESEARCH_SUMMARY.md`
