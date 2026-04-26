@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alphafoundry"
+version = "0.1.0"
+description = "Agentic CLI that turns trading ideas into tested, optimized, validated strategy projects."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Charan"}]
+dependencies = [
+  "typer>=0.12",
+  "rich>=13.0",
+  "pandas>=2.0",
+  "numpy>=1.24",
+  "pydantic>=2.0",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+ai = ["openai>=1.0"]
+data = ["yfinance>=0.2", "openbb>=4.0"]
+memory = ["simplemem"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+alphafoundry = "alphafoundry.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["alphafoundry*"]
