@@ -5,15 +5,31 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 APP_NAME = "AlphaFoundry"
-CONFIG_DIR = Path.home() / ".alphafoundry"
-CONFIG_FILE = CONFIG_DIR / "config.json"
-DEFAULT_WORKSPACE = Path.home() / "alphafoundry-workspace"
+
+
+def config_dir() -> Path:
+    return Path.home() / ".alphafoundry"
+
+
+def config_file() -> Path:
+    return config_dir() / "config.json"
+
+
+def default_workspace() -> Path:
+    return Path.home() / "alphafoundry-workspace"
+
+
+# Backwards-compatible module constants. Runtime code should prefer the helper
+# functions above so tests and users that change HOME get isolated state.
+CONFIG_DIR = config_dir()
+CONFIG_FILE = config_file()
+DEFAULT_WORKSPACE = default_workspace()
 
 
 @dataclass
 class Config:
     default_mode: str = "paper"
-    workspace: str = str(DEFAULT_WORKSPACE)
+    workspace: str = ""
     risk_daily_loss_pct: float = 2.0
     risk_max_drawdown_pct: float = 10.0
     risk_max_position_size: float = 1.0
@@ -24,18 +40,24 @@ class Config:
     memory_backend: str = "simplemem"
     data_backend: str = "csv"
 
+    def __post_init__(self) -> None:
+        if not self.workspace:
+            self.workspace = str(default_workspace())
+
     @classmethod
     def load(cls) -> "Config":
-        if CONFIG_FILE.exists():
-            data = json.loads(CONFIG_FILE.read_text())
+        path = config_file()
+        if path.exists():
+            data = json.loads(path.read_text())
             allowed = {f.name for f in fields(cls)}
             filtered = {k: v for k, v in data.items() if k in allowed}
             return cls(**{**asdict(cls()), **filtered})
         return cls()
 
     def save(self) -> None:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        CONFIG_FILE.write_text(json.dumps(asdict(self), indent=2) + "\n")
+        path = config_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(asdict(self), indent=2) + "\n")
 
     @property
     def workspace_path(self) -> Path:

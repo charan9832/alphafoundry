@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from .config import Config, CONFIG_FILE, init_config
+from .config import Config, config_file, init_config
 from .workspace import create_strategy, list_strategies, strategy_dir
 from .data.providers import fetch_ohlcv, load_data, openbb_available, save_ohlcv, yfinance_available
 from .strategies.registry import generate_signals
@@ -34,12 +34,22 @@ def _strategy_py(name: str) -> Path:
     return strategy_dir(_cfg(), name) / "strategy.py"
 
 
+def _json_safe(value):
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
+
+
 @app.command()
 def init():
     """Initialize AlphaFoundry config and workspace."""
     cfg = init_config()
     init_wiki(cfg.workspace_path / "wiki")
-    console.print(f"[green]Initialized AlphaFoundry[/green] config={CONFIG_FILE} workspace={cfg.workspace_path}")
+    console.print(f"[green]Initialized AlphaFoundry[/green] config={config_file()} workspace={cfg.workspace_path}")
 
 
 @app.command()
@@ -50,7 +60,7 @@ def doctor():
     table.add_column("Check")
     table.add_column("Status")
     table.add_column("Detail")
-    table.add_row("config", "PASS" if CONFIG_FILE.exists() else "WARN", str(CONFIG_FILE))
+    table.add_row("config", "PASS" if config_file().exists() else "WARN", str(config_file()))
     table.add_row("workspace", "PASS" if cfg.workspace_path.exists() else "WARN", str(cfg.workspace_path))
     table.add_row("OpenBB", "PASS" if openbb_available() else "INFO", "optional primary data integration")
     table.add_row("yfinance", "PASS" if yfinance_available() else "INFO", "optional fallback data integration")
@@ -91,6 +101,135 @@ def fetch(
     df = fetch_ohlcv(symbol, start=start, end=end, provider=provider)  # type: ignore[arg-type]
     out = save_ohlcv(df, output)
     console.print(f"[green]Fetched[/green] {symbol.upper()} rows={len(df)} output={out}")
+
+
+@app.command()
+def run(
+    name: str,
+    data: Path = typer.Option(..., help="CSV OHLCV data for the full local pipeline"),
+    template: str = typer.Option("momentum", help="Template to create if the strategy does not exist"),
+    symbol: str = typer.Option("SAMPLE", help="Strategy symbol metadata"),
+    iterations: int = typer.Option(1, min=0, help="Autoresearch measurement iterations"),
+    json_out: bool = typer.Option(False, help="Emit machine-readable JSON"),
+):
+    """Run the full local idea-to-report pipeline in paper mode."""
+    cfg = _cfg()
+    sdir = strategy_dir(cfg, name)
+    created = False
+    if not sdir.exists():
+        sdir = create_strategy(cfg, name, template, symbol)
+        created = True
+
+    strategy_py = sdir / "strategy.py"
+    df = load_data(data)
+    close = df["close"]
+    signals = generate_signals(strategy_py, close)
+    backtest_result = run_backtest(close, signals)
+    validation = validate_strategy(strategy_py, data)
+    optimization = optimize_strategy(strategy_py, data)
+
+    report_path = sdir / "reports" / "report.md"
+    render_markdown(name, validation, report_path)
+
+    paper_path = sdir / "paper" / "journal.json"
+    paper_result = run_paper(strategy_py, data, paper_path)
+
+    autoresearch_result = run_autoresearch(sdir, data, iterations)
+
+    manifest_path = sdir / "run_manifest.json"
+    payload = {
+        "strategy": name,
+        "strategy_dir": str(sdir),
+        "data": str(data),
+        "steps": {
+            "created": created,
+            "backtest": {"metrics": backtest_result.metrics},
+            "validate": validation,
+            "optimize": optimization,
+            "paper": paper_result,
+            "autoresearch": autoresearch_result,
+        },
+        "artifacts": {
+            "report": str(report_path),
+            "paper_journal": str(paper_path),
+            "paper_events": str(paper_result["events_path"]),
+            "autoresearch_log": str(autoresearch_result["log"]),
+            "run_manifest": str(manifest_path),
+        },
+        "safety": {
+            "mode": cfg.default_mode,
+            "live_trading_enabled": False,
+            "auto_trade": cfg.auto_trade,
+            "disclaimer": "Research and paper trading only. Not financial advice.",
+        },
+    }
+    manifest_path.write_text(json.dumps(_json_safe(payload), indent=2) + "\n")
+
+    if json_out:
+        typer.echo(json.dumps(_json_safe(payload), indent=2))
+    else:
+        console.print(f"[green]AlphaFoundry run complete[/green] strategy={name}")
+        console.print(f"report={report_path}")
+        console.print(f"paper_journal={paper_path}")
+        console.print(f"autoresearch_log={autoresearch_result['log']}")
+
+
+@app.command()
+def status(name: str, json_out: bool = typer.Option(False, help="Emit machine-readable JSON")):
+    """Show strategy project status and latest artifacts."""
+    cfg = _cfg()
+    sdir = strategy_dir(cfg, name)
+    spec_path = sdir / "strategy.yaml"
+    report_path = sdir / "reports" / "report.md"
+    paper_path = sdir / "paper" / "journal.json"
+    paper_events_path = sdir / "paper" / "events.jsonl"
+    manifest_path = sdir / "run_manifest.json"
+    exp_dir = sdir / "experiments"
+    iteration_files = sorted(exp_dir.glob("iteration-*.json")) if exp_dir.exists() else []
+    payload = {
+        "strategy": name,
+        "strategy_dir": str(sdir),
+        "exists": sdir.exists(),
+        "spec_exists": spec_path.exists(),
+        "artifacts": {
+            "report": str(report_path),
+            "report_exists": report_path.exists(),
+            "paper_journal": str(paper_path),
+            "paper_journal_exists": paper_path.exists(),
+            "paper_events": str(paper_events_path),
+            "paper_events_exists": paper_events_path.exists(),
+            "run_manifest": str(manifest_path),
+            "run_manifest_exists": manifest_path.exists(),
+        },
+        "experiments": {
+            "directory": str(exp_dir),
+            "count": len(iteration_files),
+            "latest": str(iteration_files[-1]) if iteration_files else None,
+        },
+    }
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text())
+            payload["latest_score"] = manifest.get("steps", {}).get("validate", {}).get("robust_alpha_score")
+            payload["passed"] = manifest.get("steps", {}).get("validate", {}).get("passed")
+        except Exception:
+            payload["latest_score"] = None
+            payload["passed"] = None
+
+    if json_out:
+        typer.echo(json.dumps(_json_safe(payload), indent=2))
+    else:
+        table = Table(title=f"AlphaFoundry Status: {name}")
+        table.add_column("Item")
+        table.add_column("Value")
+        table.add_row("exists", str(payload["exists"]))
+        table.add_row("strategy_dir", payload["strategy_dir"])
+        table.add_row("report", f"{payload['artifacts']['report_exists']} {payload['artifacts']['report']}")
+        table.add_row("paper_events", f"{payload['artifacts']['paper_events_exists']} {payload['artifacts']['paper_events']}")
+        table.add_row("experiments", str(payload["experiments"]["count"]))
+        table.add_row("latest_score", str(payload.get("latest_score")))
+        table.add_row("passed", str(payload.get("passed")))
+        console.print(table)
 
 
 @app.command()
@@ -161,3 +300,7 @@ def autoresearch(name: str, data: Path = typer.Option(..., help="CSV file with O
 def chat():
     """Interactive planning placeholder."""
     console.print("[cyan]AlphaFoundry chat MVP[/cyan]: use create/backtest/validate commands. Full LLM chat is planned after deterministic engine stabilization.")
+
+
+if __name__ == "__main__":
+    app()

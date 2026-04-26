@@ -14,9 +14,11 @@ It is not investment advice and does not promise profits. Its value is speed + r
 - `alphafoundry backtest` runs a deterministic backtest over CSV data.
 - `alphafoundry validate` runs train/test, cost-stress, and robustness scoring.
 - `alphafoundry optimize` performs bounded grid search over simple parameters.
-- `alphafoundry autoresearch` implements a bounded Modify -> Verify -> Keep/Discard loop scaffold.
+- `alphafoundry autoresearch` implements a bounded Modify -> Verify -> Keep/Discard loop scaffold and saves per-iteration artifacts.
 - `alphafoundry report` writes Markdown reports.
-- `alphafoundry paper` simulates paper trading over historical data.
+- `alphafoundry paper` simulates paper trading and appends replayable JSONL journal events.
+- `alphafoundry run` executes the full local create/backtest/validate/optimize/report/paper/autoresearch pipeline.
+- `alphafoundry status` summarizes a strategy project and its latest artifacts.
 - `alphafoundry doctor` checks optional integrations: OpenBB, SimpleMem, LLM config, and local workspace.
 
 ## Why AlphaFoundry
@@ -96,6 +98,8 @@ alphafoundry init
 alphafoundry doctor
 alphafoundry create demo --template momentum
 alphafoundry fetch SPY --start 2024-01-01 --end 2024-03-01 --output data/spy.csv
+alphafoundry run demo --data examples/data/sample_prices.csv --iterations 2
+alphafoundry status demo
 alphafoundry backtest demo --data examples/data/sample_prices.csv
 alphafoundry validate demo --data examples/data/sample_prices.csv
 alphafoundry report demo --data examples/data/sample_prices.csv
