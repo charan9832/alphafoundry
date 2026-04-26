@@ -27,7 +27,29 @@ npm run check
 npm run dev -- doctor
 npm run dev -- onboard --provider mock --model mock-finance-agent --non-interactive
 npm run dev -- chat hey --json
-npm run dev -- chat "run a simple backtest for SPY" --json
+npm run dev -- chat "build and test a simple SPY trend strategy" --json
+```
+
+## Current working product path
+
+The offline product path now works end-to-end:
+
+```text
+chat request
+-> mock/Pi-compatible agent adapter
+-> typed run_research_workflow tool
+-> Python deterministic finance engine
+-> backtest + validation + report markdown
+-> saved artifacts + session JSONL
+-> assistant summary with warnings
+```
+
+Artifacts are written under the configured workspace:
+
+```text
+artifacts/<SYMBOL>/backtests/*.json
+reports/<SYMBOL>/*.md
+sessions/*.jsonl
 ```
 
 ## Architecture

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ToolDefinition } from "./types.js";
 import { failedObservation, observation } from "./types.js";
+import { callFinanceEngine } from "./pythonBridge.js";
 
 export interface BacktestInput {
   symbol: string;
@@ -16,66 +17,105 @@ export interface BacktestResult {
   strategy: string;
   start: string;
   end: string;
+  data?: {
+    provider: string;
+    points: number;
+    firstPrice: number;
+    lastPrice: number;
+  };
   assumptions: {
+    initialCapital?: number;
     feesBps: number;
     slippageBps: number;
     liveTrading: false;
   };
   metrics: {
+    finalEquity?: number;
     totalReturnPct: number;
     maxDrawdownPct: number;
     trades: number;
   };
+  validation?: {
+    passed: boolean;
+    checks: Record<string, boolean>;
+  };
+  warnings?: string[];
   artifactPath: string;
+  reportPath?: string;
+}
+
+export interface ResearchWorkflowResult {
+  backtest: BacktestResult;
+  reportMarkdown: string;
 }
 
 export function normalizeSymbol(symbol: string): string {
-  return symbol.trim().toUpperCase();
+  return symbol.trim().toUpperCase().replace(/[^A-Z0-9._-]/g, "");
 }
 
-export function mockBacktestTool(): ToolDefinition<BacktestInput, BacktestResult> {
+async function persistWorkflowArtifacts(workspace: string, result: ResearchWorkflowResult): Promise<BacktestResult> {
+  const backtest = result.backtest;
+  const symbol = normalizeSymbol(backtest.symbol);
+  const strategy = backtest.strategy;
+  const artifactDir = join(workspace, "artifacts", symbol, "backtests");
+  const reportDir = join(workspace, "reports", symbol);
+  await mkdir(artifactDir, { recursive: true });
+  await mkdir(reportDir, { recursive: true });
+  const artifactPath = join(artifactDir, `${strategy}.json`);
+  const reportPath = join(reportDir, `${strategy}.md`);
+  const persisted = { ...backtest, artifactPath, reportPath };
+  await writeFile(artifactPath, `${JSON.stringify(persisted, null, 2)}\n`, "utf8");
+  await writeFile(reportPath, `${result.reportMarkdown}\n`, "utf8");
+  return persisted;
+}
+
+export function researchWorkflowTool(): ToolDefinition<BacktestInput, BacktestResult> {
   return {
-    name: "run_mock_backtest",
-    description: "Run a deterministic mock backtest with explicit assumptions and provenance for product smoke tests.",
+    name: "run_research_workflow",
+    description: "Run a deterministic local research workflow: mock data, trend strategy backtest, validation checks, artifact persistence, and Markdown report generation.",
     category: "backtest",
     schema: {
       type: "object",
       required: ["symbol"],
       properties: {
-        symbol: { type: "string" },
-        strategy: { type: "string" },
-        start: { type: "string" },
-        end: { type: "string" },
-        initialCapital: { type: "number" },
+        symbol: { type: "string", description: "Ticker symbol, for example SPY" },
+        strategy: { type: "string", description: "Strategy name" },
+        start: { type: "string", description: "Start date YYYY-MM-DD" },
+        end: { type: "string", description: "End date YYYY-MM-DD" },
+        initialCapital: { type: "number", description: "Initial paper capital" },
       },
+      additionalProperties: false,
     },
     async execute(input, context) {
       const symbol = normalizeSymbol(input.symbol ?? "");
-      if (!symbol) {
-        return failedObservation("run_mock_backtest", "symbol is required") as never;
-      }
-      const start = input.start ?? "2020-01-01";
-      const end = input.end ?? "2024-12-31";
-      const strategy = input.strategy ?? "moving-average-research-baseline";
-      const result: BacktestResult = {
+      if (!symbol) return failedObservation("run_research_workflow", "symbol is required") as never;
+      const params = {
         symbol,
-        strategy,
-        start,
-        end,
-        assumptions: { feesBps: 5, slippageBps: 10, liveTrading: false },
-        metrics: { totalReturnPct: 12.4, maxDrawdownPct: -8.7, trades: 18 },
-        artifactPath: "",
+        strategy: input.strategy ?? "moving-average-trend-baseline",
+        start: input.start ?? "2020-01-01",
+        end: input.end ?? "2024-12-31",
+        initialCapital: input.initialCapital ?? 10_000,
       };
-      const dir = join(context.workspace, "artifacts", symbol, "backtests");
-      await mkdir(dir, { recursive: true });
-      const artifactPath = join(dir, `${strategy}.json`);
-      result.artifactPath = artifactPath;
-      await writeFile(artifactPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
-      return observation("run_mock_backtest", result, {
-        provenance: { provider: "mock-deterministic-engine", symbol, start, end },
-        warnings: ["Mock backtest for scaffold validation only; not investment advice."],
+      const response = await callFinanceEngine<ResearchWorkflowResult>({ method: "run_research_workflow", params });
+      if (!response.data) return failedObservation("run_research_workflow", "finance engine returned no data") as never;
+      const persisted = await persistWorkflowArtifacts(context.workspace, response.data);
+      return observation("run_research_workflow", persisted, {
+        provenance: {
+          ...(response.metadata ?? {}),
+          artifactPath: persisted.artifactPath,
+          reportPath: persisted.reportPath,
+        },
+        warnings: persisted.warnings ?? ["Research and paper validation only."],
       });
     },
+  };
+}
+
+export function mockBacktestTool(): ToolDefinition<BacktestInput, BacktestResult> {
+  return {
+    ...researchWorkflowTool(),
+    name: "run_mock_backtest",
+    description: "Compatibility alias for the deterministic local research workflow backtest tool.",
   };
 }
 
@@ -87,6 +127,9 @@ export function reportTool(): ToolDefinition<{ title?: string; backtest: Backtes
     schema: { type: "object" },
     async execute(input, context) {
       const bt = input.backtest;
+      if (bt.reportPath) {
+        return observation("generate_report", { path: bt.reportPath, markdown: "Report already generated by research workflow." }, { provenance: { source: bt.artifactPath } });
+      }
       const title = input.title ?? `${bt.symbol} ${bt.strategy} research report`;
       const markdown = [
         `# ${title}`,
@@ -102,11 +145,11 @@ export function reportTool(): ToolDefinition<{ title?: string; backtest: Backtes
         `- Max drawdown: ${bt.metrics.maxDrawdownPct}%`,
         `- Trades: ${bt.metrics.trades}`,
         "",
-        "Limitations: scaffold mock engine; replace with real deterministic validation before relying on results.",
+        "Limitations: deterministic local scaffold engine; replace with audited historical data before relying on results.",
       ].join("\n");
-      const dir = join(context.workspace, "reports");
+      const dir = join(context.workspace, "reports", bt.symbol);
       await mkdir(dir, { recursive: true });
-      const path = join(dir, `${bt.symbol}-${bt.strategy}.md`);
+      const path = join(dir, `${bt.strategy}.md`);
       await writeFile(path, `${markdown}\n`, "utf8");
       return observation("generate_report", { path, markdown }, { provenance: { source: bt.artifactPath } });
     },

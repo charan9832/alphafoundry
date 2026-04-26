@@ -12,7 +12,7 @@ describe("tool registry and finance tools", () => {
     registry.register(mockBacktestTool());
     const result = await registry.call("run_mock_backtest", { symbol: "spy" }, { workspace });
     expect(result.ok).toBe(true);
-    expect(result.metadata.provenance?.provider).toBe("mock-deterministic-engine");
+    expect(result.metadata.provenance?.provider).toBe("local-python-deterministic-engine");
     expect((result.data as { assumptions: { liveTrading: boolean } }).assumptions.liveTrading).toBe(false);
   });
 

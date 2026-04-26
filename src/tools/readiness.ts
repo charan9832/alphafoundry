@@ -2,17 +2,21 @@ import { access, mkdir } from "node:fs/promises";
 import type { AppConfig } from "../types.js";
 import type { ToolDefinition } from "./types.js";
 import { observation } from "./types.js";
+import { callFinanceEngine } from "./pythonBridge.js";
 
 export interface ReadinessReport {
   config: "ok" | "missing";
   workspace: "ok" | "created" | "error";
   llm: "ok" | "missing";
+  llmProvider: "mock" | "configured" | "missing-key" | "missing";
   safety: "ok";
-  financeEngine: "ok";
+  financeEngine: "ok" | "error";
   liveTrading: "disabled";
+  warnings: string[];
 }
 
 export async function buildReadinessReport(config: AppConfig | null): Promise<ReadinessReport> {
+  const warnings: string[] = [];
   let workspace: ReadinessReport["workspace"] = "error";
   const workspacePath = config?.workspace;
   if (workspacePath) {
@@ -24,13 +28,32 @@ export async function buildReadinessReport(config: AppConfig | null): Promise<Re
       workspace = "created";
     }
   }
+
+  let financeEngine: ReadinessReport["financeEngine"] = "error";
+  try {
+    await callFinanceEngine({ method: "ping" });
+    financeEngine = "ok";
+  } catch (error) {
+    warnings.push(`Finance engine check failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  let llmProvider: ReadinessReport["llmProvider"] = "missing";
+  if (config?.llm?.provider === "mock") llmProvider = "mock";
+  else if (config?.llm?.apiKeyEnv && process.env[config.llm.apiKeyEnv]) llmProvider = "configured";
+  else if (config?.llm?.apiKeyEnv) {
+    llmProvider = "missing-key";
+    warnings.push(`Missing API key environment variable: ${config.llm.apiKeyEnv}`);
+  }
+
   return {
     config: config ? "ok" : "missing",
     workspace,
     llm: config?.llm ? "ok" : "missing",
+    llmProvider,
     safety: "ok",
-    financeEngine: "ok",
+    financeEngine,
     liveTrading: "disabled",
+    warnings,
   };
 }
 

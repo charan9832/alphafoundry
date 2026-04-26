@@ -1,9 +1,11 @@
 import type { AppConfig } from "../types.js";
+import type { Model, ToolCall } from "@mariozechner/pi-ai";
 
 export interface AgentAdapterRequest {
   systemPrompt: string;
   message: string;
   tools: { name: string; description: string; schema: Record<string, unknown> }[];
+  observations?: { toolName: string; result: unknown }[];
 }
 
 export interface AgentAdapterResponse {
@@ -18,19 +20,31 @@ export interface AgentAdapter {
   complete(request: AgentAdapterRequest): Promise<AgentAdapterResponse>;
 }
 
+function inferSymbol(message: string): string {
+  return /\b([A-Z]{2,5})\b/.exec(message)?.[1] ?? "SPY";
+}
+
 export class MockAgentAdapter implements AgentAdapter {
   constructor(private readonly config: AppConfig) {}
 
   async complete(request: AgentAdapterRequest): Promise<AgentAdapterResponse> {
+    if (request.observations?.length) {
+      const latest = request.observations.at(-1);
+      return {
+        text: `I completed ${latest?.toolName}. The result is tool-backed and saved in the workspace. Research and paper validation only; no live trading or profit guarantees.`,
+        provider: "mock",
+        model: this.config.llm?.model ?? "mock-finance-agent",
+      };
+    }
     const lower = request.message.toLowerCase();
     if (lower.includes("readiness") || lower.includes("doctor") || lower.includes("system status")) {
       return { text: "I will check system readiness.", toolName: "readiness", toolInput: {}, provider: "mock", model: this.config.llm?.model ?? "mock" };
     }
-    if (lower.includes("backtest") || lower.includes("test spy") || lower.includes("strategy")) {
-      const symbol = /\b([A-Z]{2,5})\b/.exec(request.message)?.[1] ?? "SPY";
+    if (lower.includes("backtest") || lower.includes("test") || lower.includes("strategy") || lower.includes("research workflow")) {
+      const symbol = inferSymbol(request.message);
       return {
-        text: `I will run a deterministic research backtest for ${symbol} with costs and provenance.`,
-        toolName: "run_mock_backtest",
+        text: `I will run a deterministic research workflow for ${symbol}: local data, backtest, validation, and report artifacts.`,
+        toolName: "run_research_workflow",
         toolInput: { symbol },
         provider: "mock",
         model: this.config.llm?.model ?? "mock",
@@ -55,34 +69,89 @@ export class PiSdkAgentAdapter implements AgentAdapter {
       throw new Error(`Missing API key environment variable: ${this.config.llm.apiKeyEnv ?? "unset"}`);
     }
 
-    // Dynamic import keeps the product decoupled from Pi API churn and lets tests run with mock provider.
     const piAi = await import("@mariozechner/pi-ai");
-    const getModel = piAi.getModel as (provider: string, model: string) => unknown;
-    const complete = piAi.complete as (model: unknown, context: unknown) => Promise<unknown>;
-    const model = getModel(this.mapProvider(this.config.llm.provider), this.config.llm.model);
+    const provider = this.mapProvider(this.config.llm.provider);
+    const model = this.createModel(piAi, provider);
+    const messages = [
+      { role: "user" as const, content: this.composeUserMessage(request), timestamp: Date.now() },
+    ];
     const context = {
       systemPrompt: request.systemPrompt,
-      messages: [{ role: "user", content: request.message }],
-      tools: request.tools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.schema })),
+      messages,
+      tools: request.tools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.schema as never })),
     };
-    const raw = await complete(model, context);
-    return {
-      text: extractText(raw) || "I received a response but could not extract text from the provider output.",
-      provider: this.config.llm.provider,
-      model: this.config.llm.model,
+    const apiKey = process.env[this.config.llm.apiKeyEnv];
+    if (!apiKey) {
+      throw new Error(`Missing API key environment variable: ${this.config.llm.apiKeyEnv}`);
+    }
+    const raw = await piAi.complete(model, context, {
+      apiKey,
+      temperature: 0.1,
+      maxTokens: 1200,
+      timeoutMs: 30_000,
+    });
+    const toolCall = raw.content.find((content): content is ToolCall => content.type === "toolCall");
+    const response: AgentAdapterResponse = {
+      text: extractText(raw) || (toolCall ? `I will call ${toolCall.name}.` : "I received an empty provider response."),
+      provider: raw.provider || this.config.llm.provider,
+      model: raw.model || this.config.llm.model,
     };
+    if (toolCall) {
+      response.toolName = toolCall.name;
+      response.toolInput = toolCall.arguments;
+    }
+    return response;
+  }
+
+  private composeUserMessage(request: AgentAdapterRequest): string {
+    if (!request.observations?.length) return request.message;
+    return [
+      request.message,
+      "",
+      "Tool observations already completed:",
+      ...request.observations.map((observation) => `${observation.toolName}: ${JSON.stringify(observation.result)}`),
+      "",
+      "Now summarize the evidence, artifact paths, validation status, warnings, and next step. Do not invent metrics.",
+    ].join("\n");
   }
 
   private mapProvider(provider: string): string {
     if (provider === "openai-compatible") return "openai";
-    if (provider === "azure-openai") return "azure";
+    if (provider === "azure-openai") return "azure-openai-responses";
     return provider;
+  }
+
+  private createModel(piAi: { getModel: (provider: never, model: never) => Model<never> }, provider: string): Model<never> {
+    if (!this.config.llm) throw new Error("LLM configuration is missing. Run AlphaFoundry onboarding first.");
+    if (this.config.llm.provider === "openai-compatible" && this.config.llm.baseUrl) {
+      return {
+        id: this.config.llm.model,
+        name: this.config.llm.model,
+        api: "openai-completions",
+        provider: "openai",
+        baseUrl: this.config.llm.baseUrl,
+        reasoning: false,
+        input: ["text"],
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+        contextWindow: 128_000,
+        maxTokens: 4_000,
+        compat: { thinkingFormat: "openrouter" },
+      } as Model<never>;
+    }
+    return piAi.getModel(provider as never, this.config.llm.model as never);
   }
 }
 
-function extractText(value: unknown): string {
-  const textBlocks = JSON.stringify(value).match(/"text":"(.*?)"/g) ?? [];
-  return textBlocks.map((block) => JSON.parse(`{${block}}`).text as string).join(" ").trim();
+export function extractText(value: unknown): string {
+  const maybe = value as { content?: unknown[] };
+  if (Array.isArray(maybe.content)) {
+    return maybe.content
+      .filter((block): block is { type: "text"; text: string } => typeof block === "object" && block !== null && (block as { type?: unknown }).type === "text")
+      .map((block) => block.text)
+      .join(" ")
+      .trim();
+  }
+  return "";
 }
 
 export function makeAgentAdapter(config: AppConfig): AgentAdapter {
