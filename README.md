@@ -1,236 +1,308 @@
 <div align="center">
 
-# AlphaFoundry
-
-### Claude Code for trading strategy research
-
-**Turn a trading idea into a reproducible research artifact:** chat → tool-backed data → strategy spec → deterministic backtest → validation → Markdown report.
+<pre style="background: transparent; border: none;">
+    _    _          _    __                    _           _
+   / \  | | ____ _ | |  / _| _   _  _ __    __| |  ___  __| |
+  / _ \ | |/ / _` || | | |_ | | | || '_ \  / _` | / _ \/ _` |
+ / ___ \|   <| (_| || | |  _|| |_| || | | || (_| ||  __/ (_| |
+/_/   \_|_|\_\\__,_||_| |_|   \__, ||_| |_| \__,_| \___|\__,_|
+                              |___/
+</pre>
 
 <p>
-  <a href="#quick-start"><strong>Quick start</strong></a> ·
-  <a href="#what-alphafoundry-is"><strong>What it is</strong></a> ·
-  <a href="#current-build"><strong>Current build</strong></a> ·
+  <a href="#quick-start"><strong>Quick Start</strong></a> ·
+  <a href="#features"><strong>Features</strong></a> ·
   <a href="#architecture"><strong>Architecture</strong></a> ·
-  <a href="#safety-boundary"><strong>Safety</strong></a>
+  <a href="#safety"><strong>Safety</strong></a> ·
+  <a href="#roadmap"><strong>Roadmap</strong></a>
 </p>
 
 <p>
-  <img alt="Status" src="https://img.shields.io/badge/status-active-22c55e?style=for-the-badge">
-  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-111827?style=for-the-badge&logo=node.js">
-  <img alt="CLI" src="https://img.shields.io/badge/interface-terminal-7c3aed?style=for-the-badge">
-  <img alt="Local first" src="https://img.shields.io/badge/local--first-private-2563eb?style=for-the-badge">
-  <img alt="Live trading" src="https://img.shields.io/badge/live_trading-disabled-ef4444?style=for-the-badge">
+  <img alt="Build" src="https://img.shields.io/badge/build-passing-22c55e?style=flat-square">
+  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white">
+  <br>
+  <img alt="CLI" src="https://img.shields.io/badge/interface-terminal-7c3aed?style=flat-square">
+  <img alt="Local-first" src="https://img.shields.io/badge/local--first-private-2563eb?style=flat-square">
+  <img alt="Live trading" src="https://img.shields.io/badge/live_trading-disabled-ef4444?style=flat-square">
 </p>
 
 </div>
 
 ---
 
-## What AlphaFoundry is
+## What is AlphaFoundry?
 
-AlphaFoundry is a local-first, agentic CLI for finance research. The goal is not to sell signals or promise profitable trades. The goal is to make the research workflow faster, stricter, and more reproducible.
+**AlphaFoundry is Claude Code for trading strategy research.**
 
-Think:
+A terminal-native AI agent that turns a trading idea into a reproducible research artifact — not a black-box signal service.
 
 ```text
-Claude Code / OpenCode style terminal agent
-+ deterministic finance tools
-+ saved artifacts
-+ safety gates
-= strategy research workbench
+Idea → Tool-backed data → Strategy spec → Backtest → Validation → Report
 ```
 
-You describe a strategy idea in natural language. AlphaFoundry routes the finance work through typed tools, writes artifacts to your workspace, and returns an answer grounded in those artifacts instead of LLM guesses.
+You describe a strategy in plain English. AlphaFoundry routes the finance work through deterministic tools, writes artifacts to your workspace, and returns answers grounded in computed evidence — not LLM hallucinations.
 
-> **Research and paper validation only.** AlphaFoundry does not place trades, connect to brokers, access accounts, or promise returns.
+> **Research and paper validation only.** No live trading. No broker access. No profit promises.
 
-## Why it exists
+---
 
-Most AI trading products are web-first, black-box, or signal-oriented. AlphaFoundry is different:
+## Why AlphaFoundry?
+
+Most AI trading tools are web-first, black-box, or sell signals. AlphaFoundry is built differently:
 
 | Principle | What it means |
-| --- | --- |
-| **CLI-first** | Built for developers, quants, and builders who want a terminal workflow. |
-| **Local-first** | Config, sessions, reports, and artifacts live in your workspace. |
-| **Tool-backed** | Finance numbers come from deterministic tools, not invented LLM text. |
-| **Reproducible** | Backtests, assumptions, warnings, and reports are saved as files. |
-| **Validation-first** | The product should help reject weak or overfit strategies, not hype them. |
-| **Safety-gated** | Live trading and broker actions are out of scope unless explicitly designed later. |
+|-----------|---------------|
+| **Terminal-native** | Built for developers, quants, and builders who live in the CLI. |
+| **Local-first** | Config, sessions, reports, and artifacts live on your machine. |
+| **Tool-backed** | Finance numbers come from deterministic engines, not invented text. |
+| **Reproducible** | Every backtest, assumption, and warning is saved to disk. |
+| **Validation-first** | Designed to reject weak strategies, not hype them. |
+| **Safety-locked** | Live trading is architecturally disabled. |
 
-## Quick start
+---
+
+## Quick Start
 
 ```bash
+# 1. Install dependencies
 npm install
+
+# 2. Run the full check
 npm run check
-npm run dev -- doctor
+
+# 3. Onboard with a local provider
 npm run dev -- onboard --provider local --model local-finance-agent --non-interactive
-npm run dev -- chat hey --json
+
+# 4. Run a research workflow
 npm run dev -- chat "build and test a simple SPY trend strategy" --json
+
+# 5. Check system health
+npm run dev -- doctor --json
 ```
 
-After packaging, the intended entrypoint is:
+After packaging:
 
 ```bash
-alphafoundry
+alphafoundry onboard
+alphafoundry chat "research a mean-reversion strategy for QQQ"
+alphafoundry doctor
 ```
 
-## Current build
+---
 
-The current clean restart implements the core product shell and a deterministic offline research path.
+## What You Get
+
+### Commands
 
 | Command | Purpose |
-| --- | --- |
-| `alphafoundry` | Opens the product entrypoint and first-run guidance. |
-| `alphafoundry onboard` | Configures provider, model, API-key environment variable name, and workspace. |
-| `alphafoundry doctor --json` | Checks config, workspace, LLM readiness, safety mode, and finance engine readiness. |
-| `alphafoundry chat "..."` | Talks to the research agent and lets it call typed finance tools. |
+|---------|---------|
+| `alphafoundry` | Product entrypoint. First-run guidance if no config. |
+| `alphafoundry onboard` | Configure provider, model, API key env var, and workspace. |
+| `alphafoundry doctor --json` | Readiness report: config, workspace, LLM, safety, finance engine. |
+| `alphafoundry chat "..."` | Natural-language research agent with typed tool access. |
 
-Implemented tool path:
+### Built-in Tools
 
 | Tool | Status | Output |
-| --- | --- | --- |
-| `run_research_workflow` | Working local scaffold | deterministic data, trend baseline, validation, artifacts, report |
-| `run_local_backtest` | Compatibility alias | same deterministic workflow |
-| `generate_report` | Working | Markdown report from tool-backed result |
-| readiness tools | Working | config/workspace/LLM/safety/engine checks |
+|------|--------|--------|
+| `run_research_workflow` | Working | Data scaffold, trend baseline, validation, artifacts, report |
+| `run_local_backtest` | Working | Deterministic backtest with fees/slippage assumptions |
+| `generate_report` | Working | Markdown report from tool-backed results |
+| `readiness_check` | Working | Config / workspace / LLM / safety / engine health |
 
-## Example: idea to artifact
+### Workspace Outputs
 
-```bash
-npm run dev -- chat "build and test a simple SPY trend strategy" --json
+```
+workspace/
+├── artifacts/
+│   └── SPY/
+│       └── backtests/
+│           └── backtest_2026-01-15T10-30-00.json
+├── reports/
+│   └── SPY/
+│       └── report_2026-01-15.md
+└── sessions/
+    └── session_2026-01-15.jsonl
 ```
 
-AlphaFoundry runs the request through this path:
+---
+
+## Terminal Demo
 
 ```text
-User strategy idea
-  ↓
-AlphaFoundry chat shell
-  ↓
-Safety gate
-  ↓
-Local or Pi-backed agent adapter
-  ↓
-Typed finance tool registry
-  ↓
-Python deterministic finance engine
-  ↓
-Backtest + validation + report markdown
-  ↓
-Saved artifacts + session log
-  ↓
-Assistant summary with warnings and file paths
+$ alphafoundry chat "build a simple SPY trend strategy"
+
+✓ Safety check passed
+✓ Config loaded: local-finance-agent
+✓ Tool registry initialized (4 tools)
+
+→ Executing: run_research_workflow
+  Symbol: SPY
+  Period: 2024-01-01 → 2024-12-31
+  Engine: deterministic local scaffold
+
+  Results:
+  ──────────────────────────────────────
+  Total Return:        +8.42%
+  Sharpe Ratio:        1.12
+  Max Drawdown:       -4.81%
+  Win Rate:            54.3%
+  Trades:              23
+  ──────────────────────────────────────
+  ⚠ Fees/slippage estimated at 0.05% per trade
+  ⚠ Past performance does not predict future results
+
+✓ Artifacts saved:
+  workspace/artifacts/SPY/backtests/backtest_2026-01-15T10-30-00.json
+  workspace/reports/SPY/report_2026-01-15.md
+
+→ Response:
+  The SPY trend strategy showed a +8.42% return over 2024
+  with reasonable risk metrics. The full backtest, assumptions,
+  and validation checks are saved in your workspace.
 ```
 
-Workspace outputs:
+---
+
+## Architecture
 
 ```text
-artifacts/<SYMBOL>/backtests/*.json
-reports/<SYMBOL>/*.md
-sessions/*.jsonl
+┌─────────────────────────────────────────────────────────────┐
+│                    AlphaFoundry CLI                          │
+│               (launch / onboard / doctor / chat)             │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│              Agent Runtime Facade                            │
+│    ├─ Pi SDK Adapter      → real providers (OpenAI, etc.)   │
+│    └─ Local Adapter       → offline tests & smoke runs       │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│              Typed Tool Registry                             │
+│    ├─ readiness checks                                       │
+│    ├─ finance research workflow                              │
+│    ├─ backtest & report tools                                │
+│    └─ safety gates (live-trading block)                      │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│           Python Finance Engine Bridge                       │
+│    ├─ deterministic local data scaffold                      │
+│    ├─ trend baseline & validation                            │
+│    ├─ fees / slippage assumptions                            │
+│    └─ report markdown generation                             │
+└───────────────────────────┬─────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────┐
+│                Local Workspace                               │
+│    ├─ sessions/*.jsonl    → full conversation & tool logs    │
+│    ├─ reports/*.md        → human-readable research reports  │
+│    └─ artifacts/*.json    → raw backtest & validation data   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Product direction
+---
+
+## Product Vision
 
 AlphaFoundry is being shaped into an end-to-end strategy research workbench:
 
 ```text
-idea
-  → strategy project
-  → executable research code
-  → backtest
-  → optimize
-  → validate
-  → report
-  → paper-trading journal
-  → lessons for the next iteration
+┌─────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────┐
+│  Idea   │ →  │ Strategy     │ →  │ Executable  │ →  │ Backtest │
+└─────────┘    │ Project      │    │ Research    │    └──────────┘
+               └──────────────┘    │ Code        │         │
+                                    └─────────────┘         ▼
+                                                        ┌──────────┐
+                                                        │ Optimize │
+                                                        └──────────┘
+                                                             │
+                         ┌───────────────────────────────────┘
+                         ▼
+              ┌─────────────────┐    ┌─────────────┐    ┌──────────────┐
+              │     Validate    │ →  │   Report    │ →  │ Paper-Trade  │
+              └─────────────────┘    └─────────────┘    └──────────────┘
+                                                                           │
+                         ┌─────────────────────────────────────────────────┘
+                         ▼
+              ┌─────────────────┐    ┌─────────────────┐
+              │    Lessons      │ →  │  Next Iteration │
+              │   (Memory)      │    │   (Autoresearch)│
+              └─────────────────┘    └─────────────────┘
 ```
 
-The long-term workflow follows an Autoresearch-style loop:
+The long-term loop follows the Autoresearch pattern:
 
 ```text
 Modify → Verify → Keep/Discard → Repeat
 ```
 
-For trading research, that means one strategy change at a time, mechanical validation, saved results, and honest rejection when the evidence is weak.
+One strategy change at a time. Mechanical validation. Saved results. Honest rejection when the evidence is weak.
 
-## Architecture
+---
 
-```text
-AlphaFoundry CLI / Chat Shell
-  ├─ Onboarding + Config + Readiness
-  │   ├─ provider, model, base URL
-  │   ├─ API key env var name only
-  │   └─ workspace setup
-  │
-  ├─ Agent Runtime Facade
-  │   ├─ Pi SDK adapter for real providers
-  │   └─ Local adapter for tests and smoke runs
-  │
-  ├─ Typed Tool Registry
-  │   ├─ readiness checks
-  │   ├─ finance research workflow
-  │   ├─ backtest/report tools
-  │   └─ safety gates
-  │
-  ├─ Python Finance Engine Bridge
-  │   ├─ deterministic local data scaffold
-  │   ├─ moving-average trend baseline
-  │   ├─ fees/slippage assumptions
-  │   ├─ validation checks
-  │   └─ report markdown generation
-  │
-  └─ Local Workspace
-      ├─ sessions/*.jsonl
-      ├─ reports/*.md
-      └─ artifacts/*.json
-```
-
-## Inspired by
-
-AlphaFoundry borrows product patterns from serious terminal and finance tools:
-
-| Project style | What AlphaFoundry takes from it |
-| --- | --- |
-| **OpenCode / Claude Code / Aider** | Chat-first CLI agent experience, programmatic command path, repo-local workflow. |
-| **TradingAgents** | Role-based financial analysis and risk-aware agent design. |
-| **OpenBB** | Financial data should be provider-aware, reusable, and provenance-preserving. |
-| **Autoresearch** | Improve by running constrained experiments and keeping only validated changes. |
-
-## Safety boundary
+## Safety
 
 AlphaFoundry is intentionally conservative.
 
-- No live trading.
-- No broker integration.
-- No order placement.
-- No account access.
-- No profit guarantees.
-- No invented metrics.
-- Raw API keys are never written to repo config.
+- **No live trading** — architecturally disabled.
+- **No broker integration** — no API keys for brokerages.
+- **No order placement** — no market, limit, or stop orders.
+- **No account access** — no portfolio or balance queries.
+- **No profit guarantees** — all metrics are historical and simplified.
+- **No invented metrics** — if a number isn't from a tool, it is unknown.
+- **No secrets in config** — API keys are referenced by env var name only.
 
-The LLM can reason, explain, ask questions, select tools, and summarize. Deterministic tools must compute finance results.
+The LLM can reason, explain, ask questions, select tools, and summarize. Deterministic tools must compute all finance results.
+
+---
 
 ## Development
 
-Run the full check before claiming a change is done:
-
 ```bash
+# Full check (lint + type-check + test)
 npm run check
+
+# Run tests only
+npm run test
+
+# Build
+npm run build
+
+# Format
+npm run format
 ```
 
-For behavior changes, update or add tests first when practical. Keep changes small, traceable to the product spec or roadmap, and inside the safety boundary.
+For behavior changes, update or add tests first. Keep changes small, traceable to the product spec or roadmap, and inside the safety boundary.
 
-## Project documents
+---
+
+## Documentation
 
 | Document | Purpose |
-| --- | --- |
-| [`AGENTS.md`](AGENTS.md) | Agent rules and non-negotiable product boundaries |
+|----------|---------|
+| [`AGENTS.md`](AGENTS.md) | Agent rules and non-negotiable boundaries |
 | [`docs/PRODUCT_SPEC.md`](docs/PRODUCT_SPEC.md) | Product vision and first-release target |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Runtime, tool, bridge, and workspace design |
 | [`docs/WORKFLOW.md`](docs/WORKFLOW.md) | Development workflow and done definition |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Phase status and remaining work |
 | [`docs/research/RESEARCH_SUMMARY.md`](docs/research/RESEARCH_SUMMARY.md) | Research lessons behind the restart |
+
+---
+
+## Inspired By
+
+| Project | What AlphaFoundry takes from it |
+|---------|--------------------------------|
+| **OpenCode / Claude Code / Aider** | Chat-first CLI agent, programmatic command path, repo-local workflow |
+| **TradingAgents** | Role-based financial analysis and risk-aware agent design |
+| **OpenBB** | Provider-aware, reusable, provenance-preserving financial data |
+| **Autoresearch** | Improve by running constrained experiments and keeping only validated changes |
+
+---
 
 ## Disclaimer
 
