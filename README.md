@@ -1,6 +1,27 @@
-# AlphaFoundry
+<div align="center">
 
-**Claude Code for trading strategy research**
+<pre>
+    _    _          _    __                    _           _
+   / \  | | ____ _ | |  / _| _   _  _ __    __| |  ___  __| |
+  / _ \ | |/ / _` || | | |_ | | | || '_ \  / _` | / _ \/ _` |
+ / ___ \|   <| (_| || | |  _|| |_| || | | || (_| ||  __/ (_| |
+/_/   \_|_|\_\\__,_||_| |_|   \__, ||_| |_| \__,_| \___|\__,_|
+                              |___/
+</pre>
+
+<p>
+  <strong>Claude Code for trading strategy research</strong>
+</p>
+
+<p>
+  <img alt="Build" src="https://img.shields.io/badge/build-passing-22c55e?style=flat-square">
+  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat-square&logo=typescript&logoColor=white">
+</p>
+
+</div>
+
+---
 
 AlphaFoundry is a terminal-native AI agent that turns trading ideas into reproducible research artifacts. Chat with it naturally, and it routes the finance work through deterministic tools — backtests, validation, and reports saved to your workspace.
 
@@ -11,11 +32,7 @@ AlphaFoundry is a terminal-native AI agent that turns trading ideas into reprodu
 ```bash
 npm install
 npm run check
-
-# Onboard with a local provider
 npm run dev -- onboard --provider local --model local-finance-agent --non-interactive
-
-# Run a research workflow
 npm run dev -- chat "build and test a simple SPY trend strategy" --json
 ```
 
@@ -29,10 +46,10 @@ alphafoundry doctor
 
 ## What it does
 
-- **Chat → Tools → Artifacts** — Describe a strategy in plain English. AlphaFoundry runs it through deterministic finance tools and saves results to your workspace.
-- **Local-first** — Config, sessions, reports, and artifacts live on your machine. No cloud lock-in.
+- **Chat → Tools → Artifacts** — Describe a strategy in plain English. AlphaFoundry runs it through deterministic finance tools and saves results.
+- **Local-first** — Config, sessions, reports, and artifacts live on your machine.
 - **Validation-first** — Designed to reject weak or overfit strategies, not hype them.
-- **Safety-locked** — Live trading is architecturally disabled. Broker integration is out of scope.
+- **Safety-locked** — Live trading is architecturally disabled.
 
 ## Commands
 
@@ -46,13 +63,8 @@ alphafoundry doctor
 ## Architecture
 
 ```
-CLI → Agent Runtime → Typed Tool Registry → Python Finance Engine → Workspace Artifacts
+CLI → Agent Runtime → Typed Tool Registry → Python Finance Engine → Workspace
 ```
-
-- **Agent Runtime** — Pi SDK adapter for real providers; local adapter for offline use.
-- **Typed Tool Registry** — Deterministic finance tools with safety gates.
-- **Python Finance Engine** — Local backtest engine with fees/slippage assumptions.
-- **Workspace** — Sessions (`*.jsonl`), reports (`*.md`), artifacts (`*.json`).
 
 ## Development
 
@@ -61,8 +73,6 @@ npm run check   # lint + type-check + test
 npm run test
 npm run build
 ```
-
-Keep changes small, tested, and inside the safety boundary.
 
 ## Documentation
 
