@@ -5,19 +5,24 @@
 ```text
 AlphaFoundry CLI / Chat Shell
   -> Onboarding + Config + Readiness
-  -> Agent Runtime Facade
+  -> Agent Core
+      -> provider-neutral messages
+      -> plan-first orchestrator
+      -> run state + checkpoints
+      -> human response renderer
+  -> Model Adapter Boundary
       -> Pi SDK adapter when real providers are configured
       -> Local adapter for local tests and smoke runs
   -> Typed Tool Registry
       -> System/readiness tools
-      -> Finance research workflow tools
-      -> Validation/optimization tools
-      -> Project, local memory, and paper-journal tools
+      -> Project and local memory tools
+      -> Finance tool pack, registered after the core
       -> Safety and approval gates
-  -> Python Finance Engine Bridge
-      -> deterministic local data/backtest/validation/optimization/report code
+  -> Tool Backends
+      -> Python finance engine bridge for finance plugin/tool pack
   -> Workspace
       -> sessions/*.jsonl
+      -> runs/**
       -> projects/**
       -> reports/*.md
       -> artifacts/*.json
@@ -37,20 +42,22 @@ Normal users interact with `alphafoundry`, not `pi`.
 
 ## Runtime principle
 
-All finance actions flow through typed tools:
+The core runtime is domain-neutral. It plans first, executes only registered tools, checkpoints the run, and renders a human-readable answer:
 
 ```text
 User message
   -> safety gate
-  -> agent adapter chooses text or tool call
-  -> tool registry validates tool name
-  -> Python finance bridge for deterministic research workflows
-  -> observation with provenance/warnings
+  -> create ResearchRun
+  -> create plan
+  -> checkpoint planning state
+  -> execute registered tools
+  -> record structured observations
+  -> checkpoint execution/completion state
   -> assistant response
   -> session event log
 ```
 
-The LLM may never invent metrics or bypass the registry. Tool-backed results are rendered with artifact paths and warnings.
+Finance behavior is not the core. Finance is a registered tool pack that can provide backtests, validation, paper journals, and finance-specific policy. The LLM may never invent metrics or bypass the registry. Tool-backed results are rendered with artifact paths and warnings.
 
 ## Python bridge
 

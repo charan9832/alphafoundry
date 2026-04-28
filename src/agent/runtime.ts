@@ -3,6 +3,8 @@ import { evaluateSafety, researchDisclaimer } from "../safety.js";
 import { SessionLog } from "../sessions.js";
 import { makeAgentAdapter } from "./adapters.js";
 import { ToolRegistry } from "../tools/registry.js";
+import { runAgentOrchestrator, registryToolSummaries } from "./orchestrator.js";
+import { formatHumanResponse } from "./responseFormatter.js";
 import { readinessTool } from "../tools/readiness.js";
 import { localBacktestTool, reportTool, researchWorkflowTool } from "../tools/finance.js";
 import { projectTools } from "../tools/projects.js";
@@ -46,6 +48,21 @@ export async function respondToMessage(config: AppConfig, message: string, confi
   }
 
   const registry = buildRegistry(configProvider);
+  const lowerMessage = message.toLowerCase();
+  if (lowerMessage.includes("readiness") || lowerMessage.includes("doctor") || lowerMessage.includes("system status")) {
+    const orchestrated = await runAgentOrchestrator({
+      config,
+      message,
+      registry,
+      availableTools: registryToolSummaries(registry),
+    });
+    await session.append({ type: "system", data: { run: orchestrated.run, checkpoints: orchestrated.checkpoints.map((checkpoint) => checkpoint.path) } });
+    return {
+      response: formatHumanResponse(orchestrated),
+      source: orchestrated.observations.length ? "tool" : "llm",
+      metadata: { provider: config.llm?.provider ?? "local", model: config.llm?.model ?? "local", runId: orchestrated.run.runId, observations: orchestrated.observations.length, tool: orchestrated.observations.at(-1)?.toolName },
+    };
+  }
   const adapter = makeAgentAdapter(config);
   const toolSummaries = registry.list().map((tool) => ({ name: tool.name, description: tool.description, schema: tool.schema }));
   const observations: { toolName: string; result: unknown }[] = [];

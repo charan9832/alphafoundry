@@ -10,7 +10,7 @@
 </pre>
 
 <p>
-  <strong>Claude Code for trading strategy research</strong>
+  <strong>Terminal-native AI agent runtime, with finance tools layered on top</strong>
 </p>
 
 <p>
@@ -23,8 +23,10 @@
 
 ---
 
-AlphaFoundry is a terminal-native AI agent that turns trading ideas into reproducible research artifacts. Chat with it naturally, and it routes the finance work through deterministic tools — backtests, validation, and reports saved to your workspace.
+AlphaFoundry is a terminal-native AI agent shell/runtime. The first layer is a normal agent core: chat, provider adapters, planning, typed tools, run state, checkpoints, guardrails, and human response rendering. Finance is layered on top as a research-only tool pack.
 
+> **Direction:** Build the normal AI agent first. Finance features come after as registered tools/plugins, not hardcoded core behavior.
+>
 > **Research only.** No live trading, no broker access, no profit promises.
 
 ## Quick start
@@ -46,9 +48,10 @@ alphafoundry doctor
 
 ## What it does
 
-- **Chat → Tools → Artifacts** — Describe a strategy in plain English. AlphaFoundry runs it through deterministic finance tools and saves results.
-- **Local-first** — Config, sessions, reports, and artifacts live on your machine.
-- **Validation-first** — Designed to reject weak or overfit strategies, not hype them.
+- **Agent core first** — Normal AI agent primitives: provider-neutral messages, planning, run state, checkpoints, typed tools, guardrails, and response rendering.
+- **Chat → Plan → Tools → Artifacts** — Describe a task in plain English. AlphaFoundry plans the run, calls registered tools, checkpoints the run, and saves artifacts.
+- **Finance as tool pack** — Strategy research/backtests/validation are layered tools, not the product core.
+- **Local-first** — Config, sessions, reports, checkpoints, and artifacts live on your machine.
 - **Safety-locked** — Live trading is architecturally disabled.
 
 ## Commands
