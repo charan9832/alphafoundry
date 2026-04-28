@@ -1,27 +1,28 @@
 # Research Summary
 
-This clean restart incorporates lessons from researched agent and finance systems.
+This clean restart incorporates lessons from AI agent systems first. Finance research remains a future product direction, not the starting runtime.
 
 ## Agent/product systems
 
-- **Pi**: use as internal agent infrastructure. Valuable pieces: provider abstraction, tool-calling runtime, sessions, extensibility, TUI/RPC/SDK patterns. Do not ship as generic Pi-with-plugin UX.
+- **Pi / pi-mono**: useful as the agent/runtime/provider foundation. The npm packages `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` are MIT licensed and point to `github.com/badlogic/pi-mono`.
 - **Goose/Aider/OpenCode/Claude Code**: the product should launch into an agent shell, not a static command list. Config, model selection, tool feedback, test loops, and context files matter.
 - **OpenHands/LangGraph/MCP**: persistent conversation/event logs, typed tools, checkpointing, human approval gates, and schema-driven tool discovery are essential.
-- **Spec Kit/BMAD/SWE-agent/Cline/Roo/MetaGPT**: use repo-local workflow docs, specialist roles, work packets, review gates, and memory files to prevent agent drift.
+- **Spec Kit/BMAD/SWE-agent/Cline/Roo/MetaGPT**: repo-local workflow docs, specialist roles, work packets, review gates, and memory files prevent agent drift.
 
-## Finance systems
+## Finance systems — later only
 
-- **OpenBB**: data access must preserve provider metadata, warnings, timestamps, routes, and provenance.
-- **Lean/NautilusTrader/backtrader/vectorbt**: keep research/backtest/optimize/validate separated. Treat fills, costs, slippage, no-lookahead, and validation seriously. Avoid live trading in early product.
-- **FinRobot/TradingAgents**: professional reports, role separation, provider flexibility, decision logs, and disclaimers are useful. AlphaFoundry must be stricter about reproducible tool-backed results.
+Finance systems such as OpenBB, Lean, NautilusTrader, backtrader, vectorbt, FinRobot, and TradingAgents are useful references for a future opt-in finance tool pack.
 
-## Resulting requirements
+They are not part of the current starting point. Do not add default strategy templates, hardcoded backtests, live trading, broker/order/account flows, or profit promises to the core agent.
+
+## Resulting requirements now
 
 1. Agent-first terminal product.
-2. Pi-powered internal runtime, not generic Pi UX.
-3. Typed finance tools with provenance.
-4. Deterministic backtests and validation.
-5. No live trading.
-6. Local-first config, artifacts, and sessions.
-7. Secure secret handling by env var reference.
-8. Test-gated, spec-driven development.
+2. `af` launches the TUI after onboarding.
+3. `af onboard` configures LM/provider/base URL/API-key env/workspace and later search/tools.
+4. Pi-powered provider/runtime boundary.
+5. Typed default tools for readiness, search, projects, and notes.
+6. Finance tools disabled/not present in default runtime.
+7. Local-first config, sessions, and workspace state.
+8. Secure secret handling by env var reference.
+9. Test-gated, spec-driven development.

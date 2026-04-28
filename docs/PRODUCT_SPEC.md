@@ -2,74 +2,94 @@
 
 ## Vision
 
-AlphaFoundry is a local-first, Pi-powered AI finance research agent launched from the terminal. It chats naturally, uses deterministic finance tools, records evidence, generates reports, and supports research/backtesting/paper-validation workflows without making unsupported financial claims.
+AlphaFoundry is a local-first, Pi-powered terminal AI agent. The current goal is simple: make `af` launch a useful AI agent/TUI, make `af onboard` configure language models and tools, and keep the product reliable before adding finance.
+
+Finance comes later as optional tool packs. The starting point must not contain predefined strategies, strategy templates, trading systems, broker flows, or hardcoded backtest behavior in the default runtime.
 
 ## Product identity
 
 AlphaFoundry is:
 
-- A standalone product with its own CLI, onboarding, UX, prompts, tools, reports, and safety policy.
-- Powered internally by Pi libraries (`@mariozechner/pi-ai`, `@mariozechner/pi-agent-core`) where useful.
-- Backed by deterministic finance tools and a Python finance engine bridge.
+- A standalone branded product with its own CLI, onboarding, TUI, config, prompts, docs, and workspace.
+- A rebranded/adapted Pi Agent direction where legally and technically practical; Pi packages are MIT and come from `github.com/badlogic/pi-mono`.
+- A general AI agent first: chat, provider configuration, typed tools, session logs, readiness checks, search configuration, and workspace management.
 - Local-first and private by default.
 
-AlphaFoundry is not:
+AlphaFoundry is not, at this stage:
 
-- A Pi fork by default.
-- A Pi package as the final product.
+- A finance strategy engine.
 - A command-first backtesting script.
 - A live trading bot.
 - A signal seller.
+- A collection of predefined trading strategies.
 
-## Launch experience
+## Command surface
 
-`alphafoundry` should:
+The product should feel simple:
 
-1. Show onboarding if configuration is incomplete.
-2. Otherwise open the chat-first research agent shell.
-3. Let deterministic subcommands exist for testing and automation, but keep chat as the primary UX.
+```bash
+af              # launch the TUI when onboarded; otherwise show setup guidance
+af onboard      # configure LM/provider/API-key env/base URL/workspace/search tools
+af doctor       # verify readiness
+af chat "..."   # one-shot non-TUI chat
+af tui          # explicit TUI launch
+```
+
+The package also exposes `alphafoundry`, but `af` is the preferred command.
 
 ## Onboarding requirements
 
 Onboarding must configure:
 
-- provider: local, OpenAI-compatible, Azure OpenAI, OpenRouter, Anthropic, Gemini, or local provider later
+- provider: local, OpenAI-compatible, Azure OpenAI, OpenRouter, Anthropic, Gemini, or future local providers
 - model name
 - base URL if applicable
 - API key environment variable name, never raw key persistence
 - workspace path
+- optional search tool endpoint/env var
 
 Onboarding must run:
 
-- LLM readiness check
-- finance tool readiness check
+- config check
 - workspace creation check
-- safety mode confirmation
+- LLM/provider readiness check where possible
+- agent runtime readiness check
+- safety/config hygiene check
 
 ## Agent behavior
 
-The LLM is the brain. Typed deterministic tools are the hands.
+The LLM is the brain. Typed tools are the hands.
 
-The agent should:
+The default agent should:
 
 - respond naturally to simple messages like `hey`
-- ask clarifying questions when assumptions materially affect a financial result
-- call tools for readiness, data, backtesting, validation, reports, memory, and paper simulation
-- persist event logs
-- save artifacts for serious workflows
-- refuse live trading and broker/order requests
-- explain limitations and next steps
+- open in a TUI from `af`
+- use configured models through the Pi adapter when real providers are configured
+- use local mode for tests/smoke checks
+- call tools for readiness, web search, project organization, and durable notes
+- persist event logs in the workspace
+- ask for clarification when a task is ambiguous
+- refuse or defer finance/trading strategy work until finance tools are explicitly added later
 
-## Product-complete target
+## Finance boundary
 
-A product-complete first release must support:
+Finance is a later layer, not the current starting point.
 
-- first-run onboarding
-- real provider configuration path plus local test path
-- Pi-backed or Pi-compatible agent runtime
-- typed tool registry
-- deterministic finance tool bridge
-- full chat-driven workflow: idea -> data/provenance -> strategy spec -> backtest -> validation -> report -> lesson
-- event logs and artifacts
-- safety gates and disclaimers
-- packageable CLI
+Rules:
+
+- Do not register finance tools in the default runtime.
+- Do not route messages like “build a strategy” or “backtest SPY” into hardcoded workflows.
+- Do not include predefined strategies in the agent-first starting point.
+- Keep any old finance code as future-reference/tool-pack material only unless explicitly re-enabled.
+
+## Product-complete first milestone
+
+A good starting point is complete when:
+
+- `npm run check` passes.
+- `af` opens the TUI in a TTY after onboarding.
+- `af onboard` creates safe config using env var names, not raw keys.
+- `af doctor` reports config/workspace/LLM/runtime readiness.
+- `af chat "hey"` works.
+- `af chat "build a strategy and backtest SPY"` does not run predefined finance tools.
+- README and docs describe an AI agent first, finance later.

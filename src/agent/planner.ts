@@ -11,12 +11,7 @@ function id(prefix: string): string {
 }
 
 export function createSimplePlan(objective: string, tools: PlannerToolSummary[]): AgentPlan {
-  const lower = objective.toLowerCase();
-  const readiness = tools.find((tool) => tool.name === "readiness");
-  const research = tools.find((tool) => tool.name === "run_research_workflow");
-  const wantsReadiness = lower.includes("readiness") || lower.includes("doctor") || lower.includes("system status") || lower.includes("check the repo") || lower.includes("check repo") || lower.includes("repo status") || lower.includes("status");
-  const wantsResearch = lower.includes("research") || lower.includes("backtest") || lower.includes("strategy") || lower.includes("validation");
-  const chosen = wantsReadiness ? readiness : wantsResearch ? research ?? readiness : readiness ?? research;
+  const chosen = tools.find((tool) => tool.name === "readiness");
 
   return {
     planId: id("plan"),

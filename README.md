@@ -10,7 +10,7 @@
 </pre>
 
 <p>
-  <strong>Terminal-native AI agent runtime, with finance tools layered on top</strong>
+  <strong>Terminal-native AI agent runtime. Finance tools come later.</strong>
 </p>
 
 <p>
@@ -23,50 +23,48 @@
 
 ---
 
-AlphaFoundry is a terminal-native AI agent shell/runtime. The first layer is a normal agent core: chat, provider adapters, planning, typed tools, run state, checkpoints, guardrails, and human response rendering. Finance is layered on top as a research-only tool pack.
+AlphaFoundry is a terminal-native AI agent shell/runtime. The first layer is a normal agent core: chat, provider adapters, typed tools, run state, checkpoints, guardrails, onboarding, and human response rendering. Finance can be layered on later as explicit tool packs.
 
-> **Direction:** Build the normal AI agent first. Finance features come after as registered tools/plugins, not hardcoded core behavior.
->
-> **Research only.** No live trading, no broker access, no profit promises.
+> **Direction:** Build the normal AI agent first. No predefined strategies, trading templates, or hardcoded finance workflows in the starting point.
 
 ## Quick start
 
 ```bash
 npm install
 npm run check
-npm run dev -- onboard --provider local --model local-finance-agent --non-interactive
-npm run dev -- chat "build and test a simple SPY trend strategy" --json
+npm run dev -- onboard --provider local --model local-agent --non-interactive
+npm run dev -- chat "hey" --json
 ```
 
 After packaging:
 
 ```bash
-alphafoundry onboard
-alphafoundry chat "research a mean-reversion strategy for QQQ"
-alphafoundry doctor
+af onboard
+af
+af chat "search the web for recent AI agent news"
+af doctor
 ```
 
 ## What it does
 
-- **Agent core first** — Normal AI agent primitives: provider-neutral messages, planning, run state, checkpoints, typed tools, guardrails, and response rendering.
-- **Chat → Plan → Tools → Artifacts** — Describe a task in plain English. AlphaFoundry plans the run, calls registered tools, checkpoints the run, and saves artifacts.
-- **Finance as tool pack** — Strategy research/backtests/validation are layered tools, not the product core.
-- **Local-first** — Config, sessions, reports, checkpoints, and artifacts live on your machine.
-- **Safety-locked** — Live trading is architecturally disabled.
+- **Agent core first** — Normal AI agent primitives: provider-neutral messages, run state, typed tools, guardrails, and response rendering.
+- **Simple command surface** — `af` launches the TUI, `af onboard` configures models/tools, `af doctor` checks readiness.
+- **Finance later** — Finance should arrive as opt-in tools/plugins, not predefined core strategy behavior.
+- **Local-first** — Config, sessions, notes, and workspace state live on your machine.
 
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
-| `alphafoundry` | Entrypoint. First-run guidance if no config. |
-| `alphafoundry onboard` | Configure provider, model, API key env var, workspace. |
-| `alphafoundry doctor` | Readiness report: config, workspace, LLM, safety, engine. |
-| `alphafoundry chat "..."` | Natural-language research agent with typed tool access. |
+| `af` | Entrypoint. Opens TUI when onboarded; first-run guidance otherwise. |
+| `af onboard` | Configure provider, model, API key env var, workspace, and later search/tools. |
+| `af doctor` | Readiness report: config, workspace, LLM, and agent runtime. |
+| `af chat "..."` | One-shot natural-language agent chat. |
 
 ## Architecture
 
 ```
-CLI → Agent Runtime → Typed Tool Registry → Python Finance Engine → Workspace
+CLI/TUI → Agent Runtime → Typed Tool Registry → Workspace
 ```
 
 ## Development
@@ -86,4 +84,4 @@ npm run build
 
 ## Disclaimer
 
-AlphaFoundry is research software. Outputs may be incomplete or based on simplified local scaffolds. Nothing here is financial, investment, legal, tax, or trading advice.
+AlphaFoundry is early agent software. Finance/trading features are intentionally not part of the starting runtime and should be added later only as explicit, tested tool packs.

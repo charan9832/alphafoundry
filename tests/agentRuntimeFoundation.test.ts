@@ -21,13 +21,13 @@ async function localConfig(): Promise<AppConfig> {
   return {
     version: 1,
     workspace: await workspace(),
-    llm: { provider: "local", model: "local-finance-agent" },
+    llm: { provider: "local", model: "local-agent" },
     safety: { liveTradingEnabled: false, disclaimerAccepted: true },
   };
 }
 
 describe("normal AI agent runtime foundation", () => {
-  it("creates research runs with stable ids, phases, and stop reasons", () => {
+  it("creates agent runs with stable ids, phases, and stop reasons", () => {
     const run = createResearchRun({ userIntent: "check readiness", threadId: "thread-1" });
     assert.equal(run.threadId, "thread-1");
     assert.equal(run.status, "planning");
@@ -94,11 +94,11 @@ describe("normal AI agent runtime foundation", () => {
     assert.match(checkpointFiles, /show system readiness/);
   });
 
-  it("tool guardrails block broker/order/account/live-trading inputs before execution", () => {
+  it("tool guardrails block sensitive account/order inputs before execution", () => {
     const safe = guardToolInput("readiness", {});
     assert.equal(safe.allowed, true);
 
-    const blocked = guardToolInput("run_research_workflow", { broker: "ibkr", order: "buy SPY", accountId: "abc" });
+    const blocked = guardToolInput("external_action", { broker: "ibkr", order: "buy SPY", accountId: "abc" });
     assert.equal(blocked.allowed, false);
     assert.match(blocked.reason ?? "", /broker|order|account/i);
   });

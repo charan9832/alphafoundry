@@ -1,6 +1,6 @@
 # AlphaFoundry Agent Guide
 
-This repository is a clean restart. Treat old AlphaFoundry history as reference only, not source of truth.
+This repository is the AlphaFoundry starting point. Treat old AlphaFoundry finance/backtest work as reference only, not source of truth.
 
 ## Required first read
 
@@ -8,19 +8,18 @@ Before code changes, every agent must read:
 
 1. `AGENTS.md`
 2. `docs/PRODUCT_SPEC.md`
-3. `docs/research/RESEARCH_SUMMARY.md`
-4. `docs/ARCHITECTURE.md`
-5. `docs/WORKFLOW.md`
-6. `docs/ROADMAP.md`
-7. Relevant source and tests
+3. `docs/ARCHITECTURE.md`
+4. `docs/WORKFLOW.md`
+5. `docs/ROADMAP.md`
+6. Relevant source and tests
 
 ## Non-negotiable product rules
 
-1. This is a new standalone product using Pi internally, not a Pi package and not a Pi fork unless explicitly approved later.
-2. Do not implement live trading, broker execution, orders, account access, or automated transaction flows.
-3. Use typed tools for finance actions. The LLM may explain, choose, and orchestrate; deterministic tools must compute.
-4. No invented metrics. If a result is not produced by a tool/artifact, say it is unknown.
-5. Preserve provenance: provider, symbol, date range, assumptions, fees/slippage, warnings, timestamps.
+1. AlphaFoundry is an AI agent first. Make the agent work before adding finance.
+2. The preferred command is `af`; bare `af` launches the TUI when onboarded.
+3. `af onboard` configures language models, provider/base URL/API-key env names, workspace, and later search/tool configuration.
+4. Do not add predefined strategies, trading templates, hardcoded backtest flows, broker execution, orders, account access, or automated transaction flows to the default runtime.
+5. Finance features come later as explicit tool packs/plugins, not core behavior.
 6. Secrets must not be stored in repo or plaintext config. Store secret environment variable names, not secret values.
 7. Use TDD for behavior changes. Add tests before production code when practical.
 8. Run `npm run check` before claiming done.
@@ -29,4 +28,13 @@ Before code changes, every agent must read:
 
 ## Product framing
 
-AlphaFoundry should feel like a local AI finance research terminal: natural chat, tool-backed evidence, saved artifacts, honest limits, and strong safety gates. The user should not feel like they are using a generic coding agent with finance prompts bolted on.
+AlphaFoundry should feel like a rebranded/adapted Pi-style terminal AI agent with a clean command surface:
+
+```bash
+af
+af onboard
+af doctor
+af chat "..."
+```
+
+The user should not feel like they are using a finance strategy bot right now. They should feel like they have a working local AI agent that can later gain finance tools.

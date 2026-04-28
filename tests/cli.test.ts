@@ -33,7 +33,7 @@ describe("cli", () => {
   it("onboards local provider and chats", async () => {
     const dir = await mkdtemp(join(tmpdir(), "af-cli-"));
     const config = join(dir, "config.json");
-    const onboard = await capture(() => main(["onboard", "--config", config, "--workspace", join(dir, "workspace"), "--provider", "local", "--model", "local-finance-agent", "--non-interactive"]));
+    const onboard = await capture(() => main(["onboard", "--config", config, "--workspace", join(dir, "workspace"), "--provider", "local", "--model", "local-agent", "--non-interactive"]));
     assert.equal(onboard.code, 0);
     const chat = await capture(() => main(["chat", "--config", config, "--json", "hey"]));
     assert.equal(chat.code, 0);
@@ -70,6 +70,6 @@ describe("cli", () => {
 
   it("package allowlist excludes Hermes state and test files", async () => {
     const packageJson = JSON.parse(await import("node:fs/promises").then((fs) => fs.readFile("package.json", "utf8")));
-    assert.deepEqual(packageJson.files, ["dist/src/**", "python/finance_engine/**", "README.md", "AGENTS.md", "docs/**"]);
+    assert.deepEqual(packageJson.files, ["dist/src/**", "README.md", "AGENTS.md", "docs/**"]);
   });
 });

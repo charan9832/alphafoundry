@@ -2,7 +2,6 @@
 import { applyLlmConfig, createDefaultConfig, defaultConfigPath, isConfigured, loadConfig, saveConfig } from "./config.js";
 import { respondToMessage } from "./agent/runtime.js";
 import { buildReadinessReport } from "./tools/readiness.js";
-import { researchDisclaimer } from "./safety.js";
 import { runTui } from "./tui/app.js";
 import type { LlmConfig, ProviderKind } from "./types.js";
 import { basename } from "node:path";
@@ -66,18 +65,22 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "tui") return tui(configPath);
   if (command === "help" || command === "--help" || command === "-h") return help();
 
-  // Natural command fallback: `alphafoundry check the repo` behaves like
-  // `alphafoundry chat "check the repo"` while keeping known subcommands explicit.
+  // Natural command fallback: `af check the repo` behaves like
+  // `af chat "check the repo"` while keeping known subcommands explicit.
   return chat({ ...args, command: "chat", positionals: [command, ...args.positionals] }, configPath);
 }
 
 async function launch(configPath: string): Promise<number> {
   const config = await loadConfig(configPath);
   if (!isConfigured(config)) {
-    console.log(`Welcome to AlphaFoundry\n\n${researchDisclaimer()}\n\nFirst run setup is required. Run:\n  alphafoundry onboard --provider local --model local-finance-agent --non-interactive\n\nFor real providers, set an API key env var and pass --api-key-env NAME.`);
+    console.log(`Welcome to AlphaFoundry\n\nFirst run setup is required. Run:\n  af onboard --provider local --model local-agent --non-interactive\n\nFor real providers, set an API key env var and pass --api-key-env NAME.\nOptional web search: set ALPHAFOUNDRY_WEB_SEARCH_URL and ALPHAFOUNDRY_WEB_SEARCH_API_KEY_ENV.`);
     return 0;
   }
-  console.log(`AlphaFoundry Agent\n${researchDisclaimer()}\n\nConfigured provider: ${config.llm.provider}/${config.llm.model}\nStart chatting with: alphafoundry chat "hey"`);
+  if (!process.stdin.isTTY) {
+    console.log(`AlphaFoundry Agent\n\nConfigured provider: ${config.llm.provider}/${config.llm.model}\nInteractive chat requires a TTY. Try:\n  af chat "hey"\n  af chat "search the web for recent AI agent news"\n  af doctor`);
+    return 0;
+  }
+  await runTui(config);
   return 0;
 }
 
@@ -86,7 +89,7 @@ async function onboard(args: ParsedArgs, configPath: string): Promise<number> {
   const currentProvider = existing.llm?.provider;
   const currentModel = existing.llm?.model;
   const provider = (typeof args.flags.provider === "string" ? args.flags.provider : currentProvider ?? "local") as ProviderKind;
-  const model = typeof args.flags.model === "string" ? args.flags.model : currentModel ?? "local-finance-agent";
+  const model = typeof args.flags.model === "string" ? args.flags.model : currentModel ?? "local-agent";
   const llm: LlmConfig = { provider, model };
   if (typeof args.flags["base-url"] === "string") llm.baseUrl = args.flags["base-url"];
   else if (existing.llm?.baseUrl) llm.baseUrl = existing.llm.baseUrl;
@@ -109,7 +112,7 @@ async function doctor(configPath: string, json: boolean): Promise<number> {
 async function chat(args: ParsedArgs, configPath: string): Promise<number> {
   const config = await loadConfig(configPath);
   if (!isConfigured(config)) {
-    console.log("AlphaFoundry is not onboarded yet. Run `alphafoundry onboard` first.");
+    console.log("AlphaFoundry is not onboarded yet. Run `af onboard` first.");
     return 1;
   }
   const message = args.positionals.join(" ").trim() || "hey";
@@ -122,7 +125,7 @@ async function chat(args: ParsedArgs, configPath: string): Promise<number> {
 async function tui(configPath: string): Promise<number> {
   const config = await loadConfig(configPath);
   if (!isConfigured(config)) {
-    console.log("AlphaFoundry is not onboarded yet. Run `alphafoundry onboard` first.");
+    console.log("AlphaFoundry is not onboarded yet. Run `af onboard` first.");
     return 1;
   }
   await runTui(config);
@@ -130,11 +133,11 @@ async function tui(configPath: string): Promise<number> {
 }
 
 function help(): number {
-  console.log(`AlphaFoundry\n\nCommands:\n  launch             Open product entrypoint\n  onboard            Configure LLM provider and workspace\n  doctor [--json]    Check readiness\n  chat <message>     Talk to the agent (one-shot)\n  tui                Open interactive TUI chat\n\nSafety: research/paper-validation only; live trading disabled.`);
+  console.log(`AlphaFoundry\n\nUsage:\n  af                  Open interactive chat when onboarded\n  af onboard          Configure LLM provider/model/API-key env/workspace\n  af doctor [--json]  Check readiness\n  af chat <message>   Talk to the agent one-shot\n  af tui              Open interactive TUI chat explicitly\n  af <free text>      Natural command fallback, same as chat\n\nExamples:\n  af onboard --provider local --model local-agent --non-interactive\n  af chat "hey"\n  af chat "search the web for recent AI agent news" --json\n\nOptional web search env:\n  ALPHAFOUNDRY_WEB_SEARCH_URL=https://your-search-proxy.example/search\n  ALPHAFOUNDRY_WEB_SEARCH_API_KEY_ENV=SEARCH_API_KEY_ENV`);
   return 0;
 }
 
-const invokedAsCli = basename(process.argv[1] ?? "") === "cli.js" || basename(process.argv[1] ?? "") === "alphafoundry";
+const invokedAsCli = ["cli.js", "alphafoundry", "af"].includes(basename(process.argv[1] ?? ""));
 
 if (invokedAsCli) {
   main().then((code) => process.exit(code)).catch((error) => {

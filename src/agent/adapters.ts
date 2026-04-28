@@ -20,8 +20,21 @@ export interface AgentAdapter {
   complete(request: AgentAdapterRequest): Promise<AgentAdapterResponse>;
 }
 
-function inferSymbol(message: string): string {
-  return /\b([A-Z]{2,5})\b/.exec(message)?.[1] ?? "SPY";
+function wantsWebSearch(lower: string): boolean {
+  return lower.includes("web search")
+    || lower.includes("search web")
+    || lower.includes("search the web")
+    || lower.includes("google")
+    || lower.includes("latest news")
+    || lower.includes("current news")
+    || lower.includes("recent news")
+    || lower.includes("what's happening")
+    || lower.includes("whats happening")
+    || (/\b(latest|current|recent|news)\b/.test(lower) && /\b(search|web|company|fed|rates)\b/.test(lower));
+}
+
+function wantsFinanceStrategy(lower: string): boolean {
+  return /\b(strategy|strategies|backtest|trading|broker|market order|portfolio|stock|etf|paper trade|paper validation)\b/.test(lower);
 }
 
 export class LocalAgentAdapter implements AgentAdapter {
@@ -31,51 +44,38 @@ export class LocalAgentAdapter implements AgentAdapter {
     if (request.observations?.length) {
       const latest = request.observations.at(-1);
       return {
-        text: `I completed ${latest?.toolName}. The result is tool-backed and saved in the workspace. Research and paper validation only; no live trading or profit guarantees.`,
+        text: `I completed ${latest?.toolName}. The result is tool-backed and saved in the workspace.`,
         provider: "local",
-        model: this.config.llm?.model ?? "local-finance-agent",
+        model: this.config.llm?.model ?? "local-agent",
       };
     }
     const lower = request.message.toLowerCase();
+    if (wantsWebSearch(lower)) {
+      return { text: "I will run a safe web search for current external context.", toolName: "web_search", toolInput: { query: request.message, maxResults: 5 }, provider: "local", model: this.config.llm?.model ?? "local" };
+    }
     if (lower.includes("readiness") || lower.includes("doctor") || lower.includes("system status")) {
       return { text: "I will check system readiness.", toolName: "readiness", toolInput: {}, provider: "local", model: this.config.llm?.model ?? "local" };
     }
     if (lower.includes("create project") || lower.includes("new project")) {
-      const symbol = inferSymbol(request.message);
-      return { text: `I will create a local research project for ${symbol}.`, toolName: "create_project", toolInput: { name: `${symbol.toLowerCase()}-research`, symbols: [symbol], thesis: request.message }, provider: "local", model: this.config.llm?.model ?? "local" };
+      return { text: "I will create a local workspace project.", toolName: "create_project", toolInput: { name: request.message.replace(/create project|new project/gi, "").trim() || "agent-project", symbols: [], thesis: request.message }, provider: "local", model: this.config.llm?.model ?? "local" };
     }
     if (lower.includes("list projects") || lower.includes("show projects")) {
       return { text: "I will list local research projects.", toolName: "list_projects", toolInput: {}, provider: "local", model: this.config.llm?.model ?? "local" };
     }
     if (lower.includes("remember") || lower.includes("lesson")) {
-      return { text: "I will store this as a local research lesson.", toolName: "remember_lesson", toolInput: { lesson: request.message }, provider: "local", model: this.config.llm?.model ?? "local" };
+      return { text: "I will store this as a local agent note.", toolName: "remember_lesson", toolInput: { lesson: request.message }, provider: "local", model: this.config.llm?.model ?? "local" };
     }
-    if (lower.includes("journal") || lower.includes("paper validation") || lower.includes("paper trade")) {
-      const symbol = inferSymbol(request.message);
-      return { text: `I will create an offline paper-validation journal entry for ${symbol}.`, toolName: "create_paper_journal_entry", toolInput: { symbol, hypothesis: request.message }, provider: "local", model: this.config.llm?.model ?? "local" };
-    }
-    if (lower.includes("optimize") || lower.includes("parameter search")) {
-      const symbol = inferSymbol(request.message);
-      return { text: `I will run a bounded research-only optimization for ${symbol}.`, toolName: "optimize_strategy", toolInput: { symbol }, provider: "local", model: this.config.llm?.model ?? "local" };
-    }
-    if (lower.includes("validate") || lower.includes("walk-forward") || lower.includes("sensitivity") || lower.includes("cost stress")) {
-      const symbol = inferSymbol(request.message);
-      return { text: `I will run deterministic validation checks for ${symbol}.`, toolName: "run_validation_suite", toolInput: { symbol }, provider: "local", model: this.config.llm?.model ?? "local" };
-    }
-    if (lower.includes("backtest") || lower.includes("test") || lower.includes("strategy") || lower.includes("research workflow")) {
-      const symbol = inferSymbol(request.message);
+    if (wantsFinanceStrategy(lower)) {
       return {
-        text: `I will run a deterministic research workflow for ${symbol}: local data, backtest, validation, and report artifacts.`,
-        toolName: "run_research_workflow",
-        toolInput: { symbol },
+        text: "The AlphaFoundry starting point is a working general AI agent. Finance-specific tools are intentionally not enabled yet; they should be added later as explicit opt-in tool packs, not core behavior.",
         provider: "local",
-        model: this.config.llm?.model ?? "local",
+        model: this.config.llm?.model ?? "local-agent",
       };
     }
     return {
-      text: "Hey — I’m ready. I can help research markets, design strategies, run tool-backed backtests, validate assumptions, and generate reports. What should we investigate?",
+      text: "Hey — I’m ready. I can chat, check readiness, use configured tools, search when enabled, organize workspace projects, and save notes. What should we work on?",
       provider: "local",
-      model: this.config.llm?.model ?? "local-finance-agent",
+      model: this.config.llm?.model ?? "local-agent",
     };
   }
 }
@@ -133,7 +133,7 @@ export class PiSdkAgentAdapter implements AgentAdapter {
       "Tool observations already completed:",
       ...request.observations.map((observation) => `${observation.toolName}: ${JSON.stringify(observation.result)}`),
       "",
-      "Now summarize the evidence, artifact paths, validation status, warnings, and next step. Do not invent metrics.",
+      "Now summarize the completed tool result, important paths, warnings, and next step. Do not invent outputs.",
     ].join("\n");
   }
 

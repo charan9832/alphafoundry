@@ -95,8 +95,7 @@ function App({ config }: { config: AppConfig }) {
 
 export async function runTui(config: AppConfig): Promise<void> {
   if (!process.stdin.isTTY) {
-    console.error("TUI requires an interactive terminal.");
-    process.exit(1);
+    throw new Error("TUI requires an interactive terminal.");
   }
   const { render } = await import("ink");
   render(<App config={config} />);

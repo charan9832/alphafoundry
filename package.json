@@ -1,16 +1,17 @@
 {
   "name": "alphafoundry",
   "version": "0.1.0",
-  "description": "A local-first Pi-powered AI finance research agent for deterministic strategy research, backtesting, validation, and reports.",
+  "description": "A local-first Pi-powered terminal AI agent with simple af commands and finance tools planned later.",
   "type": "module",
   "bin": {
+    "af": "./dist/src/cli.js",
     "alphafoundry": "./dist/src/cli.js"
   },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "node --import tsx --test tests/*.test.ts",
     "check": "npm run build && npm run test",
     "dev": "tsx src/cli.ts",
@@ -32,7 +33,6 @@
   },
   "files": [
     "dist/src/**",
-    "python/finance_engine/**",
     "README.md",
     "AGENTS.md",
     "docs/**"

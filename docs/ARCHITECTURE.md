@@ -1,81 +1,88 @@
 # Architecture
 
-## Layers
+## Current architecture: AI agent first
 
 ```text
-AlphaFoundry CLI / Chat Shell
+AlphaFoundry CLI / TUI (`af`)
   -> Onboarding + Config + Readiness
   -> Agent Core
-      -> provider-neutral messages
-      -> plan-first orchestrator
-      -> run state + checkpoints
-      -> human response renderer
-  -> Model Adapter Boundary
-      -> Pi SDK adapter when real providers are configured
-      -> Local adapter for local tests and smoke runs
+      -> provider-neutral requests/responses
+      -> local smoke adapter
+      -> Pi SDK adapter for real providers
+      -> run/session logging
   -> Typed Tool Registry
-      -> System/readiness tools
-      -> Project and local memory tools
-      -> Finance tool pack, registered after the core
-      -> Safety and approval gates
-  -> Tool Backends
-      -> Python finance engine bridge for finance plugin/tool pack
+      -> readiness
+      -> optional web_search
+      -> project organization
+      -> durable notes/memory
   -> Workspace
       -> sessions/*.jsonl
       -> runs/**
       -> projects/**
-      -> reports/*.md
-      -> artifacts/*.json
       -> memory/lessons.jsonl
-      -> paper-journal/**
 ```
+
+The starting point is intentionally domain-neutral. It should be a working terminal AI agent before finance is added.
 
 ## Pi usage route
 
-AlphaFoundry uses Pi as infrastructure:
+AlphaFoundry’s intended product direction is to clone/adapt/rebrand Pi Agent patterns where practical, then expose a simple AlphaFoundry command surface.
 
-- `@mariozechner/pi-ai` for provider/model/tool-capable LLM APIs.
-- A local facade keeps AlphaFoundry decoupled from Pi API churn.
-- Real providers are accessed through `PiSdkAgentAdapter`; tests and offline smoke use `LocalAgentAdapter`.
+Current Pi facts:
 
-Normal users interact with `alphafoundry`, not `pi`.
+- `@mariozechner/pi-ai` is MIT licensed.
+- `@mariozechner/pi-agent-core` is MIT licensed.
+- Both point to `github.com/badlogic/pi-mono` on npm.
+
+AlphaFoundry owns:
+
+- product name and command surface: `af`
+- onboarding flow
+- TUI labels/rendering
+- config/workspace conventions
+- tool policy and safety boundaries
+- docs and roadmap
+
+Pi/Pi-style infrastructure owns or inspires:
+
+- provider/model abstraction
+- tool-capable LLM calls
+- agent runtime concepts
 
 ## Runtime principle
 
-The core runtime is domain-neutral. It plans first, executes only registered tools, checkpoints the run, and renders a human-readable answer:
+The core runtime executes only registered tools. No LLM response can bypass the registry.
 
 ```text
 User message
-  -> safety gate
-  -> create ResearchRun
-  -> create plan
-  -> checkpoint planning state
-  -> execute registered tools
-  -> record structured observations
-  -> checkpoint execution/completion state
+  -> safety/config gate
+  -> model adapter
+  -> optional tool call through registry
+  -> structured observation
   -> assistant response
   -> session event log
 ```
 
-Finance behavior is not the core. Finance is a registered tool pack that can provide backtests, validation, paper journals, and finance-specific policy. The LLM may never invent metrics or bypass the registry. Tool-backed results are rendered with artifact paths and warnings.
+## Default tool boundary
 
-## Python bridge
+Default tools are general-agent tools only:
 
-`src/tools/pythonBridge.ts` spawns `python3 python/finance_engine/local_engine.py` with `shell: false`, sends one JSON request on stdin, and expects one JSON response on stdout.
+- readiness
+- web search, when configured
+- project organization
+- durable local notes
 
-Supported methods now:
+Finance/trading tools are not registered in the default starting runtime.
 
-- `ping`
-- `run_backtest`
-- `run_research_workflow`
-- `run_validation_suite`
-- `optimize_strategy`
+## Finance later
 
-The current Python engine is deterministic and stdlib-only. It generates local price data, runs a moving-average trend baseline, validates checks, runs cost-stress/sensitivity guardrails, performs bounded parameter search, and returns report markdown. It does not fetch live data, connect to brokers, or place orders.
+Old finance code may exist as future-reference material, but the agent-first product must not route default prompts into predefined strategies, backtests, optimizers, broker flows, or trading systems.
+
+When finance is added later, it should be an explicit tool pack/plugin with its own tests, docs, and safety gates.
 
 ## Secret handling
 
-Config stores only the environment variable name containing a secret. Example:
+Config stores only environment variable names containing secrets. Example:
 
 ```json
 { "provider": "openrouter", "apiKeyEnv": "OPENROUTER_API_KEY" }

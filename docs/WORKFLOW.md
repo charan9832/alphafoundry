@@ -31,7 +31,7 @@ Use specialist roles for larger work:
 - Orchestrator: mission, dependencies, final verification.
 - Product Spec Agent: ensures work matches product direction.
 - Pi Runtime Agent: maintains adapter/runtime boundary.
-- Finance Tool Agent: deterministic tools and provenance.
+- Future Domain Tool Agent: designs opt-in tool packs without hardcoding them into core.
 - Safety Agent: live-trading refusal, secrets, approvals.
 - QA Agent: tests, CLI smoke, regression coverage.
 - Report Agent: artifacts, docs, user-facing summaries.

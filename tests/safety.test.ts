@@ -23,7 +23,7 @@ describe("safety", () => {
     for (const message of blocked) assert.equal(evaluateSafety(message).allowed, false, message);
   });
 
-  it("allows research requests", () => {
-    assert.equal(evaluateSafety("backtest a SPY strategy with slippage").allowed, true);
+  it("allows normal agent requests", () => {
+    assert.equal(evaluateSafety("summarize this project and save a note").allowed, true);
   });
 });

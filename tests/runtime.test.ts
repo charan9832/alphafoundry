@@ -11,7 +11,7 @@ async function localConfig(): Promise<AppConfig> {
   return {
     version: 1,
     workspace,
-    llm: { provider: "local", model: "local-finance-agent" },
+    llm: { provider: "local", model: "local-agent" },
     safety: { liveTradingEnabled: false, disclaimerAccepted: true },
   };
 }
@@ -22,6 +22,15 @@ describe("agent runtime", () => {
     const response = await respondToMessage(config, "hey", async () => config);
     assert.equal(response.source, "llm");
     assert.match(response.response, /ready/);
+    assert.doesNotMatch(response.response, /strateg|backtest|trading|finance/i);
+  });
+
+  it("does not route strategy prompts to predefined finance tools in the agent-first starting point", async () => {
+    const config = await localConfig();
+    const response = await respondToMessage(config, "build a strategy and backtest SPY", async () => config);
+    assert.equal(response.source, "llm");
+    assert.notEqual(response.metadata?.tool, "run_research_workflow");
+    assert.doesNotMatch(response.response, /run_research_workflow|backtest|predefined strategy/i);
   });
 
   it("calls readiness tool from natural language", async () => {
