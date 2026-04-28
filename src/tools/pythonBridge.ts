@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 export interface FinanceEngineRequest {
-  method: "ping" | "run_backtest" | "run_research_workflow";
+  method: "ping" | "run_backtest" | "run_research_workflow" | "run_validation_suite" | "optimize_strategy";
   params?: Record<string, unknown>;
 }
 

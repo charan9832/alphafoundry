@@ -1,8 +1,9 @@
-import { mkdtemp } from "node:fs/promises";
+import { access, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { main } from "../src/cli.js";
 
 async function capture(fn: () => Promise<number>) {
@@ -43,5 +44,19 @@ describe("cli", () => {
     const result = await capture(() => main(["doctor", "--config"]));
     assert.equal(result.code, 2);
     assert.match(result.error, /Missing value/);
+  });
+
+  it("package bin points at the built CLI entry", async () => {
+    const packageJson = JSON.parse(await import("node:fs/promises").then((fs) => fs.readFile("package.json", "utf8")));
+    assert.equal(packageJson.bin.alphafoundry, "./dist/src/cli.js");
+    await access(join(process.cwd(), "dist", "src", "cli.js"));
+    const help = spawnSync(process.execPath, [join(process.cwd(), "dist", "src", "cli.js"), "help"], { encoding: "utf8" });
+    assert.equal(help.status, 0);
+    assert.match(help.stdout, /AlphaFoundry/);
+  });
+
+  it("package allowlist excludes Hermes state and test files", async () => {
+    const packageJson = JSON.parse(await import("node:fs/promises").then((fs) => fs.readFile("package.json", "utf8")));
+    assert.deepEqual(packageJson.files, ["dist/src/**", "python/finance_engine/**", "README.md", "AGENTS.md", "docs/**"]);
   });
 });

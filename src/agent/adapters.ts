@@ -40,6 +40,28 @@ export class LocalAgentAdapter implements AgentAdapter {
     if (lower.includes("readiness") || lower.includes("doctor") || lower.includes("system status")) {
       return { text: "I will check system readiness.", toolName: "readiness", toolInput: {}, provider: "local", model: this.config.llm?.model ?? "local" };
     }
+    if (lower.includes("create project") || lower.includes("new project")) {
+      const symbol = inferSymbol(request.message);
+      return { text: `I will create a local research project for ${symbol}.`, toolName: "create_project", toolInput: { name: `${symbol.toLowerCase()}-research`, symbols: [symbol], thesis: request.message }, provider: "local", model: this.config.llm?.model ?? "local" };
+    }
+    if (lower.includes("list projects") || lower.includes("show projects")) {
+      return { text: "I will list local research projects.", toolName: "list_projects", toolInput: {}, provider: "local", model: this.config.llm?.model ?? "local" };
+    }
+    if (lower.includes("remember") || lower.includes("lesson")) {
+      return { text: "I will store this as a local research lesson.", toolName: "remember_lesson", toolInput: { lesson: request.message }, provider: "local", model: this.config.llm?.model ?? "local" };
+    }
+    if (lower.includes("journal") || lower.includes("paper validation") || lower.includes("paper trade")) {
+      const symbol = inferSymbol(request.message);
+      return { text: `I will create an offline paper-validation journal entry for ${symbol}.`, toolName: "create_paper_journal_entry", toolInput: { symbol, hypothesis: request.message }, provider: "local", model: this.config.llm?.model ?? "local" };
+    }
+    if (lower.includes("optimize") || lower.includes("parameter search")) {
+      const symbol = inferSymbol(request.message);
+      return { text: `I will run a bounded research-only optimization for ${symbol}.`, toolName: "optimize_strategy", toolInput: { symbol }, provider: "local", model: this.config.llm?.model ?? "local" };
+    }
+    if (lower.includes("validate") || lower.includes("walk-forward") || lower.includes("sensitivity") || lower.includes("cost stress")) {
+      const symbol = inferSymbol(request.message);
+      return { text: `I will run deterministic validation checks for ${symbol}.`, toolName: "run_validation_suite", toolInput: { symbol }, provider: "local", model: this.config.llm?.model ?? "local" };
+    }
     if (lower.includes("backtest") || lower.includes("test") || lower.includes("strategy") || lower.includes("research workflow")) {
       const symbol = inferSymbol(request.message);
       return {

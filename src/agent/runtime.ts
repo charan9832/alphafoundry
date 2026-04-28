@@ -5,6 +5,10 @@ import { makeAgentAdapter } from "./adapters.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { readinessTool } from "../tools/readiness.js";
 import { localBacktestTool, reportTool, researchWorkflowTool } from "../tools/finance.js";
+import { projectTools } from "../tools/projects.js";
+import { memoryTools } from "../tools/memory.js";
+import { paperJournalTools } from "../tools/paperJournal.js";
+import { financeValidationTools } from "../tools/financeValidation.js";
 
 export function systemPrompt(): string {
   return [
@@ -13,6 +17,7 @@ export function systemPrompt(): string {
     "You refuse live trading, broker access, order placement, and profit guarantees.",
     "Use tools whenever the user asks for readiness, research, strategy testing, backtesting, validation, reports, or artifacts.",
     "For strategy research, prefer run_research_workflow with a ticker symbol and summarize artifact paths, validation status, warnings, and next step.",
+    "Use project tools for durable strategy research projects, memory tools only for explicit lessons, paper journal tools for offline paper-validation notes, and validation tools for walk-forward/sensitivity/cost-stress checks.",
     "Always state that outputs are research/paper-validation only when discussing strategies.",
   ].join("\n");
 }
@@ -23,6 +28,10 @@ export function buildRegistry(configProvider: () => Promise<AppConfig | null>): 
   registry.register(researchWorkflowTool());
   registry.register(localBacktestTool());
   registry.register(reportTool());
+  for (const tool of projectTools()) registry.register(tool);
+  for (const tool of memoryTools()) registry.register(tool);
+  for (const tool of paperJournalTools()) registry.register(tool);
+  for (const tool of financeValidationTools()) registry.register(tool);
   return registry;
 }
 

@@ -4,7 +4,7 @@
   "description": "A local-first Pi-powered AI finance research agent for deterministic strategy research, backtesting, validation, and reports.",
   "type": "module",
   "bin": {
-    "alphafoundry": "./dist/cli.js"
+    "alphafoundry": "./dist/src/cli.js"
   },
   "engines": {
     "node": ">=20"
@@ -13,7 +13,8 @@
     "build": "tsc -p tsconfig.json",
     "test": "node --import tsx --test tests/*.test.ts",
     "check": "npm run build && npm run test",
-    "dev": "tsx src/cli.ts"
+    "dev": "tsx src/cli.ts",
+    "pack:dry-run": "npm pack --dry-run --json"
   },
   "dependencies": {
     "@mariozechner/pi-agent-core": "^0.70.2",
@@ -23,5 +24,12 @@
     "@types/node": "^24.12.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
-  }
+  },
+  "files": [
+    "dist/src/**",
+    "python/finance_engine/**",
+    "README.md",
+    "AGENTS.md",
+    "docs/**"
+  ]
 }

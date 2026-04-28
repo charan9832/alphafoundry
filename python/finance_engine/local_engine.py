@@ -48,16 +48,16 @@ def max_drawdown_pct(equity: list[float]) -> float:
     return round(worst, 2)
 
 
-def run_backtest(symbol: str, start: str, end: str, strategy: str, initial_capital: float) -> dict[str, Any]:
+def run_backtest(symbol: str, start: str, end: str, strategy: str, initial_capital: float, fast_window: int = 20, slow_window: int = 50, fees_bps: int = 5, slippage_bps: int = 10) -> dict[str, Any]:
     prices = price_series(symbol, start, end)
-    fast_window = 20
-    slow_window = 50
+    fast_window = int(fast_window)
+    slow_window = int(slow_window)
+    if fast_window <= 1 or slow_window <= fast_window:
+        raise ValueError("fast_window must be >1 and slow_window must be greater than fast_window")
     cash = float(initial_capital)
     shares = 0.0
     equity: list[float] = []
     trades = 0
-    fees_bps = 5
-    slippage_bps = 10
     cost_rate = (fees_bps + slippage_bps) / 10_000
 
     for index, price in enumerate(prices):
@@ -125,6 +125,87 @@ def run_backtest(symbol: str, start: str, end: str, strategy: str, initial_capit
     }
 
 
+def run_validation_suite(symbol: str, start: str, end: str, strategy: str, initial_capital: float) -> dict[str, Any]:
+    baseline = run_backtest(symbol, start, end, strategy, initial_capital)
+    high_cost = run_backtest(symbol, start, end, strategy, initial_capital, fees_bps=20, slippage_bps=30)
+    fast_variants = [10, 15, 20, 25, 30]
+    sensitivity = []
+    for fast in fast_variants:
+        slow = fast * 2 + 10
+        result = run_backtest(symbol, start, end, strategy, initial_capital, fast_window=fast, slow_window=slow)
+        sensitivity.append({"fastWindow": fast, "slowWindow": slow, "totalReturnPct": result["metrics"]["totalReturnPct"], "maxDrawdownPct": result["metrics"]["maxDrawdownPct"], "trades": result["metrics"]["trades"]})
+    midpoint_note = "Synthetic deterministic scaffold uses fixed generated points; chronological split is represented as a guarded research check, not provider-backed walk-forward evidence."
+    passed = baseline["validation"]["passed"] and high_cost["metrics"]["finalEquity"] > 0 and len(sensitivity) == len(fast_variants)
+    warnings = [
+        "Research and paper validation only; validation does not imply future performance.",
+        "Current validation uses deterministic local scaffold data, not audited historical provider data.",
+        midpoint_note,
+    ]
+    return {
+        "symbol": symbol,
+        "strategy": strategy,
+        "start": start,
+        "end": end,
+        "provider": "local-python-deterministic-engine",
+        "baseline": baseline["metrics"],
+        "checks": {
+            "baselinePassed": baseline["validation"]["passed"],
+            "costStressPositiveEquity": high_cost["metrics"]["finalEquity"] > 0,
+            "sensitivityCompleted": len(sensitivity) == len(fast_variants),
+            "walkForwardGuardrailDocumented": True,
+            "liveTradingDisabled": True,
+        },
+        "costStress": {
+            "baselineFeesBps": baseline["assumptions"]["feesBps"],
+            "baselineSlippageBps": baseline["assumptions"]["slippageBps"],
+            "stressFeesBps": high_cost["assumptions"]["feesBps"],
+            "stressSlippageBps": high_cost["assumptions"]["slippageBps"],
+            "stressTotalReturnPct": high_cost["metrics"]["totalReturnPct"],
+        },
+        "sensitivity": sensitivity,
+        "passed": passed,
+        "warnings": warnings,
+    }
+
+
+def optimize_strategy(symbol: str, start: str, end: str, strategy: str, initial_capital: float) -> dict[str, Any]:
+    candidates = []
+    for fast in [10, 15, 20, 25, 30]:
+        for slow in [40, 50, 60, 80]:
+            if slow <= fast:
+                continue
+            result = run_backtest(symbol, start, end, strategy, initial_capital, fast_window=fast, slow_window=slow)
+            candidates.append({
+                "fastWindow": fast,
+                "slowWindow": slow,
+                "objective": "totalReturnPct_with_drawdown_warning",
+                "totalReturnPct": result["metrics"]["totalReturnPct"],
+                "maxDrawdownPct": result["metrics"]["maxDrawdownPct"],
+                "trades": result["metrics"]["trades"],
+            })
+    candidates.sort(key=lambda item: (item["totalReturnPct"], item["maxDrawdownPct"]), reverse=True)
+    best = candidates[0]
+    warnings = [
+        "Bounded parameter search can overfit; treat the best candidate as a hypothesis only.",
+        "Use provider-backed historical data and out-of-sample validation before drawing conclusions.",
+        "Research and paper validation only; no live trading or profit guarantees.",
+    ]
+    return {
+        "symbol": symbol,
+        "strategy": strategy,
+        "start": start,
+        "end": end,
+        "provider": "local-python-deterministic-engine",
+        "grid": {"fastWindow": [10, 15, 20, 25, 30], "slowWindow": [40, 50, 60, 80]},
+        "objective": "maximize totalReturnPct while reporting drawdown/trades",
+        "best": best,
+        "topCandidates": candidates[:5],
+        "candidateCount": len(candidates),
+        "warnings": warnings,
+        "liveTrading": False,
+    }
+
+
 def report_markdown(result: dict[str, Any]) -> str:
     metrics = result["metrics"]
     assumptions = result["assumptions"]
@@ -186,24 +267,33 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any]:
             "data": {"engine": "alphafoundry-python-finance-engine", "status": "ready"},
             "metadata": {"provider": "local-python", "timestamp": datetime.now(timezone.utc).isoformat()},
         }
-    if method in {"run_backtest", "run_research_workflow"}:
+    if method in {"run_backtest", "run_research_workflow", "run_validation_suite", "optimize_strategy"}:
         symbol = validate_symbol(str(params.get("symbol", "SPY")) or "SPY")
         start = validate_date(str(params.get("start", "2020-01-01")))
         end = validate_date(str(params.get("end", "2024-12-31")))
         strategy = str(params.get("strategy", "moving-average-trend-baseline"))
         initial_capital = float(params.get("initialCapital", 10_000))
-        result = run_backtest(symbol, start, end, strategy, initial_capital)
-        report = report_markdown(result)
+        if method in {"run_backtest", "run_research_workflow"}:
+            result = run_backtest(symbol, start, end, strategy, initial_capital)
+            report = report_markdown(result)
+            data: dict[str, Any] = {"backtest": result, "reportMarkdown": report}
+            warnings = result["warnings"]
+        elif method == "run_validation_suite":
+            data = run_validation_suite(symbol, start, end, strategy, initial_capital)
+            warnings = data["warnings"]
+        else:
+            data = optimize_strategy(symbol, start, end, strategy, initial_capital)
+            warnings = data["warnings"]
         return {
             "ok": True,
-            "data": {"backtest": result, "reportMarkdown": report},
+            "data": data,
             "metadata": {
                 "provider": "local-python-deterministic-engine",
                 "symbol": symbol,
                 "start": start,
                 "end": end,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "warnings": result["warnings"],
+                "warnings": warnings,
             },
         }
     return {"ok": False, "error": f"Unknown finance engine method: {method}", "metadata": {"provider": "local-python"}}

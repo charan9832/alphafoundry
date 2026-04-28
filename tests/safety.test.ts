@@ -4,8 +4,23 @@ import { evaluateSafety } from "../src/safety.js";
 
 describe("safety", () => {
   it("blocks live trading and order placement", () => {
-    assert.equal(evaluateSafety("place a market order to buy 100 SPY").allowed, false);
-    assert.equal(evaluateSafety("connect my broker for live trading").allowed, false);
+    const blocked = [
+      "place a market order to buy 100 SPY",
+      "connect my broker for live trading",
+      "submit a trade for SPY",
+      "send an order ticket",
+      "route this order",
+      "connect Alpaca",
+      "connect Interactive Brokers",
+      "connect IBKR",
+      "use my brokerage account",
+      "rebalance my portfolio automatically",
+      "execute this strategy every morning",
+      "auto trade this signal",
+      "buy SPY with my account",
+      "sell my AAPL shares",
+    ];
+    for (const message of blocked) assert.equal(evaluateSafety(message).allowed, false, message);
   });
 
   it("allows research requests", () => {

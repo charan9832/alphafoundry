@@ -11,14 +11,18 @@ AlphaFoundry CLI / Chat Shell
   -> Typed Tool Registry
       -> System/readiness tools
       -> Finance research workflow tools
+      -> Validation/optimization tools
+      -> Project, local memory, and paper-journal tools
       -> Safety and approval gates
   -> Python Finance Engine Bridge
-      -> deterministic local data/backtest/validation/report code
+      -> deterministic local data/backtest/validation/optimization/report code
   -> Workspace
       -> sessions/*.jsonl
+      -> projects/**
       -> reports/*.md
       -> artifacts/*.json
-      -> memory/*.md later
+      -> memory/lessons.jsonl
+      -> paper-journal/**
 ```
 
 ## Pi usage route
@@ -57,8 +61,10 @@ Supported methods now:
 - `ping`
 - `run_backtest`
 - `run_research_workflow`
+- `run_validation_suite`
+- `optimize_strategy`
 
-The current Python engine is deterministic and stdlib-only. It generates local price data, runs a moving-average trend baseline, validates checks, and returns report markdown. It does not fetch live data, connect to brokers, or place orders.
+The current Python engine is deterministic and stdlib-only. It generates local price data, runs a moving-average trend baseline, validates checks, runs cost-stress/sensitivity guardrails, performs bounded parameter search, and returns report markdown. It does not fetch live data, connect to brokers, or place orders.
 
 ## Secret handling
 

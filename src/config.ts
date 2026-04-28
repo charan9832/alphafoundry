@@ -4,11 +4,11 @@ import { homedir } from "node:os";
 import type { AppConfig, LlmConfig } from "./types.js";
 
 export function defaultConfigPath(): string {
-  return process.env.ALPAFOUNDRY_CONFIG_PATH ?? join(homedir(), ".alphafoundry", "config.json");
+  return process.env.ALPHAFOUNDRY_CONFIG_PATH ?? process.env.ALPAFOUNDRY_CONFIG_PATH ?? join(homedir(), ".alphafoundry", "config.json");
 }
 
 export function defaultWorkspace(): string {
-  return process.env.ALPAFOUNDRY_WORKSPACE ?? join(homedir(), ".alphafoundry", "workspace");
+  return process.env.ALPHAFOUNDRY_WORKSPACE ?? process.env.ALPAFOUNDRY_WORKSPACE ?? join(homedir(), ".alphafoundry", "workspace");
 }
 
 export function createDefaultConfig(workspace = defaultWorkspace()): AppConfig {
@@ -54,7 +54,7 @@ export function isConfigured(config: AppConfig | null): config is AppConfig & { 
 }
 
 export function containsSecretLikeValue(value: string): boolean {
-  return /(?:sk-|sk_)[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,}|OPENROUTER-[A-Za-z0-9_-]{12,}/.test(value);
+  return /(?:sk-|sk_|sk-proj-|sk-ant-)[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,}|ghp_[A-Za-z0-9_]{20,}|OPENROUTER-[A-Za-z0-9_-]{12,}|(?:api[_-]?key|token|secret|password)\s*[:=]\s*[^,\s}]+/i.test(value);
 }
 
 export function isValidEnvVarName(value: string): boolean {

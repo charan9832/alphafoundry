@@ -4,6 +4,7 @@ import { respondToMessage } from "./agent/runtime.js";
 import { buildReadinessReport } from "./tools/readiness.js";
 import { researchDisclaimer } from "./safety.js";
 import type { LlmConfig, ProviderKind } from "./types.js";
+import { basename } from "node:path";
 
 interface ParsedArgs {
   command: string | undefined;
@@ -79,11 +80,15 @@ async function launch(configPath: string): Promise<number> {
 
 async function onboard(args: ParsedArgs, configPath: string): Promise<number> {
   const existing = (await loadConfig(configPath)) ?? createDefaultConfig(typeof args.flags.workspace === "string" ? args.flags.workspace : undefined);
-  const provider = (typeof args.flags.provider === "string" ? args.flags.provider : "local") as ProviderKind;
-  const model = typeof args.flags.model === "string" ? args.flags.model : "local-finance-agent";
+  const currentProvider = existing.llm?.provider;
+  const currentModel = existing.llm?.model;
+  const provider = (typeof args.flags.provider === "string" ? args.flags.provider : currentProvider ?? "local") as ProviderKind;
+  const model = typeof args.flags.model === "string" ? args.flags.model : currentModel ?? "local-finance-agent";
   const llm: LlmConfig = { provider, model };
   if (typeof args.flags["base-url"] === "string") llm.baseUrl = args.flags["base-url"];
+  else if (existing.llm?.baseUrl) llm.baseUrl = existing.llm.baseUrl;
   if (typeof args.flags["api-key-env"] === "string") llm.apiKeyEnv = args.flags["api-key-env"];
+  else if (existing.llm?.apiKeyEnv) llm.apiKeyEnv = existing.llm.apiKeyEnv;
   const updated = applyLlmConfig(existing, llm);
   await saveConfig(updated, configPath);
   const report = await buildReadinessReport(updated);
@@ -116,7 +121,9 @@ function help(): number {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+const invokedAsCli = basename(process.argv[1] ?? "") === "cli.js" || basename(process.argv[1] ?? "") === "alphafoundry";
+
+if (invokedAsCli) {
   main().then((code) => process.exit(code)).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
