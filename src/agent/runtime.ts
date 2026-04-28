@@ -22,10 +22,16 @@ export function systemPrompt(): string {
   ].join("\n");
 }
 
-export function buildRegistry(configProvider: () => Promise<AppConfig | null>): ToolRegistry {
+export function buildRegistry(configProvider: () => Promise<AppConfig | null>, config?: AppConfig): ToolRegistry {
   const registry = new ToolRegistry();
   registry.register(readinessTool(configProvider));
-  registry.register(webSearchTool());
+  const searchOptions: Parameters<typeof webSearchTool>[0] = {
+    allowLocalEndpoints: Boolean(config?.search?.autoDetected || config?.search?.endpoint?.startsWith("http://127.") || config?.search?.endpoint?.startsWith("http://localhost")),
+  };
+  if (config?.search?.provider && config.search.provider !== "none") searchOptions.provider = config.search.provider;
+  if (config?.search?.provider && config.search.provider !== "none" && config.search.endpoint) searchOptions.endpoint = config.search.endpoint;
+  if (config?.search?.apiKeyEnv) searchOptions.apiKeyEnv = config.search.apiKeyEnv;
+  registry.register(webSearchTool(searchOptions));
   for (const tool of projectTools()) registry.register(tool);
   for (const tool of memoryTools()) registry.register(tool);
   return registry;
@@ -41,7 +47,7 @@ export async function respondToMessage(config: AppConfig, message: string, confi
     return { response: `${safety.reason}\n\n${researchDisclaimer()}`, source: "safety" };
   }
 
-  const registry = buildRegistry(configProvider);
+  const registry = buildRegistry(configProvider, config);
   const lowerMessage = message.toLowerCase();
   if (lowerMessage.includes("readiness") || lowerMessage.includes("doctor") || lowerMessage.includes("system status") || lowerMessage.includes("check the repo") || lowerMessage.includes("check repo") || lowerMessage.includes("repo status")) {
     const orchestrated = await runAgentOrchestrator({

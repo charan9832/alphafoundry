@@ -31,9 +31,11 @@ interface RawSearchResponse {
 }
 
 export interface WebSearchToolOptions {
+  provider?: string;
   endpoint?: string;
   apiKeyEnv?: string;
   apiKey?: string;
+  allowLocalEndpoints?: boolean;
   fetchImpl?: typeof fetch;
   now?: () => Date;
 }
@@ -81,7 +83,7 @@ export function webSearchTool(options: WebSearchToolOptions = {}): ToolDefinitio
         );
       }
 
-      const endpointUrl = validateEndpoint(endpoint);
+      const endpointUrl = validateEndpoint(endpoint, Boolean(options.allowLocalEndpoints));
       if (endpointUrl.ok === false) return failedWebSearchObservation(endpointUrl.error);
 
       let apiKey = options.apiKey;
@@ -97,7 +99,7 @@ export function webSearchTool(options: WebSearchToolOptions = {}): ToolDefinitio
         url.searchParams.set("q", query.value);
         url.searchParams.set("limit", String(maxResults));
         if (input?.freshness) url.searchParams.set("freshness", input.freshness);
-        const raw = await fetchSearchJson(url, apiKey, options.fetchImpl ?? fetch);
+        const raw = await fetchSearchJson(url, apiKey, options.fetchImpl ?? fetch, options.provider);
         const provider = typeof raw.provider === "string" && raw.provider.trim() ? cleanText(raw.provider, 80) : endpointUrl.value.hostname;
         const results = sanitizeResults(raw.results).slice(0, maxResults);
         return observation(
@@ -130,41 +132,47 @@ function normalizeMaxResults(value: unknown): number {
   return Math.max(1, Math.min(10, Math.floor(value)));
 }
 
-function validateEndpoint(value: string): { ok: true; value: URL } | { ok: false; error: string } {
+function validateEndpoint(value: string, allowLocalEndpoints = false): { ok: true; value: URL } | { ok: false; error: string } {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
     return { ok: false, error: "ALPHAFOUNDRY_WEB_SEARCH_URL must be a valid URL." };
   }
-  if (url.protocol !== "https:") return { ok: false, error: "Web search endpoint must use https." };
+  if (url.protocol !== "https:" && !(allowLocalEndpoints && url.protocol === "http:")) return { ok: false, error: "Web search endpoint must use https unless it is an explicitly configured local endpoint." };
   const host = url.hostname.toLowerCase();
-  if (host === "localhost" || host === "0.0.0.0" || host === "::1" || host.startsWith("127.")) {
+  if (!allowLocalEndpoints && (host === "localhost" || host === "0.0.0.0" || host === "::1" || host.startsWith("127."))) {
     return { ok: false, error: "Web search endpoint cannot target localhost or loopback addresses." };
   }
-  if (/^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) || /^169\.254\./.test(host)) {
+  if (!allowLocalEndpoints && (/^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) || /^169\.254\./.test(host))) {
     return { ok: false, error: "Web search endpoint cannot target private or link-local addresses." };
   }
   return { ok: true, value: url };
 }
 
-async function fetchSearchJson(url: URL, apiKey: string | undefined, fetchImpl: typeof fetch): Promise<RawSearchResponse> {
+async function fetchSearchJson(url: URL, apiKey: string | undefined, fetchImpl: typeof fetch, provider?: string): Promise<RawSearchResponse> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
+    const isFirecrawl = provider === "firecrawl" || url.pathname.includes("firecrawl") || url.pathname.includes("/v1/search");
+    if (!isFirecrawl) url.searchParams.set("format", "json");
     const response = await fetchImpl(url, {
-      method: "GET",
+      method: isFirecrawl ? "POST" : "GET",
       redirect: "manual",
       signal: controller.signal,
       headers: {
         Accept: "application/json",
+        ...(isFirecrawl ? { "Content-Type": "application/json" } : {}),
         ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
+      ...(isFirecrawl ? { body: JSON.stringify({ query: url.searchParams.get("q") ?? "", limit: Number(url.searchParams.get("limit") ?? "5") }) } : {}),
     });
     if (!response.ok) throw new Error(`provider returned HTTP ${response.status}`);
     const text = await response.text();
     if (text.length > 262_144) throw new Error("provider response exceeded 256KB limit");
-    return JSON.parse(text) as RawSearchResponse;
+    const parsed = JSON.parse(text) as RawSearchResponse & { data?: unknown };
+    if (Array.isArray(parsed.data) && !parsed.results) return { provider: parsed.provider ?? "firecrawl", results: parsed.data };
+    return parsed;
   } finally {
     clearTimeout(timeout);
   }

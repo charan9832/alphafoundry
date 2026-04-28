@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import type { AppConfig, LlmConfig } from "./types.js";
+import type { AppConfig, LlmConfig, SearchConfig } from "./types.js";
 
 export function defaultConfigPath(): string {
   return process.env.ALPHAFOUNDRY_CONFIG_PATH ?? process.env.ALPAFOUNDRY_CONFIG_PATH ?? join(homedir(), ".alphafoundry", "config.json");
@@ -47,6 +47,16 @@ export function applyLlmConfig(config: AppConfig, llm: LlmConfig): AppConfig {
     throw new Error("apiKeyEnv must be an environment variable name, not a raw secret");
   }
   return { ...config, llm };
+}
+
+export function applySearchConfig(config: AppConfig, search: SearchConfig): AppConfig {
+  if (search.apiKeyEnv && (!isValidEnvVarName(search.apiKeyEnv) || containsSecretLikeValue(search.apiKeyEnv))) {
+    throw new Error("search apiKeyEnv must be an environment variable name, not a raw secret");
+  }
+  if (search.provider !== "none" && !search.endpoint) {
+    throw new Error("search endpoint is required unless provider is none");
+  }
+  return { ...config, search };
 }
 
 export function isConfigured(config: AppConfig | null): config is AppConfig & { llm: LlmConfig } {

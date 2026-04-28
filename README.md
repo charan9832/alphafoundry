@@ -57,8 +57,8 @@ af doctor
 | Command | Purpose |
 |---------|---------|
 | `af` | Entrypoint. Opens TUI when onboarded; first-run guidance otherwise. |
-| `af onboard` | Configure provider, model, API key env var, workspace, and later search/tools. |
-| `af doctor` | Readiness report: config, workspace, LLM, and agent runtime. |
+| `af onboard` | Interactive setup for provider, model, API key env var, workspace, and local web search. |
+| `af doctor` | Readiness report: config, workspace, LLM, search, and agent runtime. |
 | `af chat "..."` | One-shot natural-language agent chat. |
 
 ## Architecture
@@ -73,6 +73,28 @@ CLI/TUI → Agent Runtime → Typed Tool Registry → Workspace
 npm run check   # lint + type-check + test
 npm run test
 npm run build
+```
+
+## Onboarding
+
+Run:
+
+```bash
+af onboard
+```
+
+AlphaFoundry asks which LLM provider to use, the model name, API-key environment variable, optional base URL, workspace path, and web-search setup.
+
+For local web search, onboarding can auto-detect common SearXNG and Firecrawl endpoints such as:
+
+- `http://127.0.0.1:8080/search`
+- `http://127.0.0.1:8888/search`
+- `http://127.0.0.1:3002/v1/search`
+
+Automation still works:
+
+```bash
+af onboard --provider local --model local-agent --search-autodetect --non-interactive
 ```
 
 ## Documentation

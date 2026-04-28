@@ -11,6 +11,7 @@ export interface ReadinessReport {
   safety: "ok";
   agentRuntime: "ok";
   financeTools: "not-enabled";
+  search: "configured" | "auto-detected" | "disabled" | "missing-endpoint";
   warnings: string[];
 }
 
@@ -36,6 +37,12 @@ export async function buildReadinessReport(config: AppConfig | null): Promise<Re
     warnings.push(`Missing API key environment variable: ${config.llm.apiKeyEnv}`);
   }
 
+  let search: ReadinessReport["search"] = "disabled";
+  if (config?.search?.provider && config.search.provider !== "none") {
+    search = config.search.endpoint ? (config.search.autoDetected ? "auto-detected" : "configured") : "missing-endpoint";
+    if (!config.search.endpoint) warnings.push("Search provider is set but endpoint is missing.");
+  }
+
   return {
     config: config ? "ok" : "missing",
     workspace,
@@ -44,6 +51,7 @@ export async function buildReadinessReport(config: AppConfig | null): Promise<Re
     safety: "ok",
     agentRuntime: "ok",
     financeTools: "not-enabled",
+    search,
     warnings,
   };
 }

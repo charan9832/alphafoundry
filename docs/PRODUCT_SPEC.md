@@ -46,7 +46,7 @@ Onboarding must configure:
 - base URL if applicable
 - API key environment variable name, never raw key persistence
 - workspace path
-- optional search tool endpoint/env var
+- optional search tool endpoint/env var, with local SearXNG/Firecrawl auto-detection
 
 Onboarding must run:
 

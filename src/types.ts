@@ -9,14 +9,24 @@ export type ProviderKind =
 export interface LlmConfig {
   provider: ProviderKind;
   model: string;
-  baseUrl?: string;
-  apiKeyEnv?: string;
+  baseUrl?: string | undefined;
+  apiKeyEnv?: string | undefined;
+}
+
+export type SearchProviderKind = "none" | "searxng" | "firecrawl" | "custom";
+
+export interface SearchConfig {
+  provider: SearchProviderKind;
+  endpoint?: string | undefined;
+  apiKeyEnv?: string | undefined;
+  autoDetected?: boolean | undefined;
 }
 
 export interface AppConfig {
   version: 1;
   workspace: string;
   llm?: LlmConfig;
+  search?: SearchConfig;
   safety: {
     liveTradingEnabled: false;
     disclaimerAccepted: boolean;
