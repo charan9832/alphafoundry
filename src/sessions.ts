@@ -8,11 +8,27 @@ export interface SessionEvent {
   data: Record<string, unknown>;
 }
 
+export function createSessionId(seed?: string): string {
+  if (!seed?.trim()) return `session-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  const parts = seed.trim().split(/[\\/]+/).filter(Boolean);
+  const lastPathSegment = parts[parts.length - 1] ?? "";
+  const cleaned = lastPathSegment
+    .replace(/[^a-zA-Z0-9_.-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/\.+/g, ".")
+    .replace(/^-+|-+$/g, "")
+    .replace(/^\.+|\.+$/g, "")
+    .slice(0, 120);
+  return cleaned || `session-${Date.now()}`;
+}
+
 export class SessionLog {
+  readonly sessionId: string;
   readonly path: string;
 
-  constructor(workspace: string, sessionId = new Date().toISOString().replace(/[:.]/g, "-")) {
-    this.path = join(workspace, "sessions", `${sessionId}.jsonl`);
+  constructor(workspace: string, sessionId?: string) {
+    this.sessionId = createSessionId(sessionId);
+    this.path = join(workspace, "sessions", `${this.sessionId}.jsonl`);
   }
 
   async append(event: Omit<SessionEvent, "timestamp">): Promise<void> {

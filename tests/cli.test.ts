@@ -112,6 +112,38 @@ describe("cli", () => {
     assert.equal(saved.search.provider, "none");
   });
 
+  it("interactive onboarding changes default model and API key env when provider changes", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "af-cli-"));
+    const config = join(dir, "config.json");
+    const child = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "src/cli.ts", "onboard", "--config", config],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        input: ["openrouter", "", "", "", join(dir, "workspace"), "none"].join("\n") + "\n",
+      }
+    );
+    assert.equal(child.status, 0, child.stderr);
+    assert.match(child.stdout, /Model \[openrouter\/free\]/);
+    assert.match(child.stdout, /API key env var name .*\[OPENROUTER_API_KEY\]/);
+    const saved = JSON.parse(await readFile(config, "utf8"));
+    assert.equal(saved.llm.provider, "openrouter");
+    assert.equal(saved.llm.model, "openrouter/free");
+    assert.equal(saved.llm.apiKeyEnv, "OPENROUTER_API_KEY");
+  });
+
+  it("rejects invalid explicit provider and search provider flags", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "af-cli-"));
+    const badProvider = await capture(() => main(["onboard", "--config", join(dir, "a.json"), "--provider", "garbage", "--non-interactive"]));
+    assert.equal(badProvider.code, 2);
+    assert.match(badProvider.error, /provider/i);
+
+    const badSearch = await capture(() => main(["onboard", "--config", join(dir, "b.json"), "--provider", "local", "--model", "local-agent", "--search-provider", "garbage", "--non-interactive"]));
+    assert.equal(badSearch.code, 2);
+    assert.match(badSearch.error, /search provider/i);
+  });
+
   it("supports natural command fallback like alphafoundry check the repo", async () => {
     const dir = await mkdtemp(join(tmpdir(), "af-cli-"));
     const config = join(dir, "config.json");

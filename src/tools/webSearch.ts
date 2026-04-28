@@ -1,4 +1,5 @@
 import { containsSecretLikeValue, isValidEnvVarName } from "../config.js";
+import { isLoopbackHost, isPrivateOrLinkLocalHost, normalizeHost } from "../netSafety.js";
 import type { ToolDefinition, ToolObservation } from "./types.js";
 import { observation } from "./types.js";
 
@@ -139,14 +140,18 @@ function validateEndpoint(value: string, allowLocalEndpoints = false): { ok: tru
   } catch {
     return { ok: false, error: "ALPHAFOUNDRY_WEB_SEARCH_URL must be a valid URL." };
   }
-  if (url.protocol !== "https:" && !(allowLocalEndpoints && url.protocol === "http:")) return { ok: false, error: "Web search endpoint must use https unless it is an explicitly configured local endpoint." };
-  const host = url.hostname.toLowerCase();
-  if (!allowLocalEndpoints && (host === "localhost" || host === "0.0.0.0" || host === "::1" || host.startsWith("127."))) {
-    return { ok: false, error: "Web search endpoint cannot target localhost or loopback addresses." };
+  if (url.username || url.password) return { ok: false, error: "Web search endpoint cannot include embedded credentials." };
+  const host = normalizeHost(url.hostname);
+  const loopback = isLoopbackHost(host);
+  const privateOrLinkLocal = isPrivateOrLinkLocalHost(host);
+  if (url.protocol === "http:") {
+    if (!allowLocalEndpoints) return { ok: false, error: "Web search endpoint must use https unless it is an explicitly configured local endpoint." };
+    if (!loopback) return { ok: false, error: "Local HTTP web search endpoints must use loopback localhost/127.0.0.1/::1 only; private or link-local hosts are blocked." };
+  } else if (url.protocol !== "https:") {
+    return { ok: false, error: "Web search endpoint must use https, or http only for explicit loopback local endpoints." };
   }
-  if (!allowLocalEndpoints && (/^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) || /^169\.254\./.test(host))) {
-    return { ok: false, error: "Web search endpoint cannot target private or link-local addresses." };
-  }
+  if (!allowLocalEndpoints && loopback) return { ok: false, error: "Web search endpoint cannot target localhost or loopback addresses." };
+  if (privateOrLinkLocal) return { ok: false, error: "Web search endpoint cannot target private or link-local addresses." };
   return { ok: true, value: url };
 }
 
@@ -204,7 +209,12 @@ function cleanText(value: unknown, maxLength: number): string {
 function isSafeResultUrl(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
+    const host = normalizeHost(url.hostname);
+    return (url.protocol === "https:" || url.protocol === "http:")
+      && !url.username
+      && !url.password
+      && !isLoopbackHost(host)
+      && !isPrivateOrLinkLocalHost(host);
   } catch {
     return false;
   }

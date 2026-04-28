@@ -12,18 +12,19 @@
 Done:
 
 - `af` / `alphafoundry` binary mapping exists.
-- `af onboard` writes provider/model/base URL/API-key env/workspace config.
-- `af doctor` checks config/workspace/LLM/runtime readiness.
+- `af onboard` supports interactive provider/model/base URL/API-key-env/workspace setup.
+- `af onboard` supports local SearXNG/Firecrawl autodetection and manual search config.
+- `af doctor` checks config/workspace/LLM/search/runtime readiness.
 - `af chat "..."` supports one-shot chat.
 - `af tui` and bare `af` support the TUI path when running in an interactive terminal.
 - Local smoke adapter exists for tests.
 - Pi SDK adapter exists for real providers.
 
-Remaining:
+Remaining before finance:
 
+- Harden Pi runtime/tool protocol conformance.
+- Add persistent session continuity across TUI turns.
 - Verify a real provider/model with tool calls using a working key/model combination.
-- Make onboarding interactive, not only flag-driven.
-- Improve search-tool setup inside `af onboard`.
 - Add richer TUI status panes and model/tool indicators.
 
 ## Phase 2: Agent tools

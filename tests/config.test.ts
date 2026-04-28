@@ -55,4 +55,25 @@ describe("config", () => {
     const config = createDefaultConfig();
     assert.throws(() => applySearchConfig(config, { provider: "firecrawl", endpoint: "http://127.0.0.1:3002", apiKeyEnv: "sk_test_123456789abcdef" }), /environment variable name/);
   });
+
+  it("rejects invalid search providers and malformed endpoints", () => {
+    const config = createDefaultConfig();
+    assert.throws(() => applySearchConfig(config, { provider: "garbage" as never, endpoint: "https://example.com/search" }), /search provider/);
+    assert.throws(() => applySearchConfig(config, { provider: "searxng", endpoint: "not a url" }), /valid URL/);
+    assert.throws(() => applySearchConfig(config, { provider: "none", endpoint: "https://example.com/search" }), /provider is none/);
+  });
+
+  it("rejects credentialed and private/link-local search URLs", () => {
+    const config = createDefaultConfig();
+    assert.throws(() => applySearchConfig(config, { provider: "custom", endpoint: "https://user:***@example.com/search" }), /credentials/);
+    for (const endpoint of ["https://10.0.0.5/search", "https://192.168.1.1/search", "https://169.254.169.254/latest/meta-data", "https://[::]/search", "https://[::ffff:10.0.0.1]/search", "https://[::ffff:192.168.1.1]/search", "https://[fc00::1]/search", "https://[fd00::1]/search", "https://[fe80::1]/search"]) {
+      assert.throws(() => applySearchConfig(config, { provider: "custom", endpoint }), /private|link-local/, endpoint);
+    }
+  });
+
+  it("does not treat public hostnames starting with fc/fd as private IPv6 literals", () => {
+    const config = createDefaultConfig();
+    const updated = applySearchConfig(config, { provider: "custom", endpoint: "https://fcm.googleapis.com/search" });
+    assert.equal(updated.search?.endpoint, "https://fcm.googleapis.com/search");
+  });
 });

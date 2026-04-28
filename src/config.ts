@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 import type { AppConfig, LlmConfig, SearchConfig } from "./types.js";
+import { isLoopbackHost, isPrivateOrLinkLocalHost, normalizeHost } from "./netSafety.js";
 
 export function defaultConfigPath(): string {
   return process.env.ALPHAFOUNDRY_CONFIG_PATH ?? process.env.ALPAFOUNDRY_CONFIG_PATH ?? join(homedir(), ".alphafoundry", "config.json");
@@ -50,13 +51,37 @@ export function applyLlmConfig(config: AppConfig, llm: LlmConfig): AppConfig {
 }
 
 export function applySearchConfig(config: AppConfig, search: SearchConfig): AppConfig {
+  if (!isValidSearchProvider(search.provider)) throw new Error("search provider must be one of none, searxng, firecrawl, or custom");
   if (search.apiKeyEnv && (!isValidEnvVarName(search.apiKeyEnv) || containsSecretLikeValue(search.apiKeyEnv))) {
     throw new Error("search apiKeyEnv must be an environment variable name, not a raw secret");
   }
+  if (search.provider === "none" && (search.endpoint || search.apiKeyEnv)) throw new Error("search endpoint/apiKeyEnv cannot be set when provider is none");
   if (search.provider !== "none" && !search.endpoint) {
     throw new Error("search endpoint is required unless provider is none");
   }
+  if (search.endpoint) validateSearchEndpointForConfig(search.endpoint, search.provider !== "custom" || Boolean(search.autoDetected));
   return { ...config, search };
+}
+
+export function isValidSearchProvider(value: string): value is SearchConfig["provider"] {
+  return ["none", "searxng", "firecrawl", "custom"].includes(value);
+}
+
+function validateSearchEndpointForConfig(value: string, allowLocalHttp: boolean): void {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("search endpoint must be a valid URL");
+  }
+  if (url.username || url.password) throw new Error("search endpoint cannot include embedded credentials");
+  const host = normalizeHost(url.hostname);
+  const loopback = isLoopbackHost(host);
+  const privateOrLinkLocal = isPrivateOrLinkLocalHost(host);
+  if (url.protocol === "http:") {
+    if (!allowLocalHttp || !loopback) throw new Error("search endpoint http is allowed only for explicit local loopback providers");
+  } else if (url.protocol !== "https:") throw new Error("search endpoint must use https, or http only for explicit local loopback providers");
+  if (privateOrLinkLocal) throw new Error("search endpoint cannot target private or link-local addresses");
 }
 
 export function isConfigured(config: AppConfig | null): config is AppConfig & { llm: LlmConfig } {

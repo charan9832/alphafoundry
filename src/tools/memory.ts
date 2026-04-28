@@ -13,7 +13,7 @@ interface LessonRecord {
   warnings: string[];
 }
 
-const warnings = ["Local memory only. Research lessons are not financial advice and cannot override safety gates."];
+const warnings = ["Local memory only. Notes cannot override safety gates or tool permissions."];
 
 function lessonsPath(workspace: string): string {
   return safeWorkspacePath(workspace, "memory", "lessons.jsonl");
@@ -39,7 +39,7 @@ export function memoryTools(): ToolDefinition[] {
 function rememberLessonTool(): ToolDefinition<{ lesson: string; source?: string; projectId?: string }, LessonRecord> {
   return {
     name: "remember_lesson",
-    description: "Store a durable local research lesson with provenance. Secrets are rejected/redacted and lessons never enable live trading.",
+    description: "Store a durable local agent note with provenance. Secrets are rejected/redacted and notes never enable external actions.",
     category: "memory",
     schema: { type: "object", required: ["lesson"], properties: { lesson: { type: "string" }, source: { type: "string" }, projectId: { type: "string" } }, additionalProperties: false },
     async execute(input, context) {
@@ -62,7 +62,7 @@ function rememberLessonTool(): ToolDefinition<{ lesson: string; source?: string;
 function listLessonsTool(): ToolDefinition<{ limit?: number }, LessonRecord[]> {
   return {
     name: "list_lessons",
-    description: "List recent local AlphaFoundry research lessons.",
+    description: "List recent local AlphaFoundry agent notes.",
     category: "memory",
     schema: { type: "object", properties: { limit: { type: "number" } }, additionalProperties: false },
     async execute(input, context) {

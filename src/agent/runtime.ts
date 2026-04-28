@@ -37,8 +37,12 @@ export function buildRegistry(configProvider: () => Promise<AppConfig | null>, c
   return registry;
 }
 
-export async function respondToMessage(config: AppConfig, message: string, configProvider: () => Promise<AppConfig | null>): Promise<AgentResponse> {
-  const session = new SessionLog(config.workspace);
+export interface RespondOptions {
+  sessionId?: string | undefined;
+}
+
+export async function respondToMessage(config: AppConfig, message: string, configProvider: () => Promise<AppConfig | null>, options: RespondOptions = {}): Promise<AgentResponse> {
+  const session = new SessionLog(config.workspace, options.sessionId);
   await session.append({ type: "user", data: { message } });
 
   const safety = evaluateSafety(message);

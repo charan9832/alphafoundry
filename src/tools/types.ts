@@ -17,7 +17,7 @@ export interface ToolObservation<T = unknown> {
 export interface ToolDefinition<Input = unknown, Output = unknown> {
   name: string;
   description: string;
-  category: "system" | "data" | "backtest" | "validation" | "report" | "memory";
+  category: "system" | "data" | "memory" | "workspace" | "report";
   schema: Record<string, unknown>;
   execute(input: Input, context: ToolContext): Promise<ToolObservation<Output>>;
 }

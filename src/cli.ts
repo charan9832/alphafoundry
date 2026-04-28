@@ -5,7 +5,7 @@ import { buildReadinessReport } from "./tools/readiness.js";
 import { runTui } from "./tui/app.js";
 import type { LlmConfig, ProviderKind } from "./types.js";
 import { basename } from "node:path";
-import { askOnboardingQuestions, defaultModelForProvider, detectLocalSearch, inferSearchProvider, parseProvider } from "./onboarding.js";
+import { askOnboardingQuestions, defaultApiKeyEnvForProvider, defaultModelForProvider, detectLocalSearch, inferSearchProvider, isValidProvider, parseProvider } from "./onboarding.js";
 
 interface ParsedArgs {
   command: string | undefined;
@@ -45,7 +45,7 @@ function isBooleanFlag(key: string): boolean {
 }
 
 function isStringFlag(key: string): boolean {
-  return new Set(["config", "workspace", "provider", "model", "base-url", "api-key-env", "search-provider", "search-endpoint", "search-api-key-env", "search-probe"]).has(key);
+  return new Set(["config", "workspace", "provider", "model", "base-url", "api-key-env", "search-provider", "search-endpoint", "search-api-key-env", "search-probe", "session"]).has(key);
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
@@ -60,7 +60,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const command = args.command ?? "launch";
 
   if (command === "launch") return launch(configPath);
-  if (command === "onboard") return onboard(args, configPath);
+  if (command === "onboard") {
+    try {
+      return await onboard(args, configPath);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return 2;
+    }
+  }
   if (command === "doctor") return doctor(configPath, Boolean(args.flags.json));
   if (command === "chat") return chat(args, configPath);
   if (command === "tui") return tui(configPath);
@@ -111,13 +118,18 @@ async function onboard(args: ParsedArgs, configPath: string): Promise<number> {
   } else {
     const currentProvider = existing.llm?.provider;
     const currentModel = existing.llm?.model;
+    if (typeof args.flags.provider === "string" && !isValidProvider(args.flags.provider)) throw new Error(`Invalid provider: ${args.flags.provider}`);
     const provider = parseProvider(typeof args.flags.provider === "string" ? args.flags.provider : currentProvider ?? "local", currentProvider ?? "local");
-    const model = typeof args.flags.model === "string" ? args.flags.model : currentModel ?? defaultModelForProvider(provider);
+    const providerChanged = provider !== currentProvider;
+    const model = typeof args.flags.model === "string" ? args.flags.model : providerChanged ? defaultModelForProvider(provider) : currentModel ?? defaultModelForProvider(provider);
     const llm: LlmConfig = { provider, model };
     if (typeof args.flags["base-url"] === "string") llm.baseUrl = args.flags["base-url"];
     else if (existing.llm?.baseUrl) llm.baseUrl = existing.llm.baseUrl;
     if (typeof args.flags["api-key-env"] === "string") llm.apiKeyEnv = args.flags["api-key-env"];
-    else if (existing.llm?.apiKeyEnv) llm.apiKeyEnv = existing.llm.apiKeyEnv;
+    else if (providerChanged) {
+      const env = defaultApiKeyEnvForProvider(provider);
+      if (env) llm.apiKeyEnv = env;
+    } else if (existing.llm?.apiKeyEnv) llm.apiKeyEnv = existing.llm.apiKeyEnv;
     updated = applyLlmConfig(existing, llm);
 
     const search = await searchConfigFromFlags(args, existing.search);
@@ -170,7 +182,8 @@ async function chat(args: ParsedArgs, configPath: string): Promise<number> {
     return 1;
   }
   const message = args.positionals.join(" ").trim() || "hey";
-  const result = await respondToMessage(config, message, () => loadConfig(configPath));
+  const sessionId = typeof args.flags.session === "string" ? args.flags.session : undefined;
+  const result = await respondToMessage(config, message, () => loadConfig(configPath), { sessionId });
   if (args.flags.json) console.log(JSON.stringify(result, null, 2));
   else console.log(result.response);
   return 0;
@@ -187,7 +200,7 @@ async function tui(configPath: string): Promise<number> {
 }
 
 function help(): number {
-  console.log(`AlphaFoundry\n\nUsage:\n  af                  Open interactive chat when onboarded\n  af onboard          Interactive LLM/search/workspace setup\n  af doctor [--json]  Check readiness\n  af chat <message>   Talk to the agent one-shot\n  af tui              Open interactive TUI chat explicitly\n  af <free text>      Natural command fallback, same as chat\n\nExamples:\n  af onboard\n  af onboard --provider local --model local-agent --search-autodetect --non-interactive\n  af chat "hey"\n  af chat "search the web for recent AI agent news" --json\n\nLocal search autodetect probes common SearXNG and Firecrawl endpoints.\nManual search flags:\n  --search-provider searxng|firecrawl|custom|none\n  --search-endpoint http://127.0.0.1:8080/search\n  --search-api-key-env SEARCH_API_KEY_ENV`);
+  console.log(`AlphaFoundry\n\nUsage:\n  af                  Open interactive chat when onboarded\n  af onboard          Interactive LLM/search/workspace setup\n  af doctor [--json]  Check readiness\n  af chat <message> [--session ID]   Talk to the agent one-shot\n  af tui              Open interactive TUI chat explicitly\n  af <free text>      Natural command fallback, same as chat\n\nExamples:\n  af onboard\n  af onboard --provider local --model local-agent --search-autodetect --non-interactive\n  af chat "hey"\n  af chat "search the web for recent AI agent news" --json\n\nLocal search autodetect probes common SearXNG and Firecrawl endpoints.\nManual search flags:\n  --search-provider searxng|firecrawl|custom|none\n  --search-endpoint http://127.0.0.1:8080/search\n  --search-api-key-env SEARCH_API_KEY_ENV`);
   return 0;
 }
 

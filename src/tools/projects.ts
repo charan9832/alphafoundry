@@ -43,7 +43,7 @@ export function projectTools(): ToolDefinition[] {
 function createProjectTool(): ToolDefinition<{ name: string; thesis?: string; symbols?: string[] }, ProjectRecord> {
   return {
     name: "create_project",
-    description: "Create a local AlphaFoundry strategy research project with safe workspace persistence and no live trading capability.",
+    description: "Create a local AlphaFoundry workspace project with safe local persistence and no external action capability.",
     category: "system",
     schema: { type: "object", required: ["name"], properties: { name: { type: "string" }, thesis: { type: "string" }, symbols: { type: "array", items: { type: "string" } } }, additionalProperties: false },
     async execute(input, context) {
@@ -58,7 +58,7 @@ function createProjectTool(): ToolDefinition<{ name: string; thesis?: string; sy
           updatedAt: now,
           symbols: (input.symbols ?? []).map((symbol) => symbol.trim().toUpperCase()).filter(Boolean),
           artifactPaths: [],
-          warnings: ["Research and paper validation only. No broker access, live trading, or order placement."],
+          warnings: ["Local workspace record only. This does not enable external actions or account access."],
         };
         if (input.thesis?.trim()) record.thesis = input.thesis.trim();
         await writeJsonFile(projectPath(context.workspace, id), record);
@@ -75,7 +75,7 @@ function createProjectTool(): ToolDefinition<{ name: string; thesis?: string; sy
 function listProjectsTool(): ToolDefinition<Record<string, never>, ProjectRecord[]> {
   return {
     name: "list_projects",
-    description: "List local AlphaFoundry research projects from the workspace.",
+    description: "List local AlphaFoundry workspace projects.",
     category: "system",
     schema: { type: "object", additionalProperties: false },
     async execute(_input, context) {
@@ -92,7 +92,7 @@ function listProjectsTool(): ToolDefinition<Record<string, never>, ProjectRecord
 function getProjectTool(): ToolDefinition<{ id: string }, ProjectRecord> {
   return {
     name: "get_project",
-    description: "Read one local AlphaFoundry research project.",
+    description: "Read one local AlphaFoundry workspace project.",
     category: "system",
     schema: { type: "object", required: ["id"], properties: { id: { type: "string" } }, additionalProperties: false },
     async execute(input, context) {

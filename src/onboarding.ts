@@ -29,6 +29,21 @@ export function defaultModelForProvider(provider: ProviderKind): string {
   }
 }
 
+export function defaultApiKeyEnvForProvider(provider: ProviderKind): string {
+  switch (provider) {
+    case "local": return "";
+    case "openrouter": return "OPENROUTER_API_KEY";
+    case "openai-compatible": return "OPENAI_API_KEY";
+    case "azure-openai": return "AZURE_OPENAI_API_KEY";
+    case "anthropic": return "ANTHROPIC_API_KEY";
+    case "gemini": return "GEMINI_API_KEY";
+  }
+}
+
+export function isValidProvider(value: string): value is ProviderKind {
+  return PROVIDERS.includes(value.trim() as ProviderKind);
+}
+
 export function parseProvider(value: string, fallback: ProviderKind = "local"): ProviderKind {
   const normalized = value.trim() as ProviderKind;
   return PROVIDERS.includes(normalized) ? normalized : fallback;
@@ -47,9 +62,12 @@ export async function askOnboardingQuestions(defaults: {
   try {
     console.log("AlphaFoundry onboarding");
     console.log(`Providers: ${PROVIDERS.join(", ")}`);
-    const provider = parseProvider(await ask(rl, `Choose LLM provider`, defaults.provider), defaults.provider);
-    const model = await ask(rl, "Model", defaults.model || defaultModelForProvider(provider));
-    const apiKeyEnv = cleanOptional(await ask(rl, "API key env var name (blank for none/local)", defaults.apiKeyEnv ?? ""));
+    const providerInput = await ask(rl, `Choose LLM provider`, defaults.provider);
+    if (!isValidProvider(providerInput)) throw new Error(`Invalid provider: ${providerInput}`);
+    const provider = parseProvider(providerInput, defaults.provider);
+    const providerChanged = provider !== defaults.provider;
+    const model = await ask(rl, "Model", providerChanged ? defaultModelForProvider(provider) : (defaults.model || defaultModelForProvider(provider)));
+    const apiKeyEnv = cleanOptional(await ask(rl, "API key env var name (name only, not the key value)", providerChanged ? defaultApiKeyEnvForProvider(provider) : (defaults.apiKeyEnv ?? defaultApiKeyEnvForProvider(provider))));
     const baseUrl = cleanOptional(await ask(rl, "Base URL (blank unless custom/Azure/OpenAI-compatible)", defaults.baseUrl ?? ""));
     const workspace = await ask(rl, "Workspace path", defaults.workspace);
 
@@ -81,9 +99,12 @@ async function askOnboardingQuestionsFromPipedInput(defaults: {
 
   console.log("AlphaFoundry onboarding");
   console.log(`Providers: ${PROVIDERS.join(", ")}`);
-  const provider = parseProvider(next("Choose LLM provider", defaults.provider), defaults.provider);
-  const model = next("Model", defaults.model || defaultModelForProvider(provider));
-  const apiKeyEnv = cleanOptional(next("API key env var name (blank for none/local)", defaults.apiKeyEnv ?? ""));
+  const providerInput = next("Choose LLM provider", defaults.provider);
+  if (!isValidProvider(providerInput)) throw new Error(`Invalid provider: ${providerInput}`);
+  const provider = parseProvider(providerInput, defaults.provider);
+  const providerChanged = provider !== defaults.provider;
+  const model = next("Model", providerChanged ? defaultModelForProvider(provider) : (defaults.model || defaultModelForProvider(provider)));
+  const apiKeyEnv = cleanOptional(next("API key env var name (name only, not the key value)", providerChanged ? defaultApiKeyEnvForProvider(provider) : (defaults.apiKeyEnv ?? defaultApiKeyEnvForProvider(provider))));
   const baseUrl = cleanOptional(next("Base URL (blank unless custom/Azure/OpenAI-compatible)", defaults.baseUrl ?? ""));
   const workspace = next("Workspace path", defaults.workspace);
   console.log("Configure web search: auto, searxng, firecrawl, custom, none");
@@ -98,7 +119,7 @@ async function askOnboardingQuestionsFromPipedInput(defaults: {
     const searchApiKeyEnv = cleanOptional(next("Search API key env var name (blank for none)", defaults.search?.apiKeyEnv ?? ""));
     search = { provider: searchChoice, endpoint, apiKeyEnv: searchApiKeyEnv };
   } else {
-    search = { provider: "none" };
+    throw new Error(`Invalid search provider: ${searchChoice}`);
   }
   return { provider, model, apiKeyEnv, baseUrl, workspace, search };
 }
@@ -131,7 +152,7 @@ async function searchConfigFromChoice(choice: string, existing?: SearchConfig): 
       rl.close();
     }
   }
-  return { provider: "none" };
+  throw new Error(`Invalid search provider: ${choice}`);
 }
 
 export function defaultSearchProbeUrls(): string[] {

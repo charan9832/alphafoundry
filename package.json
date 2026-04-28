@@ -1,7 +1,7 @@
 {
   "name": "alphafoundry",
   "version": "0.1.0",
-  "description": "A local-first Pi-powered terminal AI agent with simple af commands and finance tools planned later.",
+  "description": "A local-first Pi-powered terminal AI agent with simple af commands and extensible tool packs.",
   "type": "module",
   "bin": {
     "af": "./dist/src/cli.js",

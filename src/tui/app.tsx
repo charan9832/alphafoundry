@@ -4,6 +4,7 @@ import TextInput from "ink-text-input";
 import Spinner from "ink-spinner";
 import type { AppConfig } from "../types.js";
 import { respondToMessage } from "../agent/runtime.js";
+import { createSessionId } from "../sessions.js";
 
 interface Message {
   role: "user" | "assistant";
@@ -15,15 +16,30 @@ function App({ config }: { config: AppConfig }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [sessionId] = useState(() => createSessionId());
 
   const sendMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || processing) return;
+      if (text.trim() === "/quit") {
+        exit();
+        return;
+      }
+      if (text.trim() === "/clear") {
+        setMessages([]);
+        setInput("");
+        return;
+      }
+      if (text.trim() === "/help") {
+        setMessages((prev) => [...prev, { role: "assistant", content: "Commands: /help, /clear, /quit. Try: check readiness, search the web for recent AI agent news, create project." }]);
+        setInput("");
+        return;
+      }
       setMessages((prev) => [...prev, { role: "user", content: text }]);
       setInput("");
       setProcessing(true);
       try {
-        const result = await respondToMessage(config, text, () => Promise.resolve(config));
+        const result = await respondToMessage(config, text, () => Promise.resolve(config), { sessionId });
         setMessages((prev) => [...prev, { role: "assistant", content: result.response }]);
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
@@ -32,7 +48,7 @@ function App({ config }: { config: AppConfig }) {
         setProcessing(false);
       }
     },
-    [config, processing]
+    [config, processing, sessionId, exit]
   );
 
   useInput((inputChar, key) => {
@@ -44,6 +60,7 @@ function App({ config }: { config: AppConfig }) {
   const visible = messages.slice(-12);
   const provider = config.llm?.provider ?? "unknown";
   const model = config.llm?.model ?? "unknown";
+  const search = config.search?.provider && config.search.provider !== "none" ? config.search.provider : "search off";
 
   return (
     <Box flexDirection="column" height="100%">
@@ -53,7 +70,7 @@ function App({ config }: { config: AppConfig }) {
         </Text>
         <Text> | </Text>
         <Text dimColor>
-          {provider}/{model}
+          {provider}/{model} | {search} | {sessionId}
         </Text>
         {processing && (
           <>
@@ -87,7 +104,7 @@ function App({ config }: { config: AppConfig }) {
       </Box>
 
       <Box paddingX={1}>
-        <Text dimColor>Enter to send | Esc to exit | Ctrl+C to quit</Text>
+        <Text dimColor>Enter to send | /help | /clear | /quit | Esc/Ctrl+C to quit</Text>
       </Box>
     </Box>
   );
