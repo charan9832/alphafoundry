@@ -40,6 +40,19 @@ describe("cli", () => {
     assert.match(chat.output, /"source": "llm"/);
   });
 
+  it("supports natural command fallback like alphafoundry check the repo", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "af-cli-"));
+    const config = join(dir, "config.json");
+    const workspace = join(dir, "workspace");
+    const onboard = await capture(() => main(["onboard", "--config", config, "--workspace", workspace, "--provider", "local", "--model", "local-agent", "--non-interactive"]));
+    assert.equal(onboard.code, 0);
+    const result = await capture(() => main(["check", "the", "repo", "--config", config]));
+    assert.equal(result.code, 0);
+    assert.match(result.output, /Run:/);
+    assert.match(result.output, /Tool steps:/);
+    assert.match(result.output, /readiness/);
+  });
+
   it("returns an error for missing string flag values", async () => {
     const result = await capture(() => main(["doctor", "--config"]));
     assert.equal(result.code, 2);

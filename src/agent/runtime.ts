@@ -49,7 +49,7 @@ export async function respondToMessage(config: AppConfig, message: string, confi
 
   const registry = buildRegistry(configProvider);
   const lowerMessage = message.toLowerCase();
-  if (lowerMessage.includes("readiness") || lowerMessage.includes("doctor") || lowerMessage.includes("system status")) {
+  if (lowerMessage.includes("readiness") || lowerMessage.includes("doctor") || lowerMessage.includes("system status") || lowerMessage.includes("check the repo") || lowerMessage.includes("check repo") || lowerMessage.includes("repo status")) {
     const orchestrated = await runAgentOrchestrator({
       config,
       message,

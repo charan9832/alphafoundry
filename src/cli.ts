@@ -64,8 +64,9 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "chat") return chat(args, configPath);
   if (command === "help" || command === "--help" || command === "-h") return help();
 
-  console.error(`Unknown command: ${command}`);
-  return 2;
+  // Natural command fallback: `alphafoundry check the repo` behaves like
+  // `alphafoundry chat "check the repo"` while keeping known subcommands explicit.
+  return chat({ ...args, command: "chat", positionals: [command, ...args.positionals] }, configPath);
 }
 
 async function launch(configPath: string): Promise<number> {

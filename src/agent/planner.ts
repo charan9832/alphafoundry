@@ -14,7 +14,9 @@ export function createSimplePlan(objective: string, tools: PlannerToolSummary[])
   const lower = objective.toLowerCase();
   const readiness = tools.find((tool) => tool.name === "readiness");
   const research = tools.find((tool) => tool.name === "run_research_workflow");
-  const chosen = (lower.includes("readiness") || lower.includes("doctor") || lower.includes("system status")) ? readiness : research ?? readiness;
+  const wantsReadiness = lower.includes("readiness") || lower.includes("doctor") || lower.includes("system status") || lower.includes("check the repo") || lower.includes("check repo") || lower.includes("repo status") || lower.includes("status");
+  const wantsResearch = lower.includes("research") || lower.includes("backtest") || lower.includes("strategy") || lower.includes("validation");
+  const chosen = wantsReadiness ? readiness : wantsResearch ? research ?? readiness : readiness ?? research;
 
   return {
     planId: id("plan"),
