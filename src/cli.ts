@@ -3,6 +3,7 @@ import { applyLlmConfig, createDefaultConfig, defaultConfigPath, isConfigured, l
 import { respondToMessage } from "./agent/runtime.js";
 import { buildReadinessReport } from "./tools/readiness.js";
 import { researchDisclaimer } from "./safety.js";
+import { runTui } from "./tui/app.js";
 import type { LlmConfig, ProviderKind } from "./types.js";
 import { basename } from "node:path";
 
@@ -62,6 +63,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "onboard") return onboard(args, configPath);
   if (command === "doctor") return doctor(configPath, Boolean(args.flags.json));
   if (command === "chat") return chat(args, configPath);
+  if (command === "tui") return tui(configPath);
   if (command === "help" || command === "--help" || command === "-h") return help();
 
   // Natural command fallback: `alphafoundry check the repo` behaves like
@@ -117,8 +119,18 @@ async function chat(args: ParsedArgs, configPath: string): Promise<number> {
   return 0;
 }
 
+async function tui(configPath: string): Promise<number> {
+  const config = await loadConfig(configPath);
+  if (!isConfigured(config)) {
+    console.log("AlphaFoundry is not onboarded yet. Run `alphafoundry onboard` first.");
+    return 1;
+  }
+  await runTui(config);
+  return 0;
+}
+
 function help(): number {
-  console.log(`AlphaFoundry\n\nCommands:\n  launch             Open product entrypoint\n  onboard            Configure LLM provider and workspace\n  doctor [--json]    Check readiness\n  chat <message>     Talk to the agent\n\nSafety: research/paper-validation only; live trading disabled.`);
+  console.log(`AlphaFoundry\n\nCommands:\n  launch             Open product entrypoint\n  onboard            Configure LLM provider and workspace\n  doctor [--json]    Check readiness\n  chat <message>     Talk to the agent (one-shot)\n  tui                Open interactive TUI chat\n\nSafety: research/paper-validation only; live trading disabled.`);
   return 0;
 }
 
