@@ -54,4 +54,4 @@ Goal: make AlphaFoundry releasable and supportable.
 
 ## Current status
 
-The product identity/config/doctor foundation is in place. The largest remaining product risk is runtime depth: streaming, sessions, cancellation, and real tool-call visibility should be prioritized before more visual polish.
+The installed package path, config-controlled runtime execution, config validation/redaction, doctor diagnostics, RPC lifecycle hardening, and TUI command honesty are in place. The next release-readiness focus is reproducible release discipline: follow `docs/RELEASE.md`, keep CI green across supported platforms, and update `CHANGELOG.md` before publishing. Curated Pi package integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the AlphaFoundry release path is stable.

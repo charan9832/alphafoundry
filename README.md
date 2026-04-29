@@ -172,6 +172,8 @@ af doctor --json
 
 AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, and TUI workflow. The current runtime adapter delegates model/tool execution to `@mariozechner/pi-coding-agent`. Future runtime work will deepen streaming, sessions, cancellation, tool visibility, and provider/model discovery while preserving AlphaFoundry as the product identity.
 
-## Roadmap
+## Release and roadmap
 
-See `docs/ROADMAP.md` for the council-derived implementation phases.
+- See `docs/ROADMAP.md` for the council-derived implementation phases.
+- See `docs/RELEASE.md` for the release checklist, verification gates, and npm publish runbook.
+- See `CHANGELOG.md` for notable changes and known limitations.
