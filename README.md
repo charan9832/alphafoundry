@@ -1,6 +1,8 @@
 # AlphaFoundry
 
-AlphaFoundry is an opencode-style terminal TUI that keeps the `af` command and delegates model/tool execution to Pi Agent.
+AlphaFoundry is a context-first terminal TUI that keeps the `af` command and delegates model/tool execution to Pi Agent.
+
+The current TUI is inspired by Huashu Design principles: do not start from generic AI chrome; start from design context, restrained hierarchy, reasoning, craft review, and clear placeholders.
 
 ## Run
 
@@ -23,14 +25,20 @@ af -p "hello"              # one-shot prompt through Pi Agent
 
 ```text
 /help
-/model <id>
+/model <provider/model>
 /provider <name>
 /clear
 /exit
 ```
 
-## Design
+## Design direction
 
-The TUI borrows the OpenCode feel: compact header, current provider/model, scrollable chat-like transcript, command hints, and a prompt line.
+The TUI is intentionally calmer than a busy coding shell:
+
+- Design context card first
+- Restrained colors instead of neon AI clichés
+- Clear status: Ask · Search · Build · Review
+- Reasoning and context are visible in the transcript
+- Craft score reminds the agent not to ship generic output
 
 Runtime backend: `@mariozechner/pi-coding-agent`.

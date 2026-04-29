@@ -12,7 +12,7 @@ async function main() {
   }
 
   if (args.includes("--help") || args.includes("-h")) {
-    console.log(`AlphaFoundry - opencode-style TUI powered by Pi Agent
+    console.log(`AlphaFoundry - context-first TUI powered by Pi Agent
 
 Usage:
   af                         Start AlphaFoundry TUI
@@ -22,10 +22,13 @@ Usage:
 
 TUI commands:
   /help                      Show TUI help
-  /model <id>                Set model hint
+  /model <provider/model>    Set provider/model hint
   /provider <name>           Set provider hint
   /clear                     Clear chat
   /exit                      Quit
+
+Design direction:
+  Huashu-inspired: context first, restrained palette, visible reasoning, craft review.
 
 AlphaFoundry keeps the af command and delegates model/tool execution to @mariozechner/pi-coding-agent.
 `);

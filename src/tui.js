@@ -6,13 +6,13 @@ const colors = {
   reset: "\x1b[0m",
   dim: "\x1b[2m",
   bold: "\x1b[1m",
-  cyan: "\x1b[36m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  magenta: "\x1b[35m",
-  red: "\x1b[31m",
-  gray: "\x1b[90m",
-  inverse: "\x1b[7m",
+  ivory: "\x1b[97m",
+  ink: "\x1b[37m",
+  muted: "\x1b[90m",
+  clay: "\x1b[33m",
+  moss: "\x1b[32m",
+  sky: "\x1b[36m",
+  error: "\x1b[31m",
 };
 
 const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -29,6 +29,10 @@ export function visibleLength(value) {
   return stripAnsi(value).length;
 }
 
+export function designScore({ hasContext = true, hasReasoning = true, restrained = true } = {}) {
+  return 4 + (hasContext ? 2 : 0) + (hasReasoning ? 1 : 0) + (restrained ? 1 : 0);
+}
+
 function truncateMiddle(value, max = 48) {
   const text = String(value);
   if (text.length <= max) return text;
@@ -37,54 +41,67 @@ function truncateMiddle(value, max = 48) {
   return `${text.slice(0, left)}…${text.slice(-right)}`;
 }
 
+function rule(width, char = "─") {
+  return char.repeat(Math.max(24, width));
+}
+
 function tint(role) {
-  if (role === "user") return colors.cyan;
-  if (role === "assistant") return colors.green;
-  if (role === "system") return colors.yellow;
-  if (role === "error") return colors.red;
-  return colors.magenta;
+  if (role === "user") return colors.sky;
+  if (role === "assistant") return colors.moss;
+  if (role === "system") return colors.clay;
+  if (role === "error") return colors.error;
+  return colors.ink;
 }
 
 export function roleLabel(role) {
-  if (role === "assistant") return `${colors.green}assistant${colors.reset}`;
-  if (role === "user") return `${colors.cyan}you${colors.reset}`;
-  if (role === "system") return `${colors.yellow}system${colors.reset}`;
-  return `${tint(role)}${role}${colors.reset}`;
+  if (role === "assistant") return `${colors.moss}Reasoning${colors.reset}`;
+  if (role === "user") return `${colors.sky}Brief${colors.reset}`;
+  if (role === "system") return `${colors.clay}Context${colors.reset}`;
+  if (role === "error") return `${colors.error}Issue${colors.reset}`;
+  return `${colors.ink}${role}${colors.reset}`;
 }
 
-function renderMessage(message, width) {
-  const label = roleLabel(message.role);
-  const bullet = `${tint(message.role)}▸${colors.reset}`;
+function renderMessage(message) {
   const text = String(message.text ?? "").split("\n");
-  const first = `${bullet} ${label} ${text[0] ?? ""}`;
-  const rest = text.slice(1).map((line) => `${colors.gray}│${colors.reset} ${line}`);
-  const block = [first, ...rest].join("\n");
-  return width < 64 ? block : `${block}`;
+  const label = roleLabel(message.role);
+  const first = `${tint(message.role)}◆${colors.reset} ${label} ${text[0] ?? ""}`;
+  const rest = text.slice(1).map((line) => `${colors.muted}│${colors.reset} ${line}`);
+  return [first, ...rest].join("\n");
 }
 
-function renderStatus(state, width) {
+function renderHeader(state, width) {
+  const sessionID = state.sessionID ?? "new";
   const provider = state.provider ?? process.env.AF_PROVIDER ?? process.env.PI_PROVIDER ?? "google";
   const model = state.model ?? process.env.AF_MODEL ?? process.env.PI_MODEL ?? "default";
-  const modelLabel = `${provider}/${model}`;
+  const cwd = truncateMiddle(state.cwd ?? process.cwd(), Math.max(24, Math.floor(width * 0.38)));
+  return [
+    `${colors.bold}${colors.ivory}ALPHAFOUNDRY${colors.reset}  ${colors.muted}${sessionID}${colors.reset}`,
+    `${colors.muted}${cwd}${colors.reset}  ${colors.sky}${provider}/${model}${colors.reset}`,
+  ].join("\n");
+}
+
+function renderContextCard(state, width) {
   const running = state.status === "running";
-  const status = running ? `${colors.yellow}${spinnerFrame(state.tick ?? 0)} thinking${colors.reset}` : `${colors.green}● idle${colors.reset}`;
-  const tokens = state.tokens === undefined ? "tokens 0" : `tokens ${state.tokens}`;
-  const cost = state.cost === undefined ? "cost $0.00" : `cost ${state.cost}`;
-  const cwd = truncateMiddle(state.cwd ?? process.cwd(), Math.max(24, Math.floor(width / 3)));
-  return `${colors.gray}${cwd}${colors.reset}  ${colors.cyan}${modelLabel}${colors.reset}  ${status}  ${colors.gray}${tokens}  ${cost}${colors.reset}`;
+  const status = running ? `${colors.clay}${spinnerFrame(state.tick ?? 0)} Designing${colors.reset}` : `${colors.moss}● Ready${colors.reset}`;
+  const score = designScore({ hasContext: true, hasReasoning: true, restrained: true });
+  const tokens = state.tokens === undefined ? 0 : state.tokens;
+  const cost = state.cost ?? "$0.00";
+  return [
+    `${colors.muted}Design context${colors.reset}`,
+    `${status}  ${colors.muted}Score ${score}/10 · No generic AI shell · Ask · Search · Build · Review${colors.reset}`,
+    `${colors.muted}Craft${colors.reset} restrained palette · 8pt rhythm · context before output · tokens ${tokens} · cost ${cost}`,
+    rule(Math.min(width, 88), "─"),
+  ].join("\n");
 }
 
-function renderTopBar(state, width) {
-  const sessionID = state.sessionID ?? "new";
-  const title = `${colors.inverse}${colors.bold} alphafoundry ${colors.reset} ${colors.gray}${sessionID}${colors.reset}`;
-  const right = `${colors.gray}ctrl+p command  ctrl+x m model  ctrl+x l sessions${colors.reset}`;
-  const gap = Math.max(1, width - visibleLength(title) - visibleLength(right));
-  return `${title}${" ".repeat(gap)}${right}`;
-}
-
-function renderPrompt(inputValue) {
-  const placeholder = inputValue ? inputValue : `${colors.gray}message AlphaFoundry…${colors.reset}`;
-  return `${colors.gray}╭────────────────────────────────────────────────────────────────────────────╮${colors.reset}\n${colors.gray}│${colors.reset} ${placeholder}\n${colors.gray}╰────────────────────────────────────────────────────────────────────────────╯${colors.reset}`;
+function renderPrompt(inputValue, width) {
+  const placeholder = inputValue ? inputValue : `${colors.muted}Describe the design/task. I inspect context first…${colors.reset}`;
+  const lineWidth = Math.min(width, 88);
+  return [
+    `${colors.muted}╭${rule(lineWidth - 2, "─")}╮${colors.reset}`,
+    `${colors.muted}│${colors.reset} ${placeholder}`,
+    `${colors.muted}╰${rule(lineWidth - 2, "─")}╯${colors.reset}`,
+  ].join("\n");
 }
 
 export function parseSlashCommand(raw) {
@@ -100,32 +117,35 @@ export function parseSlashCommand(raw) {
 export function renderFrame(state = {}) {
   const width = Math.min(Number(process.stdout.columns) || 96, 120);
   const messages = state.messages ?? [];
-  const inputValue = state.input ?? "";
   const transcript = messages.length
-    ? messages.map((message) => renderMessage(message, width)).join("\n\n")
-    : `${colors.gray}No messages yet. Ask for a task, review, or command.${colors.reset}`;
+    ? messages.map((message) => renderMessage(message)).join("\n\n")
+    : `${colors.muted}No transcript yet. Start with a brief, reference, or file path.${colors.reset}`;
   return [
-    renderTopBar(state, width),
-    renderStatus(state, width),
+    renderHeader(state, width),
+    "",
+    renderContextCard(state, width),
     "",
     transcript,
     "",
-    renderPrompt(inputValue),
-    `${colors.gray}/help  /clear  /model <provider/model>  /provider <name>  /exit${colors.reset}`,
+    renderPrompt(state.input ?? "", width),
+    `${colors.muted}/help  /model <provider/model>  /provider <name>  /clear  /exit${colors.reset}`,
   ].join("\n");
 }
 
 export function helpMessage() {
   return [
+    "Huashu-inspired workflow:",
+    "  1. Ask for design context instead of guessing.",
+    "  2. Use restrained palette and clear hierarchy.",
+    "  3. Show assumptions/reasoning early.",
+    "  4. Review craft before calling it done.",
+    "",
     "Commands:",
     "  /help              show this help",
-    "  /model <id>        set model hint for this TUI session",
+    "  /model <id>        set provider/model hint for this TUI session",
     "  /provider <name>   set provider hint for this TUI session",
     "  /clear             clear visible chat",
     "  /exit              quit",
-    "",
-    "Key hints mirror OpenCode: ctrl+p command, ctrl+x m model, ctrl+x l sessions.",
-    "Prompts are delegated to Pi Agent with `-p --no-session`.",
   ].join("\n");
 }
 
@@ -140,7 +160,7 @@ export async function startTui(options = {}) {
     sessionID: `ses_${Date.now().toString(36)}`,
     tokens: 0,
     cost: "$0.00",
-    messages: [{ role: "system", text: "AlphaFoundry ready. Use ctrl+p-style commands or type /help." }],
+    messages: [{ role: "system", text: "Design context is empty. Add screenshots, repo paths, or references when possible." }],
   };
 
   const draw = () => {
@@ -161,7 +181,7 @@ export async function startTui(options = {}) {
         continue;
       }
       if (command.type === "clear") {
-        state.messages = [{ role: "system", text: "Chat cleared." }];
+        state.messages = [{ role: "system", text: "Chat cleared. Context-first mode is still on." }];
         draw();
         continue;
       }
