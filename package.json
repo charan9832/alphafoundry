@@ -9,8 +9,9 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "npm test && node src/cli.js --help && node src/cli.js --version && npm run pack:dry-run",
-    "pack:dry-run": "npm pack --dry-run --json"
+    "check": "npm test && node src/cli.js --help && node src/cli.js --version && npm run pack:dry-run && npm run smoke:installed",
+    "pack:dry-run": "npm pack --dry-run --json",
+    "smoke:installed": "node scripts/smoke-installed.mjs"
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "^0.70.6",
@@ -30,6 +31,7 @@
   },
   "files": [
     "src",
+    "scripts",
     "README.md",
     "AGENTS.md",
     "docs",

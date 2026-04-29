@@ -1,6 +1,5 @@
 import { spawn as nodeSpawn } from "node:child_process";
-import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { resolvePiCliPath, resolvePiRpcClientUrl } from "../dependencies.js";
 import { createEventBus } from "./events.js";
 import { cloneStats, createOutputAccumulator, createStats } from "./session.js";
 
@@ -11,9 +10,7 @@ function defaultCommand() {
 }
 
 function defaultPiCliPath() {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const packageRoot = dirname(dirname(here));
-  return join(packageRoot, "node_modules", "@mariozechner", "pi-coding-agent", "dist", "cli.js");
+  return resolvePiCliPath();
 }
 
 function defaultArgs(prompt, options, model) {
@@ -289,8 +286,7 @@ export function createPiRpcRuntime(options = {}) {
 
   async function ensureClient() {
     if (client) return client;
-    const rpcClientPath = join(dirname(defaultPiCliPath()), "modes", "rpc", "rpc-client.js");
-    const { RpcClient } = await import(pathToFileURL(rpcClientPath).href);
+    const { RpcClient } = await import(resolvePiRpcClientUrl());
     client = new RpcClient({
       cliPath: options.cliPath ?? defaultPiCliPath(),
       cwd: options.cwd ?? process.cwd(),

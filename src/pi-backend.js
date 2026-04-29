@@ -1,11 +1,8 @@
 import { spawn } from "node:child_process";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolvePiCliPath } from "./dependencies.js";
 
 export function piCliPath() {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const packageRoot = dirname(here);
-  return join(packageRoot, "node_modules", "@mariozechner", "pi-coding-agent", "dist", "cli.js");
+  return resolvePiCliPath();
 }
 
 export function buildPiArgs(args = []) {

@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { configExists, defaultConfigPath, readConfig } from "./config.js";
+import { resolvePiPackageJsonPath } from "./dependencies.js";
 
 function packageRoot() {
   return dirname(dirname(fileURLToPath(import.meta.url)));
@@ -37,7 +38,12 @@ export function runDoctor(options = {}) {
   const env = options.env ?? process.env;
   const pkg = readPackageJson();
   const path = options.configPath ?? defaultConfigPath(env);
-  const backendPath = join(packageRoot(), "node_modules", "@mariozechner", "pi-coding-agent", "package.json");
+  let backendPath = "";
+  try {
+    backendPath = resolvePiPackageJsonPath();
+  } catch {
+    backendPath = "";
+  }
   const checks = [];
 
   checks.push(check("pass", "package", `${pkg.name} ${pkg.version}`, { name: pkg.name, version: pkg.version }));

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { buildPiArgs } from "./pi-backend.js";
 import { defaultConfigPath, getConfigValue, initConfig, setConfigValue } from "./config.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
+import { resolveTsxLoaderUrl } from "./dependencies.js";
 
 function packageRoot() {
   return dirname(dirname(fileURLToPath(import.meta.url)));
@@ -12,10 +13,8 @@ function packageRoot() {
 
 function runInkTui() {
   const root = packageRoot();
-  const tsxLoader = join(root, "node_modules", "tsx", "dist", "loader.mjs");
-  const tsxLoaderUrl = pathToFileURL(tsxLoader).href;
   const runFile = join(root, "src", "tui", "run-cli.jsx");
-  const result = spawnSync(process.execPath, ["--import", tsxLoaderUrl, runFile], {
+  const result = spawnSync(process.execPath, ["--import", resolveTsxLoaderUrl(), runFile], {
     stdio: "inherit",
     env: { ...process.env },
   });
