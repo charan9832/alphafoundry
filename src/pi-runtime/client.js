@@ -282,12 +282,12 @@ export function createPiRpcRuntime(options = {}) {
   const stats = createStats();
   let client = null;
   let started = false;
+  let activeRun = null;
+  let runId = 0;
   let currentModel = { provider: options.provider ?? "default", model: options.model ?? "default" };
 
-  async function ensureClient() {
-    if (client) return client;
-    const { RpcClient } = await import(resolvePiRpcClientUrl());
-    client = new RpcClient({
+  async function createRpcClient() {
+    const clientOptions = {
       cliPath: options.cliPath ?? defaultPiCliPath(),
       cwd: options.cwd ?? process.cwd(),
       env: {
@@ -297,8 +297,16 @@ export function createPiRpcRuntime(options = {}) {
       provider: currentModel.provider !== "default" ? currentModel.provider : undefined,
       model: currentModel.model !== "default" ? currentModel.model : undefined,
       args: options.args,
-    });
-    client.onEvent((event) => {
+    };
+    if (typeof options.rpcClientFactory === "function") return options.rpcClientFactory(clientOptions);
+    const { RpcClient } = await import(resolvePiRpcClientUrl());
+    return new RpcClient(clientOptions);
+  }
+
+  async function ensureClient() {
+    if (client) return client;
+    const nextClient = await createRpcClient();
+    nextClient.onEvent((event) => {
       const normalized = normalizeRpcEvent(event);
       try {
         bus.emit(normalized);
@@ -306,7 +314,14 @@ export function createPiRpcRuntime(options = {}) {
         bus.emit({ type: "assistant", text: normalized.text ?? JSON.stringify(normalized) });
       }
     });
-    await client.start();
+    try {
+      await nextClient.start();
+    } catch (error) {
+      client = null;
+      started = false;
+      throw error;
+    }
+    client = nextClient;
     started = true;
     return client;
   }
@@ -328,41 +343,98 @@ export function createPiRpcRuntime(options = {}) {
 
     async sendPrompt(prompt, runOptions = {}) {
       if (typeof prompt !== "string" || prompt.length === 0) throw new TypeError("prompt must be a non-empty string");
+      if (activeRun) throw new Error("Pi RPC runtime already has an active run");
+
       const rpcClient = await ensureClient();
-      const nextProvider = runOptions.provider ?? currentModel.provider;
-      const nextModel = runOptions.model ?? currentModel.model;
-      if (nextProvider && nextModel && nextProvider !== "default" && nextModel !== "default" && (nextProvider !== currentModel.provider || nextModel !== currentModel.model)) {
-        currentModel = { provider: nextProvider, model: nextModel };
-        await rpcClient.setModel(nextProvider, nextModel);
-      }
+      const id = ++runId;
+      const run = { id, aborted: false, abortListener: null, abortSignal: runOptions.signal, settled: false };
+      activeRun = run;
       stats.runs += 1;
       stats.running = true;
-      bus.emit({ type: "run_start", runId: stats.runs, prompt, command: "rpc.prompt", args: [] });
-      if (runOptions.signal) {
-        if (runOptions.signal.aborted) await rpcClient.abort();
-        else runOptions.signal.addEventListener("abort", () => void rpcClient.abort(), { once: true });
+      bus.emit({ type: "run_start", runId: id, prompt, command: "rpc.prompt", args: [] });
+
+      const finish = async (result) => {
+        if (run.settled) return result;
+        run.settled = true;
+        if (run.abortSignal && run.abortListener) run.abortSignal.removeEventListener("abort", run.abortListener);
+        if (activeRun === run) activeRun = null;
+        stats.running = false;
+        stats.lastExitCode = result.exitCode ?? null;
+        if (result.aborted) stats.aborted += 1;
+        else if (result.ok) stats.completed += 1;
+        else stats.failed += 1;
+        await emitStatsFromRpc(rpcClient);
+        bus.emit({ type: "run_end", runId: id, ok: result.ok, exitCode: result.exitCode ?? null, aborted: Boolean(result.aborted) });
+        return result;
+      };
+
+      try {
+        const nextProvider = runOptions.provider ?? currentModel.provider;
+        const nextModel = runOptions.model ?? currentModel.model;
+        if (nextProvider && nextModel && nextProvider !== "default" && nextModel !== "default" && (nextProvider !== currentModel.provider || nextModel !== currentModel.model)) {
+          currentModel = { provider: nextProvider, model: nextModel };
+          await rpcClient.setModel(nextProvider, nextModel);
+        }
+
+        if (run.abortSignal) {
+          if (run.abortSignal.aborted) {
+            run.aborted = true;
+            bus.emit({ type: "aborted", runId: id });
+            await rpcClient.abort();
+          } else {
+            run.abortListener = () => {
+              run.aborted = true;
+              bus.emit({ type: "aborted", runId: id });
+              void rpcClient.abort();
+            };
+            run.abortSignal.addEventListener("abort", run.abortListener, { once: true });
+          }
+        }
+
+        if (run.aborted) {
+          return await finish({ ok: false, exitCode: null, aborted: true, stdout: "", stderr: rpcClient.getStderr?.() ?? "" });
+        }
+
+        await rpcClient.prompt(prompt);
+        await rpcClient.waitForIdle(runOptions.timeout ?? options.timeout ?? 120000);
+        const stdout = await rpcClient.getLastAssistantText().catch(() => "");
+        const stderr = rpcClient.getStderr?.() ?? "";
+        if (run.aborted) {
+          return await finish({ ok: false, exitCode: null, aborted: true, stdout, stderr });
+        }
+        return await finish({ ok: true, exitCode: 0, aborted: false, stdout, stderr });
+      } catch (error) {
+        const message = normalizeError(error);
+        bus.emit({ type: "error", runId: id, error: message });
+        return await finish({ ok: false, exitCode: 1, aborted: run.aborted, stdout: "", stderr: rpcClient.getStderr?.() ?? "", error: message });
       }
-      await rpcClient.prompt(prompt);
-      await rpcClient.waitForIdle(runOptions.timeout ?? options.timeout ?? 120000);
-      stats.running = false;
-      stats.completed += 1;
-      stats.lastExitCode = 0;
-      await emitStatsFromRpc(rpcClient);
-      bus.emit({ type: "run_end", ok: true, exitCode: 0, aborted: false });
-      return { ok: true, stdout: await rpcClient.getLastAssistantText().catch(() => ""), stderr: rpcClient.getStderr?.() ?? "" };
     },
 
     async abort() {
+      const run = activeRun;
       const rpcClient = await ensureClient();
+      if (run && !run.aborted) {
+        run.aborted = true;
+        bus.emit({ type: "aborted", runId: run.id });
+      } else {
+        bus.emit({ type: "aborted" });
+      }
       await rpcClient.abort();
-      stats.aborted += 1;
-      stats.running = false;
-      bus.emit({ type: "aborted" });
+      if (!run) {
+        stats.aborted += 1;
+        stats.running = false;
+      }
     },
 
     async stop() {
+      if (activeRun && !activeRun.aborted) {
+        activeRun.aborted = true;
+        bus.emit({ type: "aborted", runId: activeRun.id });
+      }
       if (client) await client.stop();
       client = null;
+      activeRun = null;
+      stats.running = false;
       started = false;
       bus.clear();
     },

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
-import { createPiRuntime, normalizeRpcEvent } from "../src/pi-runtime/client.js";
+import { createPiRuntime, createPiRpcRuntime, normalizeRpcEvent } from "../src/pi-runtime/client.js";
 
 function createFakeSpawn() {
   const calls = [];
@@ -24,6 +24,54 @@ function createFakeSpawn() {
   };
   spawn.calls = calls;
   return spawn;
+}
+
+function createFakeRpcClient(overrides = {}) {
+  const listeners = [];
+  const calls = [];
+  const client = {
+    listeners,
+    calls,
+    started: false,
+    stopped: false,
+    stderr: "",
+    lastAssistantText: "assistant text",
+    start: async () => {
+      calls.push(["start"]);
+      client.started = true;
+    },
+    stop: async () => {
+      calls.push(["stop"]);
+      client.stopped = true;
+    },
+    onEvent: (callback) => {
+      listeners.push(callback);
+      calls.push(["onEvent"]);
+    },
+    prompt: async (prompt) => {
+      calls.push(["prompt", prompt]);
+    },
+    waitForIdle: async (timeout) => {
+      calls.push(["waitForIdle", timeout]);
+    },
+    getSessionStats: async () => {
+      calls.push(["getSessionStats"]);
+      return { totalTokens: 3, cost: 0.01 };
+    },
+    getLastAssistantText: async () => {
+      calls.push(["getLastAssistantText"]);
+      return client.lastAssistantText;
+    },
+    getStderr: () => client.stderr,
+    abort: async () => {
+      calls.push(["abort"]);
+    },
+    setModel: async (provider, model) => {
+      calls.push(["setModel", provider, model]);
+    },
+    ...overrides,
+  };
+  return client;
 }
 
 function collectEvents(runtime) {
@@ -202,4 +250,107 @@ test("normalizeRpcEvent maps Pi RPC tool and message events to AlphaFoundry even
   assert.deepEqual(normalizeRpcEvent({ type: "tool_execution_start", toolName: "read" }), { type: "tool", name: "read", status: "start", text: "read started" });
   assert.deepEqual(normalizeRpcEvent({ type: "tool_execution_end", toolName: "bash", isError: false }), { type: "tool", name: "bash", status: "done", text: "bash done" });
   assert.deepEqual(normalizeRpcEvent({ type: "agent_end" }), { type: "run_end", ok: true });
+});
+
+test("RPC runtime reports failures and clears running state", async () => {
+  const client = createFakeRpcClient({
+    waitForIdle: async () => {
+      client.calls.push(["waitForIdle"]);
+      throw new Error("idle failed");
+    },
+  });
+  const runtime = createPiRpcRuntime({ rpcClientFactory: () => client });
+  const { events } = collectEvents(runtime);
+
+  const result = await runtime.sendPrompt("hello rpc");
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error, "idle failed");
+  assert.equal(runtime.getStats().running, false);
+  assert.equal(runtime.getStats().failed, 1);
+  assert.ok(events.some((event) => event.type === "error" && event.error === "idle failed"));
+  assert.ok(events.some((event) => event.type === "run_end" && event.ok === false));
+});
+
+test("RPC runtime rejects overlapping prompt runs", async () => {
+  let releaseIdle;
+  const client = createFakeRpcClient({
+    waitForIdle: async () => {
+      client.calls.push(["waitForIdle"]);
+      await new Promise((resolve) => {
+        releaseIdle = resolve;
+      });
+    },
+  });
+  const runtime = createPiRpcRuntime({ rpcClientFactory: () => client });
+
+  const first = runtime.sendPrompt("first");
+  while (!releaseIdle) await new Promise((resolve) => setImmediate(resolve));
+  await assert.rejects(runtime.sendPrompt("second"), /active run/i);
+  releaseIdle();
+  await first;
+
+  assert.equal(runtime.getStats().completed, 1);
+  assert.equal(runtime.getStats().running, false);
+});
+
+test("RPC runtime start failure clears cached client so start can retry", async () => {
+  const firstClient = createFakeRpcClient({
+    start: async () => {
+      firstClient.calls.push(["start"]);
+      throw new Error("start failed");
+    },
+  });
+  const secondClient = createFakeRpcClient();
+  const clients = [firstClient, secondClient];
+  const runtime = createPiRpcRuntime({ rpcClientFactory: () => clients.shift() });
+
+  await assert.rejects(runtime.start(), /start failed/);
+  await runtime.start();
+
+  assert.equal(firstClient.calls.filter(([name]) => name === "start").length, 1);
+  assert.equal(secondClient.started, true);
+  assert.equal(runtime.getStats().started, true);
+});
+
+test("RPC runtime removes abort signal listeners after completion", async () => {
+  const client = createFakeRpcClient();
+  const controller = new AbortController();
+  let addCount = 0;
+  let removeCount = 0;
+  const originalAdd = controller.signal.addEventListener.bind(controller.signal);
+  const originalRemove = controller.signal.removeEventListener.bind(controller.signal);
+  controller.signal.addEventListener = (...args) => {
+    addCount += 1;
+    return originalAdd(...args);
+  };
+  controller.signal.removeEventListener = (...args) => {
+    removeCount += 1;
+    return originalRemove(...args);
+  };
+  const runtime = createPiRpcRuntime({ rpcClientFactory: () => client });
+
+  await runtime.sendPrompt("complete", { signal: controller.signal });
+
+  assert.equal(addCount, 1);
+  assert.equal(removeCount, 1);
+});
+
+test("RPC runtime aborts active run through signal and emits terminal state", async () => {
+  const client = createFakeRpcClient();
+  const controller = new AbortController();
+  const runtime = createPiRpcRuntime({ rpcClientFactory: () => client });
+  const { events } = collectEvents(runtime);
+
+  const run = runtime.sendPrompt("abort rpc", { signal: controller.signal });
+  controller.abort();
+  const result = await run;
+
+  assert.equal(result.ok, false);
+  assert.equal(result.aborted, true);
+  assert.equal(runtime.getStats().running, false);
+  assert.equal(runtime.getStats().aborted, 1);
+  assert.ok(client.calls.some(([name]) => name === "abort"));
+  assert.ok(events.some((event) => event.type === "aborted"));
+  assert.ok(events.some((event) => event.type === "run_end" && event.aborted === true));
 });
