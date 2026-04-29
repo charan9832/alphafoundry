@@ -16,9 +16,11 @@ async function loadRuntimeRunner() {
 
 async function createRuntimeRunner() {
   try {
+    const { resolveRuntimeConfig } = await import("../config.js");
+    const runtimeConfig = resolveRuntimeConfig();
     const runtime = await import("../pi-runtime/client.js");
     if (typeof runtime.createPiRpcRuntime === "function") {
-      const client = runtime.createPiRpcRuntime();
+      const client = runtime.createPiRpcRuntime(runtimeConfig);
       await client.start();
       return async (prompt, options = {}) => {
         const unsubscribe = typeof options.onEvent === "function" ? client.onEvent(options.onEvent) : undefined;
@@ -36,7 +38,7 @@ async function createRuntimeRunner() {
       };
     }
     if (typeof runtime.createPiRuntime === "function") {
-      const client = runtime.createPiRuntime().start();
+      const client = runtime.createPiRuntime(runtimeConfig).start();
       return async (prompt, options = {}) => {
         const unsubscribe = typeof options.onEvent === "function" ? client.onEvent(options.onEvent) : undefined;
         try {

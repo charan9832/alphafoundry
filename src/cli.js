@@ -2,8 +2,8 @@
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildPiArgs } from "./pi-backend.js";
-import { defaultConfigPath, getConfigValue, initConfig, setConfigValue } from "./config.js";
+import { buildConfiguredPiArgs, resolvePiProcessEnv } from "./pi-backend.js";
+import { defaultConfigPath, getConfigValue, initConfig, resolveRuntimeConfig, setConfigValue } from "./config.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
 import { resolveTsxLoaderUrl } from "./dependencies.js";
 
@@ -142,12 +142,10 @@ async function main() {
     return runInkTui();
   }
 
-  const result = spawnSync(process.execPath, buildPiArgs(args), {
+  const runtimeConfig = resolveRuntimeConfig();
+  const result = spawnSync(process.execPath, buildConfiguredPiArgs(args, runtimeConfig), {
     stdio: "inherit",
-    env: {
-      ...process.env,
-      PI_CONFIG_DIR: process.env.ALPHAFOUNDRY_CONFIG_DIR ?? process.env.PI_CONFIG_DIR,
-    },
+    env: resolvePiProcessEnv(runtimeConfig),
   });
 
   if (result.error) {

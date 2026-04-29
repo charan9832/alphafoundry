@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { resolvePiCliPath } from "./dependencies.js";
+import { resolveRuntimeConfig } from "./config.js";
 
 export function piCliPath() {
   return resolvePiCliPath();
@@ -7,6 +8,38 @@ export function piCliPath() {
 
 export function buildPiArgs(args = []) {
   return [piCliPath(), ...args];
+}
+
+function hasPrompt(args = []) {
+  return args.includes("-p") || args.includes("--prompt");
+}
+
+function hasOption(args = [], name) {
+  return args.some((arg) => arg === name || arg.startsWith(`${name}=`));
+}
+
+function withConfiguredModelArgs(args = [], runtimeConfig = {}) {
+  if (!hasPrompt(args)) return [...args];
+  const next = [...args];
+  if (!hasOption(next, "--provider") && runtimeConfig.provider && runtimeConfig.provider !== "default") {
+    next.push("--provider", runtimeConfig.provider);
+  }
+  if (!hasOption(next, "--model") && runtimeConfig.model && runtimeConfig.model !== "default") {
+    next.push("--model", runtimeConfig.model);
+  }
+  return next;
+}
+
+export function buildConfiguredPiArgs(args = [], runtimeConfig = resolveRuntimeConfig()) {
+  return buildPiArgs(withConfiguredModelArgs(args, runtimeConfig));
+}
+
+export function resolvePiProcessEnv(runtimeConfig = resolveRuntimeConfig(), baseEnv = process.env) {
+  return {
+    ...baseEnv,
+    PI_CONFIG_DIR: baseEnv.ALPHAFOUNDRY_CONFIG_DIR ?? baseEnv.PI_CONFIG_DIR,
+    ...(runtimeConfig.env ?? {}),
+  };
 }
 
 export function runPi(args = [], options = {}) {
@@ -46,9 +79,10 @@ export function runPi(args = [], options = {}) {
 }
 
 export function runPiPrompt(prompt, options = {}) {
+  const runtimeConfig = resolveRuntimeConfig({ provider: options.provider, model: options.model, env: options.env }, { env: options.processEnv ?? process.env });
   const args = ["-p", "--no-session"];
-  if (options.provider && options.provider !== "default") args.push("--provider", options.provider);
-  if (options.model && options.model !== "default") args.push("--model", options.model);
+  if (runtimeConfig.provider && runtimeConfig.provider !== "default") args.push("--provider", runtimeConfig.provider);
+  if (runtimeConfig.model && runtimeConfig.model !== "default") args.push("--model", runtimeConfig.model);
   args.push(prompt);
-  return runPi(args, options);
+  return runPi(args, { ...options, env: runtimeConfig.env });
 }

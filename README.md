@@ -97,7 +97,8 @@ Example:
   "provider": "openai",
   "model": "gpt-4o-mini",
   "env": {
-    "apiKey": "MY_PROVIDER_API_KEY"
+    "apiKey": "OPENAI_KEY_ENV",
+    "baseUrl": "OPENAI_BASE_URL"
   }
 }
 ```
@@ -115,6 +116,7 @@ af config get provider     # read config value
 af config set provider openai
 af config set model gpt-4o-mini
 af config set env.apiKey OPENAI_API_KEY
+af config set env.baseUrl OPENAI_BASE_URL
 af models                  # explain runtime-adapter model listing
 af session                 # explain current/planned session support
 af -p "hello"              # one-shot prompt through the runtime adapter

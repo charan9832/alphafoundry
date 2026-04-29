@@ -1,7 +1,39 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseSlashCommand, commandHelp } from "../src/tui/commands.js";
 import { createInitialState, reducer } from "../src/tui/state.js";
+import { initConfig, setConfigValue } from "../src/config.js";
+
+function tempConfigPath() {
+  const dir = mkdtempSync(join(tmpdir(), "af-tui-config-"));
+  return { dir, path: join(dir, "config.json") };
+}
+
+test("TUI initial state uses AlphaFoundry config provider/model with explicit overrides winning", () => {
+  const temp = tempConfigPath();
+  const previous = process.env.ALPHAFOUNDRY_CONFIG_PATH;
+  try {
+    process.env.ALPHAFOUNDRY_CONFIG_PATH = temp.path;
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("provider", "openai", { path: temp.path });
+    setConfigValue("model", "gpt-4o-mini", { path: temp.path });
+
+    const configured = createInitialState({ cwd: "/tmp/alphafoundry" });
+    assert.equal(configured.provider, "openai");
+    assert.equal(configured.model, "gpt-4o-mini");
+
+    const overridden = createInitialState({ cwd: "/tmp/alphafoundry", provider: "anthropic", model: "claude-test" });
+    assert.equal(overridden.provider, "anthropic");
+    assert.equal(overridden.model, "claude-test");
+  } finally {
+    if (previous === undefined) delete process.env.ALPHAFOUNDRY_CONFIG_PATH;
+    else process.env.ALPHAFOUNDRY_CONFIG_PATH = previous;
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
 
 test("Ink slash command parser recognizes all supported commands without legacy TUI", () => {
   assert.deepEqual(parseSlashCommand("/help"), { type: "help" });

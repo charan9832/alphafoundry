@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
 const SUPPORTED_KEYS = new Set(["provider", "model", "env.apiKey", "env.baseUrl"]);
+const DEFAULT_RUNTIME_PROVIDER = "default";
+const DEFAULT_RUNTIME_MODEL = "default";
 
 export function defaultConfigPath(env = process.env) {
   if (env.ALPHAFOUNDRY_CONFIG_PATH) return env.ALPHAFOUNDRY_CONFIG_PATH;
@@ -112,4 +114,34 @@ export function setConfigValue(key, value, options = {}) {
 
 export function configExists(options = {}) {
   return existsSync(configPath(options));
+}
+
+function valueOrDefault(value, fallback) {
+  return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+function envFromConfig(config, env) {
+  const resolved = {};
+  for (const name of [config.env?.apiKey, config.env?.baseUrl]) {
+    if (typeof name === "string" && isEnvVarName(name) && env[name] !== undefined) {
+      resolved[name] = env[name];
+    }
+  }
+  return resolved;
+}
+
+export function resolveRuntimeConfig(overrides = {}, options = {}) {
+  const env = options.env ?? process.env;
+  const config = readConfig({ ...options, env });
+  const provider = valueOrDefault(overrides.provider, valueOrDefault(config.provider, DEFAULT_RUNTIME_PROVIDER));
+  const model = valueOrDefault(overrides.model, valueOrDefault(config.model, DEFAULT_RUNTIME_MODEL));
+  return {
+    provider,
+    model,
+    env: {
+      ...envFromConfig(config, env),
+      ...(overrides.env ?? {}),
+    },
+    config,
+  };
 }

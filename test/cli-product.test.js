@@ -8,6 +8,7 @@ import {
   defaultConfigPath,
   initConfig,
   readConfig,
+  resolveRuntimeConfig,
   setConfigValue,
   getConfigValue,
 } from "../src/config.js";
@@ -59,7 +60,45 @@ test("setConfigValue and getConfigValue update whitelisted config keys", () => {
     assert.equal(getConfigValue("provider", { path: temp.path }), "openai");
     assert.equal(getConfigValue("model", { path: temp.path }), "gpt-4o-mini");
     assert.equal(getConfigValue("env.apiKey", { path: temp.path }), "OPENAI_API_KEY");
-    assert.throws(() => setConfigValue("apiKey", "sk-raw-secret", { path: temp.path }), /Unsupported config key/);
+    assert.throws(() => setConfigValue("apiKey", "raw-value", { path: temp.path }), /Unsupported config key/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("resolveRuntimeConfig reads provider/model and resolves env variable names without persisting secrets", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("provider", "openai", { path: temp.path });
+    setConfigValue("model", "gpt-4o-mini", { path: temp.path });
+    setConfigValue("env.apiKey", "OPENAI_KEY_ENV", { path: temp.path });
+    setConfigValue("env.baseUrl", "OPENAI_BASE_URL", { path: temp.path });
+
+    const runtime = resolveRuntimeConfig({}, {
+      path: temp.path,
+      env: { OPENAI_KEY_ENV: "test-value", OPENAI_BASE_URL: "https://example.invalid" },
+    });
+
+    assert.equal(runtime.provider, "openai");
+    assert.equal(runtime.model, "gpt-4o-mini");
+    assert.deepEqual(runtime.env, { OPENAI_KEY_ENV: "test-value", OPENAI_BASE_URL: "https://example.invalid" });
+    assert.doesNotMatch(JSON.stringify(readConfig({ path: temp.path })), /test-value/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("resolveRuntimeConfig lets explicit runtime values override config", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("provider", "openai", { path: temp.path });
+    setConfigValue("model", "gpt-4o-mini", { path: temp.path });
+
+    const runtime = resolveRuntimeConfig({ provider: "anthropic", model: "claude-test" }, { path: temp.path, env: {} });
+    assert.equal(runtime.provider, "anthropic");
+    assert.equal(runtime.model, "claude-test");
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }

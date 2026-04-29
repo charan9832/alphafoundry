@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveRuntimeConfig } from "../config.js";
 
 export function packageRoot() {
   return dirname(dirname(dirname(fileURLToPath(import.meta.url))));
@@ -27,8 +28,9 @@ export function detectRuntime(overrides = {}) {
   const backendInfo = existsSync(backendPackagePath) ? readJson(backendPackagePath) : { name: "@mariozechner/pi-coding-agent", version: "not installed" };
   const gitBranch = maybeGit(["branch", "--show-current"], root) || "no git";
   const gitStatus = maybeGit(["status", "--short"], root);
-  const provider = process.env.ALPHAFOUNDRY_PROVIDER ?? process.env.AF_PROVIDER ?? process.env.PI_PROVIDER ?? "pi-agent";
-  const model = process.env.ALPHAFOUNDRY_MODEL ?? process.env.AF_MODEL ?? process.env.PI_MODEL ?? "pi-default";
+  const configRuntime = resolveRuntimeConfig({}, { env: process.env });
+  const provider = process.env.ALPHAFOUNDRY_PROVIDER ?? process.env.AF_PROVIDER ?? process.env.PI_PROVIDER ?? configRuntime.provider ?? "default";
+  const model = process.env.ALPHAFOUNDRY_MODEL ?? process.env.AF_MODEL ?? process.env.PI_MODEL ?? configRuntime.model ?? "default";
 
   return {
     product: "AlphaFoundry",
