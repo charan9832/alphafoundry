@@ -13,7 +13,9 @@ mkdirSync(packDir, { recursive: true });
 mkdirSync(installDir, { recursive: true });
 
 function commandName(name) {
-  return process.platform === "win32" ? `${name}.cmd` : name;
+  if (process.platform !== "win32") return name;
+  if (name.endsWith(".cmd") || name.includes("/") || name.includes("\\")) return name;
+  return `${name}.cmd`;
 }
 
 function run(command, args, options = {}) {
