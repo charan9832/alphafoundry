@@ -1,5 +1,6 @@
 import { detectRuntime } from "./runtime.js";
 import { commandHelp, sessionId } from "./commands.js";
+import { redactText } from "../redaction.js";
 
 const MAX_EVENTS = 200;
 
@@ -160,6 +161,10 @@ export function applyRuntimeEvent(state, rawEvent = {}) {
   return appendEvent(next, event);
 }
 
+function exportedEventText(event) {
+  return redactText(event.text ?? event.command ?? event.output ?? event.error ?? "");
+}
+
 export function applyCommand(state, command = {}) {
   switch (command.type) {
     case "help":
@@ -186,7 +191,7 @@ export function applyCommand(state, command = {}) {
       return appendEvent({ ...state, view: "workspace", goal: "", session, events: [], status: "idle", action: "new session", activeRun: null }, { type: "session", text: `started local TUI session ${session.id}; backend session not changed` });
     }
     case "export":
-      return appendEvent(state, { type: "assistant", text: `Local transcript:\n${state.events.map((event) => `[${event.type}] ${event.text ?? event.command ?? ""}`).join("\n") || "Nothing to print."}` });
+      return appendEvent(state, { type: "assistant", text: `Local transcript:\n${state.events.map((event) => `[${event.type}] ${exportedEventText(event)}`).join("\n") || "Nothing to print."}` });
     case "unknown":
       return appendEvent(state, { type: "error", text: `Unknown command /${command.command}. Try /help.` });
     default:

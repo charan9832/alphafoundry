@@ -123,6 +123,21 @@ test("runtime-sensitive slash commands do not overclaim backend effects", () => 
   assert.doesNotMatch(withExport.events.at(-1).text, /wrote|saved|exported to/i);
 });
 
+test("/export redacts runtime and tool transcript text", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const apiSecret = "sk-" + "live-secret";
+  const bearerSecret = "Bearer " + "abc123";
+  const withAssistantSecret = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "assistant", text: `token=${apiSecret}` } });
+  const withToolSecret = reducer(withAssistantSecret, { type: "RUNTIME_EVENT", event: { type: "tool", name: "shell", text: `Authorization: ${bearerSecret}` } });
+  const exported = reducer(withToolSecret, { type: "COMMAND", command: parseSlashCommand("/export") });
+
+  assert.match(exported.events.at(-1).text, /Local transcript/i);
+  assert.doesNotMatch(exported.events.at(-1).text, new RegExp(apiSecret));
+  assert.doesNotMatch(exported.events.at(-1).text, new RegExp(bearerSecret));
+  assert.match(exported.events.at(-1).text, /token=/);
+  assert.match(exported.events.at(-1).text, /Authorization: Bearer /);
+});
+
 test("state supports runtime run lifecycle, cancellation, errors, stats, and sessions", () => {
   const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
   assert.equal(initial.activeRun, null);
