@@ -59,6 +59,17 @@ test("command help documents every Ink slash command", () => {
   }
 });
 
+test("command help is honest about local-only runtime command fallbacks", () => {
+  const help = commandHelp();
+  assert.match(help, /\/model <id>\s+set local model preference/i);
+  assert.match(help, /\/provider <name>\s+set local provider preference/i);
+  assert.match(help, /\/stats\s+show local TUI counters/i);
+  assert.match(help, /\/tools <list>\s+set local tool preference/i);
+  assert.match(help, /\/session\s+show local TUI session metadata/i);
+  assert.match(help, /\/new\s+start a fresh local TUI session/i);
+  assert.match(help, /\/export\s+print local transcript/i);
+});
+
 test("reducer applies slash command effects to TUI state", () => {
   const initial = createInitialState({
     cwd: "/tmp/alphafoundry",
@@ -77,16 +88,39 @@ test("reducer applies slash command effects to TUI state", () => {
   assert.equal(withModel.provider, "openrouter");
   assert.equal(withModel.model, "qwen3-coder");
   assert.match(withModel.events.at(-1).text, /openrouter\/qwen3-coder/);
+  assert.match(withModel.events.at(-1).text, /local preference/i);
 
   const withProvider = reducer(withModel, { type: "COMMAND", command: parseSlashCommand("/provider anthropic") });
   assert.equal(withProvider.provider, "anthropic");
   assert.equal(withProvider.model, "qwen3-coder");
+  assert.match(withProvider.events.at(-1).text, /local preference/i);
 
   const withTools = reducer(withProvider, { type: "COMMAND", command: parseSlashCommand("/tools read write") });
   assert.deepEqual(withTools.tools, ["read", "write"]);
+  assert.match(withTools.events.at(-1).text, /local tool preference/i);
 
   const cleared = reducer(withTools, { type: "COMMAND", command: parseSlashCommand("/clear") });
   assert.deepEqual(cleared.events, []);
+});
+
+test("runtime-sensitive slash commands do not overclaim backend effects", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+
+  const withStats = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/stats") });
+  assert.match(withStats.events.at(-1).text, /local TUI counters/i);
+  assert.doesNotMatch(withStats.events.at(-1).text, /runtime statistics/i);
+
+  const withSession = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/session") });
+  assert.match(withSession.events.at(-1).text, /local TUI session/i);
+  assert.doesNotMatch(withSession.events.at(-1).text, /backend session/i);
+
+  const withNew = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/new") });
+  assert.match(withNew.events.at(-1).text, /local TUI session/i);
+  assert.match(withNew.events.at(-1).text, /backend session not changed/i);
+
+  const withExport = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/export") });
+  assert.match(withExport.events.at(-1).text, /Local transcript/i);
+  assert.doesNotMatch(withExport.events.at(-1).text, /wrote|saved|exported to/i);
 });
 
 test("state supports runtime run lifecycle, cancellation, errors, stats, and sessions", () => {

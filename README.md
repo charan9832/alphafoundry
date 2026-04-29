@@ -139,11 +139,16 @@ af config set env.apiKey OPENAI_API_KEY
 ## TUI slash commands
 
 ```text
-/help
-/model <provider/model>
-/provider <name>
-/clear
-/exit
+/help                 show TUI command help
+/model <provider/model> set local model preference for the next runtime prompt
+/provider <name>      set local provider preference for the next runtime prompt
+/stats                show local TUI counters; runtime stats appear after runs
+/tools <list>         set local tool preference; enforcement depends on adapter support
+/session              show local TUI session metadata
+/new                  start a fresh local TUI session; backend session is not changed
+/export               print the local transcript in the conversation
+/clear                clear visible conversation
+/exit                 quit when idle; cancel first when running
 ```
 
 ## Doctor checks

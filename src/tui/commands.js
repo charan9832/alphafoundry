@@ -48,14 +48,14 @@ export function commandHelp() {
     "Commands:",
     "  /help                show this help",
     "  /clear               clear visible conversation",
-    "  /model <id>          set model, or provider/model when id contains /",
-    "  /provider <name>     set provider for this TUI session",
+    "  /model <id>          set local model preference; applied on next runtime prompt",
+    "  /provider <name>     set local provider preference; applied on next runtime prompt",
     "  /exit                quit when idle; cancel first when running",
-    "  /stats               show token/runtime statistics",
-    "  /tools <list>        set enabled tool names, separated by spaces or commas",
-    "  /session             show current session metadata",
-    "  /new                 start a fresh local session",
-    "  /export              print a transcript export in the conversation",
+    "  /stats               show local TUI counters; runtime stats appear after runs",
+    "  /tools <list>        set local tool preference, separated by spaces or commas",
+    "  /session             show local TUI session metadata",
+    "  /new                 start a fresh local TUI session",
+    "  /export              print local transcript in the conversation",
   ].join("\n");
 }
 

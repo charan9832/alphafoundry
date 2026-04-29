@@ -169,24 +169,24 @@ export function applyCommand(state, command = {}) {
     case "model": {
       const model = command.model || state.model;
       const provider = command.provider || state.provider;
-      return appendEvent({ ...state, model, provider }, { type: "assistant", text: `model set to ${provider}/${model}` });
+      return appendEvent({ ...state, model, provider }, { type: "assistant", text: `local preference set to ${provider}/${model}; applies on the next runtime prompt` });
     }
     case "provider": {
       const provider = command.provider || state.provider;
-      return appendEvent({ ...state, provider }, { type: "assistant", text: `provider set to ${provider}` });
+      return appendEvent({ ...state, provider }, { type: "assistant", text: `local preference set to provider ${provider}; applies on the next runtime prompt` });
     }
     case "stats":
-      return appendEvent(state, { type: "stats", text: `tokens ${state.tokenUsage.tokens} · ${state.tokenUsage.percent}% · ${state.tokenUsage.cost}` });
+      return appendEvent(state, { type: "stats", text: `local TUI counters: tokens ${state.tokenUsage.tokens} · ${state.tokenUsage.percent}% · ${state.tokenUsage.cost}` });
     case "tools":
-      return appendEvent({ ...state, tools: command.tools ?? [] }, { type: "tool", text: `tools enabled: ${(command.tools ?? []).join(", ") || "none"}` });
+      return appendEvent({ ...state, tools: command.tools ?? [] }, { type: "tool", text: `local tool preference set: ${(command.tools ?? []).join(", ") || "none"}; runtime enforcement depends on adapter support` });
     case "session":
-      return appendEvent(state, { type: "session", text: `session ${state.session.id} · ${state.events.length} events` });
+      return appendEvent(state, { type: "session", text: `local TUI session ${state.session.id} · ${state.events.length} events` });
     case "new": {
       const session = createSession();
-      return appendEvent({ ...state, view: "workspace", goal: "", session, events: [], status: "idle", action: "new session", activeRun: null }, { type: "session", text: `started ${session.id}` });
+      return appendEvent({ ...state, view: "workspace", goal: "", session, events: [], status: "idle", action: "new session", activeRun: null }, { type: "session", text: `started local TUI session ${session.id}; backend session not changed` });
     }
     case "export":
-      return appendEvent(state, { type: "assistant", text: state.events.map((event) => `[${event.type}] ${event.text ?? event.command ?? ""}`).join("\n") || "Nothing to export." });
+      return appendEvent(state, { type: "assistant", text: `Local transcript:\n${state.events.map((event) => `[${event.type}] ${event.text ?? event.command ?? ""}`).join("\n") || "Nothing to print."}` });
     case "unknown":
       return appendEvent(state, { type: "error", text: `Unknown command /${command.command}. Try /help.` });
     default:
