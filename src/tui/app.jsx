@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useReducer, useRef } from "react";
 import { useApp, useInput } from "ink";
 import { initialState, reducer } from "./state.js";
 import { parseSlashCommand } from "./commands.js";
+import { runPromptWithEvents } from "./prompt-flow.js";
 import { useTerminalSize, paneWidths } from "./layout.js";
 import { Home } from "./components/Home.jsx";
 import { Workspace } from "./components/Workspace.jsx";
@@ -68,23 +69,6 @@ async function createRuntimeRunner() {
   return backend.runPiPrompt;
 }
 
-function normalizeResultEvents(result) {
-  if (!result) return [{ type: "assistant", text: "No output." }];
-  if (Array.isArray(result.events)) return result.events;
-  return [{ type: result.ok === false ? "error" : "assistant", text: result.output?.trim() || result.error || "No output." }];
-}
-
-async function runPromptWithEvents(prompt, options, onEvent) {
-  const runner = await loadRuntimeRunner();
-  const result = await runner(prompt, { ...options, onEvent });
-  if (result && typeof result[Symbol.asyncIterator] === "function") {
-    for await (const event of result) onEvent(event);
-    return { ok: true };
-  }
-  for (const event of normalizeResultEvents(result)) onEvent(event);
-  return result ?? { ok: true };
-}
-
 export function App() {
   const { exit } = useApp();
   const size = useTerminalSize();
@@ -127,7 +111,9 @@ export function App() {
     const current = stateRef.current;
     dispatch({ type: "RUN_STARTED", prompt: command.value, run });
     try {
+      const runner = await loadRuntimeRunner();
       const result = await runPromptWithEvents(
+        runner,
         command.value,
         { provider: current.provider, model: current.model, tools: current.tools, session: current.session, signal: controller.signal },
         (event) => dispatch({ type: "RUNTIME_EVENT", event }),
