@@ -12,30 +12,40 @@ function TaskIcon({ status }) {
 export function Sidebar({ state, width }) {
   return (
     <Box flexDirection="column" width={width}>
-      <Text bold color={theme.text}>{state.goal || "No active goal"}</Text>
+      <Text bold color={theme.text}>{state.goal || "AlphaFoundry workspace"}</Text>
       <Box marginTop={1} flexDirection="column">
-        <Text color={theme.muted}>Context</Text>
-        <Text color={theme.text}>{state.tokenUsage.tokens.toLocaleString()} tokens</Text>
-        <Text color={theme.muted}>{state.tokenUsage.percent}% used</Text>
-        <Text color={theme.muted}>{state.tokenUsage.cost} spent</Text>
+        <Text color={theme.muted}>Runtime</Text>
+        <Text color={theme.text}>{state.product} v{state.version}</Text>
+        <Text color={theme.muted}>Node {state.runtime.nodeVersion}</Text>
       </Box>
       <Box marginTop={1} flexDirection="column">
-        <Text color={theme.muted}>MCP</Text>
-        <Text color={state.mcp.connected ? theme.green : theme.red}>{state.mcp.label} {state.mcp.connected ? "Connected" : "Disconnected"}</Text>
+        <Text color={theme.muted}>Backend</Text>
+        <Text color={state.mcp.connected ? theme.green : theme.red}>{state.runtime.backendPackage}</Text>
+        <Text color={theme.muted}>v{state.runtime.backendVersion}</Text>
       </Box>
       <Box marginTop={1} flexDirection="column">
-        <Text color={theme.muted}>LSP</Text>
-        {state.lsp.map((server) => <Text key={server} color={theme.text}>• {server}</Text>)}
+        <Text color={theme.muted}>Project</Text>
+        <Text color={theme.text}>{state.project.gitBranch}</Text>
+        <Text color={state.project.gitDirty ? theme.yellow : theme.green}>{state.project.gitDirty ? "local changes" : "clean tree"}</Text>
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text color={theme.muted}>Usage</Text>
+        <Text color={theme.text}>{state.tokenUsage.tokens.toLocaleString()} prompt tokens</Text>
+        <Text color={theme.muted}>{state.tokenUsage.percent}% tracked · {state.tokenUsage.cost}</Text>
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text color={theme.muted}>Language tools</Text>
+        {state.lsp.length ? state.lsp.map((server) => <Text key={server} color={theme.text}>• {server}</Text>) : <Text color={theme.muted}>none detected</Text>}
       </Box>
       <Box marginTop={1} flexDirection="column">
         <Text color={theme.muted}>Tasks</Text>
-        {state.tasks.map((task) => (
+        {state.tasks.length ? state.tasks.map((task) => (
           <Box key={task.id}>
             <TaskIcon status={task.status} />
             <Text> </Text>
             <Text color={task.status === "pending" ? theme.muted : theme.text}>{task.label}</Text>
           </Box>
-        ))}
+        )) : <Text color={theme.muted}>waiting for prompt</Text>}
       </Box>
     </Box>
   );

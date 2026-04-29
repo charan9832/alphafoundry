@@ -10,7 +10,7 @@ function fit(text, width) {
 }
 
 export function StatusBar({ state, width }) {
-  const left = `${state.mode}  ${state.model}`;
+  const left = `${state.product}  ${state.provider}/${state.model}`;
   const center = state.action || "ready";
   const right = `${state.cwd}  v${state.version}`;
   const leftWidth = Math.floor(width * 0.33);

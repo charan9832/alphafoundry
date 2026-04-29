@@ -16,7 +16,7 @@ export function Workspace({ state, columns, rows, mainWidth, sidebarWidth, onSub
           <MessagePane events={state.events} width={mainWidth - 2} height={contentHeight - 4} />
           <Box borderStyle="single" borderColor={theme.border} paddingX={1}>
             <Text color={theme.cyan}>› </Text>
-            <TextInput value={value} onChange={setValue} onSubmit={(input) => { const clean = input.trim(); if (!clean) return; setValue(""); onSubmit(clean); }} placeholder="Ask, edit, run, explain..." />
+            <TextInput value={value} onChange={setValue} onSubmit={(input) => { const clean = input.trim(); if (!clean) return; setValue(""); onSubmit(clean); }} placeholder="Ask AlphaFoundry..." />
           </Box>
         </Box>
         <Box width={1}><Text color={theme.border}>│</Text></Box>

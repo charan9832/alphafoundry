@@ -1,20 +1,33 @@
-export const initialState = {
-  view: "home",
-  input: "",
-  mode: "Build",
-  model: "Claude Opus 4.5",
-  provider: "OpenCode Zen",
-  cwd: process.cwd(),
-  version: "0.3.0",
-  status: "idle",
-  action: "ready",
-  goal: "",
-  tokenUsage: { tokens: 0, percent: 0, cost: "$0.00" },
-  mcp: { label: "Hard", connected: true },
-  lsp: ["typescript", "eslint"],
-  tasks: [],
-  events: [],
-};
+import { detectRuntime } from "./runtime.js";
+
+export function createInitialState(overrides = {}) {
+  const runtime = detectRuntime(overrides);
+  return {
+    product: "AlphaFoundry",
+    view: "home",
+    input: "",
+    mode: "Build",
+    model: runtime.model,
+    provider: runtime.provider,
+    cwd: runtime.cwd,
+    version: runtime.version,
+    runtime: runtime.runtime,
+    project: runtime.project,
+    status: "idle",
+    action: "ready",
+    goal: "",
+    tokenUsage: { tokens: 0, percent: 0, cost: "$0.00" },
+    mcp: {
+      label: runtime.runtime.backendPackage,
+      connected: runtime.runtime.backendVersion !== "not installed",
+    },
+    lsp: runtime.lsp ?? [],
+    tasks: [],
+    events: [],
+  };
+}
+
+export const initialState = createInitialState();
 
 export function reducer(state, action) {
   switch (action.type) {
@@ -30,14 +43,14 @@ export function reducer(state, action) {
         action: "Writing command...",
         tasks: [
           { id: "understand", label: "Understand request", status: "done" },
-          { id: "inspect", label: "Inspect workspace", status: "active" },
-          { id: "edit", label: "Apply changes", status: "pending" },
-          { id: "verify", label: "Run checks", status: "pending" },
+          { id: "inspect", label: "Read AlphaFoundry project context", status: "active" },
+          { id: "execute", label: "Run Pi Agent backend", status: "pending" },
+          { id: "verify", label: "Verify result", status: "pending" },
         ],
         events: [
           ...state.events,
           { type: "user", text: action.value },
-          { type: "separator", label: "session started" },
+          { type: "separator", label: "alphafoundry session started" },
         ].slice(-200),
       };
     case "ADD_EVENT":

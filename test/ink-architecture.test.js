@@ -1,8 +1,37 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialState, reducer } from "../src/tui/state.js";
+import { initialState, reducer, createInitialState } from "../src/tui/state.js";
 import { paneWidths } from "../src/tui/layout.js";
 import { formatDiffLines, wrapPlain } from "../src/tui/formatters.js";
+
+test("createInitialState uses real AlphaFoundry runtime data", () => {
+  const state = createInitialState({
+    cwd: "/tmp/alphafoundry",
+    version: "9.9.9",
+    packageName: "alphafoundry",
+    nodeVersion: "v99.0.0",
+    backendPackage: "@mariozechner/pi-coding-agent",
+    backendVersion: "0.70.6",
+    gitBranch: "main",
+    gitDirty: false,
+    model: "local-agent",
+    provider: "pi-backend",
+  });
+
+  assert.equal(state.product, "AlphaFoundry");
+  assert.equal(state.model, "local-agent");
+  assert.equal(state.provider, "pi-backend");
+  assert.equal(state.runtime.nodeVersion, "v99.0.0");
+  assert.equal(state.runtime.backendVersion, "0.70.6");
+  assert.equal(state.project.gitBranch, "main");
+  assert.equal(state.lsp.length, 0);
+});
+
+test("initial state is AlphaFoundry branded and does not use OpenCode placeholders", () => {
+  const serialized = JSON.stringify(initialState);
+  assert.match(serialized, /AlphaFoundry/);
+  assert.doesNotMatch(serialized, /OpenCode|Claude Opus|Hard Connected/);
+});
 
 test("reducer transitions home submit into active workspace", () => {
   const state = reducer(initialState, { type: "SUBMIT_HOME", value: "Fix broken tests" });

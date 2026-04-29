@@ -42,7 +42,7 @@ Usage:
   af --provider openai --model gpt-4o-mini -p "message"
 
 TUI:
-  Home screen: centered opencode-style logo + input palette
+  Home screen: centered AlphaFoundry logo + input palette
   Workspace: split pane with transcript, context sidebar, and sticky status bar
 
 AlphaFoundry keeps the af command and delegates model/tool execution to @mariozechner/pi-coding-agent.

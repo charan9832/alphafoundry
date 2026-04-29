@@ -23,7 +23,7 @@ export function App() {
       dispatch({ type: "ADD_EVENT", event: { type: "command", command: `af -p ${JSON.stringify(value)}`, status: result.ok ? "success" : "error" } });
       dispatch({ type: "ADD_EVENT", event: { type: result.ok ? "assistant" : "error", text: result.output?.trim() || result.error || "No output." } });
       dispatch({ type: "UPDATE_TASK", id: "inspect", patch: { status: "done" } });
-      dispatch({ type: "UPDATE_TASK", id: "edit", patch: { status: "done" } });
+      dispatch({ type: "UPDATE_TASK", id: "execute", patch: { status: "done" } });
       dispatch({ type: "UPDATE_TASK", id: "verify", patch: { status: "active" } });
       dispatch({ type: "SET_STATUS", status: "idle", action: "ready" });
     } catch (error) {
