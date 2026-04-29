@@ -22,7 +22,7 @@ function run(command, args, options = {}) {
     cwd: options.cwd ?? repoRoot,
     env: { ...process.env, ...(options.env ?? {}) },
     encoding: "utf8",
-    shell: false,
+    shell: process.platform === "win32",
   });
   if (result.status !== 0) {
     const details = [
