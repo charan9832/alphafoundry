@@ -1,10 +1,56 @@
 # AlphaFoundry Agent Guide
 
-AlphaFoundry is a rebranded launcher for Pi Agent.
+AlphaFoundry is a standalone terminal AI product. Treat `af`, the docs, configuration, doctor checks, and the Ink TUI as AlphaFoundry-owned surfaces.
 
-Keep:
-- repo name: alphafoundry
-- package name: alphafoundry
-- command: af
+## Product identity
 
-Do not bring back the old broken custom onboarding unless the user asks. Prefer direct Pi Agent behavior.
+- Product name: AlphaFoundry
+- Package name: `alphafoundry`
+- CLI commands: `af` and `alphafoundry`
+- Default config: `~/.alphafoundry/config.json`
+- Config override: `ALPHAFOUNDRY_CONFIG_PATH`
+
+Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. The current runtime adapter uses `@mariozechner/pi-coding-agent`, but Pi Agent is not the product identity. Mention Pi Agent only when discussing runtime internals, backend delegation, diagnostics, or adapter behavior.
+
+## Architecture boundaries
+
+AlphaFoundry-owned layers:
+
+- Native CLI command surface: `init`, `doctor`, `config`, `models`, `session`, `tui`
+- Product docs and onboarding
+- Config schema that stores provider/model/env var names only
+- Doctor/diagnostic reporting
+- Ink TUI workflow and state model
+
+Runtime adapter layer:
+
+- Model/tool execution
+- Provider-specific behavior
+- Backend session details until native AlphaFoundry session commands are completed
+
+## Config and secrets
+
+Never store raw secrets in AlphaFoundry config. Store environment variable names such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `ALPHAFOUNDRY_API_KEY`.
+
+Allowed config keys are intentionally narrow:
+
+- `provider`
+- `model`
+- `env.apiKey`
+- `env.baseUrl`
+
+## Development workflow
+
+Use TDD for command/config/doctor behavior:
+
+1. Add or update tests first.
+2. Run the relevant failing test.
+3. Implement the smallest product change.
+4. Run `npm test`.
+5. Do not commit unless explicitly asked.
+
+Respect ownership boundaries. Do not modify `src/tui/**`, `src/pi-runtime/**`, or backend adapter files when working only on product identity/config/doctor tasks unless the task explicitly allows it.
+
+## Documentation tone
+
+Docs should present AlphaFoundry as the product users install and operate. Keep runtime adapter details in diagnostics, troubleshooting, or architecture notes. Prefer Windows-friendly npm and PowerShell examples when showing install/update/config commands.

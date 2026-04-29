@@ -1,39 +1,158 @@
-import React, { useCallback, useReducer } from "react";
+import React, { useCallback, useEffect, useReducer, useRef } from "react";
 import { useApp, useInput } from "ink";
 import { initialState, reducer } from "./state.js";
+import { parseSlashCommand } from "./commands.js";
 import { useTerminalSize, paneWidths } from "./layout.js";
 import { Home } from "./components/Home.jsx";
 import { Workspace } from "./components/Workspace.jsx";
-import { runPiPrompt } from "../pi-backend.js";
+
+let cachedRuntimeRunnerPromise;
+
+async function loadRuntimeRunner() {
+  if (cachedRuntimeRunnerPromise) return cachedRuntimeRunnerPromise;
+  cachedRuntimeRunnerPromise = createRuntimeRunner();
+  return cachedRuntimeRunnerPromise;
+}
+
+async function createRuntimeRunner() {
+  try {
+    const runtime = await import("../pi-runtime/client.js");
+    if (typeof runtime.createPiRpcRuntime === "function") {
+      const client = runtime.createPiRpcRuntime();
+      await client.start();
+      return async (prompt, options = {}) => {
+        const unsubscribe = typeof options.onEvent === "function" ? client.onEvent(options.onEvent) : undefined;
+        try {
+          const result = await client.sendPrompt(prompt, options);
+          return {
+            ok: result.ok,
+            output: "",
+            error: result.error || result.stderr,
+            events: result.error || result.stderr ? [{ type: "stderr", text: result.error || result.stderr }] : [],
+          };
+        } finally {
+          unsubscribe?.();
+        }
+      };
+    }
+    if (typeof runtime.createPiRuntime === "function") {
+      const client = runtime.createPiRuntime().start();
+      return async (prompt, options = {}) => {
+        const unsubscribe = typeof options.onEvent === "function" ? client.onEvent(options.onEvent) : undefined;
+        try {
+          const result = await client.sendPrompt(prompt, options);
+          return {
+            ok: result.ok,
+            output: "",
+            error: result.error || result.stderr,
+            events: result.error || result.stderr ? [{ type: "stderr", text: result.error || result.stderr }] : [],
+          };
+        } finally {
+          unsubscribe?.();
+        }
+      };
+    }
+    if (typeof runtime.runPrompt === "function") return runtime.runPrompt;
+    if (typeof runtime.runPiPrompt === "function") return runtime.runPiPrompt;
+    if (typeof runtime.createRuntimeClient === "function") {
+      const client = runtime.createRuntimeClient();
+      if (typeof client.runPrompt === "function") return client.runPrompt.bind(client);
+    }
+  } catch (error) {
+    if (error?.code !== "ERR_MODULE_NOT_FOUND") throw error;
+  }
+
+  const backend = await import("../pi-backend.js");
+  return backend.runPiPrompt;
+}
+
+function normalizeResultEvents(result) {
+  if (!result) return [{ type: "assistant", text: "No output." }];
+  if (Array.isArray(result.events)) return result.events;
+  return [{ type: result.ok === false ? "error" : "assistant", text: result.output?.trim() || result.error || "No output." }];
+}
+
+async function runPromptWithEvents(prompt, options, onEvent) {
+  const runner = await loadRuntimeRunner();
+  const result = await runner(prompt, { ...options, onEvent });
+  if (result && typeof result[Symbol.asyncIterator] === "function") {
+    for await (const event of result) onEvent(event);
+    return { ok: true };
+  }
+  for (const event of normalizeResultEvents(result)) onEvent(event);
+  return result ?? { ok: true };
+}
 
 export function App() {
   const { exit } = useApp();
   const size = useTerminalSize();
   const [state, dispatch] = useReducer(reducer, initialState);
+  const stateRef = useRef(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const cancelActiveRun = useCallback((reason = "cancel requested") => {
+    const activeRun = stateRef.current.activeRun;
+    if (!activeRun) return false;
+    dispatch({ type: "RUN_CANCELLING" });
+    try {
+      if (typeof activeRun.abort === "function") activeRun.abort(reason);
+      else if (typeof activeRun.cancel === "function") activeRun.cancel(reason);
+    } finally {
+      dispatch({ type: "RUN_CANCELLED", reason });
+    }
+    return true;
+  }, []);
 
   const submitPrompt = useCallback(async (value) => {
-    if (!value.trim()) return;
-    const alreadyWorkspace = state.view === "workspace";
-    if (!alreadyWorkspace) dispatch({ type: "SUBMIT_HOME", value });
-    else dispatch({ type: "ADD_EVENT", event: { type: "user", text: value } });
-    dispatch({ type: "SET_STATUS", status: "running", action: "Writing command..." });
-    dispatch({ type: "ADD_EVENT", event: { type: "command", command: `af -p ${JSON.stringify(value)}`, status: "running" } });
+    const clean = value.trim();
+    if (!clean) return;
+
+    const command = parseSlashCommand(clean);
+    if (command.type !== "prompt") {
+      if (command.type === "exit") {
+        if (!cancelActiveRun("/exit")) exit();
+        return;
+      }
+      dispatch({ type: "COMMAND", command });
+      return;
+    }
+
+    const controller = new AbortController();
+    const run = { id: `run_${Date.now().toString(36)}`, abort: (reason) => controller.abort(reason) };
+    const current = stateRef.current;
+    dispatch({ type: "RUN_STARTED", prompt: command.value, run });
     try {
-      const result = await runPiPrompt(value, { provider: state.provider, model: state.model });
-      dispatch({ type: "ADD_EVENT", event: { type: "command", command: `af -p ${JSON.stringify(value)}`, status: result.ok ? "success" : "error" } });
-      dispatch({ type: "ADD_EVENT", event: { type: result.ok ? "assistant" : "error", text: result.output?.trim() || result.error || "No output." } });
+      const result = await runPromptWithEvents(
+        command.value,
+        { provider: current.provider, model: current.model, tools: current.tools, session: current.session, signal: controller.signal },
+        (event) => dispatch({ type: "RUNTIME_EVENT", event }),
+      );
+      if (controller.signal.aborted) return;
+      dispatch({ type: "ADD_EVENT", event: { type: "command", command: `af -p ${JSON.stringify(command.value)}`, status: result?.ok === false ? "error" : "success" } });
       dispatch({ type: "UPDATE_TASK", id: "inspect", patch: { status: "done" } });
       dispatch({ type: "UPDATE_TASK", id: "execute", patch: { status: "done" } });
       dispatch({ type: "UPDATE_TASK", id: "verify", patch: { status: "active" } });
-      dispatch({ type: "SET_STATUS", status: "idle", action: "ready" });
+      dispatch({ type: "RUN_FINISHED" });
     } catch (error) {
-      dispatch({ type: "ADD_EVENT", event: { type: "error", text: error instanceof Error ? error.message : String(error) } });
-      dispatch({ type: "SET_STATUS", status: "error", action: "error" });
+      if (controller.signal.aborted) {
+        dispatch({ type: "RUN_CANCELLED", reason: controller.signal.reason ?? "aborted" });
+      } else {
+        dispatch({ type: "RUN_ERROR", error });
+      }
     }
-  }, [state.provider, state.model, state.view]);
+  }, [cancelActiveRun, exit]);
 
   useInput((input, key) => {
-    if (key.escape || (key.ctrl && input === "c")) exit();
+    if (key.escape || (key.ctrl && input === "c")) {
+      if (stateRef.current.status === "running" || stateRef.current.status === "cancelling") {
+        cancelActiveRun(key.escape ? "escape" : "ctrl+c");
+      } else {
+        exit();
+      }
+    }
   });
 
   if (state.view === "home") return <Home state={state} dispatch={dispatch} columns={size.columns} rows={size.rows} onSubmit={submitPrompt} />;

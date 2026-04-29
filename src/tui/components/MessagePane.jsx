@@ -14,12 +14,14 @@ function Separator({ label, width }) {
 }
 
 function TextEvent({ event, width }) {
-  const color = event.type === "user" ? theme.cyan : event.type === "error" ? theme.red : theme.text;
-  const label = event.type === "user" ? "you" : event.type === "assistant" ? "assistant" : event.type;
+  const color = event.type === "user" ? theme.cyan : event.type === "error" || event.type === "stderr" ? theme.red : event.type === "tool" ? theme.yellow : theme.text;
+  const labels = { user: "you", assistant: "assistant", stdout: "stdout", stderr: "stderr", stats: "stats", session: "session", tool: "tool" };
+  const label = labels[event.type] ?? event.type;
+  const text = event.text ?? event.output ?? event.error ?? "";
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text color={color} bold>▸ {label}</Text>
-      {wrapPlain(event.text ?? "", width - 2).map((line, i) => <Text key={i} color={event.type === "error" ? theme.red : theme.text}>{line}</Text>)}
+      {wrapPlain(text, width - 2).map((line, i) => <Text key={i} color={event.type === "error" || event.type === "stderr" ? theme.red : theme.text}>{line}</Text>)}
     </Box>
   );
 }

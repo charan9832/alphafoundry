@@ -34,6 +34,15 @@ export function Sidebar({ state, width }) {
         <Text color={theme.muted}>{state.tokenUsage.percent}% tracked · {state.tokenUsage.cost}</Text>
       </Box>
       <Box marginTop={1} flexDirection="column">
+        <Text color={theme.muted}>Session</Text>
+        <Text color={theme.text}>{state.session?.id ?? "new"}</Text>
+        <Text color={theme.muted}>{state.status}{state.activeRun ? " · active run" : ""}</Text>
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text color={theme.muted}>Tools</Text>
+        {state.tools?.length ? state.tools.map((tool) => <Text key={tool} color={theme.text}>• {tool}</Text>) : <Text color={theme.muted}>default runtime tools</Text>}
+      </Box>
+      <Box marginTop={1} flexDirection="column">
         <Text color={theme.muted}>Language tools</Text>
         {state.lsp.length ? state.lsp.map((server) => <Text key={server} color={theme.text}>• {server}</Text>) : <Text color={theme.muted}>none detected</Text>}
       </Box>

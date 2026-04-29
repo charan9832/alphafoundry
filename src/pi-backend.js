@@ -13,6 +13,7 @@ export function buildPiArgs(args = []) {
 }
 
 export function runPi(args = [], options = {}) {
+  const maxOutputBytes = options.maxOutputBytes ?? 1024 * 1024;
   return new Promise((resolve) => {
     const child = spawn(process.execPath, buildPiArgs(args), {
       stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
@@ -24,14 +25,26 @@ export function runPi(args = [], options = {}) {
     });
     let stdout = "";
     let stderr = "";
+    let cappedBytes = 0;
+    const appendCapped = (current, chunk) => {
+      const text = chunk.toString();
+      const remaining = Math.max(0, maxOutputBytes - Buffer.byteLength(stdout) - Buffer.byteLength(stderr));
+      if (remaining <= 0) {
+        cappedBytes += Buffer.byteLength(text);
+        return current;
+      }
+      const kept = Buffer.byteLength(text) <= remaining ? text : text.slice(0, remaining);
+      cappedBytes += Math.max(0, Buffer.byteLength(text) - Buffer.byteLength(kept));
+      return current + kept;
+    };
     child.stdout?.on("data", (chunk) => {
-      stdout += chunk.toString();
+      stdout = appendCapped(stdout, chunk);
     });
     child.stderr?.on("data", (chunk) => {
-      stderr += chunk.toString();
+      stderr = appendCapped(stderr, chunk);
     });
-    child.on("error", (error) => resolve({ ok: false, status: 1, output: stdout, error: error.message }));
-    child.on("close", (status) => resolve({ ok: status === 0, status: status ?? 0, output: stdout, error: stderr }));
+    child.on("error", (error) => resolve({ ok: false, status: 1, output: stdout, error: error.message, cappedBytes }));
+    child.on("close", (status) => resolve({ ok: status === 0, status: status ?? 0, output: stdout, error: stderr, cappedBytes }));
   });
 }
 

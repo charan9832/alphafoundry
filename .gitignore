@@ -3,4 +3,5 @@ dist/
 .env
 .alphafoundry/
 .pi/
+.hermes/
 *.tgz

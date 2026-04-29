@@ -1,7 +1,7 @@
 {
   "name": "alphafoundry",
   "version": "0.3.0",
-  "description": "AlphaFoundry: a React Ink split-pane terminal TUI powered by Pi Agent.",
+  "description": "AlphaFoundry: a native terminal AI workspace with a React Ink TUI and Pi runtime adapter.",
   "type": "module",
   "bin": {
     "af": "./src/cli.js",
@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "check": "npm test && node src/cli.js --help && node src/cli.js --version",
+    "check": "npm test && node src/cli.js --help && node src/cli.js --version && npm run pack:dry-run",
     "pack:dry-run": "npm pack --dry-run --json"
   },
   "dependencies": {
@@ -30,9 +30,27 @@
   },
   "files": [
     "src",
-    "test",
     "README.md",
     "AGENTS.md",
-    "docs"
+    "docs",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "author": "AlphaFoundry contributors",
+  "homepage": "https://github.com/charan9832/alphafoundry#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/charan9832/alphafoundry.git"
+  },
+  "bugs": {
+    "url": "https://github.com/charan9832/alphafoundry/issues"
+  },
+  "keywords": [
+    "alphafoundry",
+    "ai-agent",
+    "tui",
+    "ink",
+    "terminal",
+    "pi-agent"
   ]
 }

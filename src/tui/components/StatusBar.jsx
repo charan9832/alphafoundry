@@ -11,7 +11,7 @@ function fit(text, width) {
 
 export function StatusBar({ state, width }) {
   const left = `${state.product}  ${state.provider}/${state.model}`;
-  const center = state.action || "ready";
+  const center = state.status === "cancelling" ? "Cancelling..." : state.status === "cancelled" ? "Cancelled" : state.action || "ready";
   const right = `${state.cwd}  v${state.version}`;
   const leftWidth = Math.floor(width * 0.33);
   const centerWidth = Math.floor(width * 0.34);
