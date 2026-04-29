@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -66,6 +66,44 @@ test("setConfigValue and getConfigValue update whitelisted config keys", () => {
   }
 });
 
+test("readConfig rejects unknown keys, wrong types, and raw secret env values", () => {
+  const cases = [
+    [{ provider: "openai", apiKey: "raw-value" }, /Unsupported config key: apiKey/],
+    [{ provider: 42 }, /Config value for provider must be a non-empty string/],
+    [{ env: { apiKey: "raw secret value" } }, /environment variable names only/],
+    [{ env: { baseUrl: "https://example.invalid" } }, /environment variable names only/],
+    [{ env: { token: "OPENAI_API_KEY" } }, /Unsupported config key: env.token/],
+  ];
+
+  for (const [config, message] of cases) {
+    const temp = tempConfigPath();
+    try {
+      writeFileSync(temp.path, `${JSON.stringify(config)}\n`);
+      assert.throws(() => readConfig({ path: temp.path }), message);
+    } finally {
+      rmSync(temp.dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test("af config get redacts env values", () => {
+  const temp = tempConfigPath();
+  try {
+    const env = { ALPHAFOUNDRY_CONFIG_PATH: temp.path };
+    assert.equal(runCli(["config", "set", "env.apiKey", "OPENAI_API_KEY"], env).status, 0);
+    const getKey = runCli(["config", "get", "env.apiKey"], env);
+    assert.equal(getKey.status, 0, getKey.stderr);
+    assert.equal(getKey.stdout.trim(), "[REDACTED_ENV_VAR_NAME]");
+
+    const getAll = runCli(["config", "get", "env"], env);
+    assert.equal(getAll.status, 0, getAll.stderr);
+    assert.match(getAll.stdout, /\[REDACTED_ENV_VAR_NAME\]/);
+    assert.doesNotMatch(getAll.stdout, /OPENAI_API_KEY/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("resolveRuntimeConfig reads provider/model and resolves env variable names without persisting secrets", () => {
   const temp = tempConfigPath();
   try {
@@ -117,6 +155,27 @@ test("doctor reports package, node, backend, git, config, and tty checks", () =>
     assert.ok(names.includes("config"));
     assert.ok(names.includes("tty"));
     assert.ok(["pass", "warn", "fail"].includes(report.status));
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("doctor reports invalid config as a failure and redacts secret-looking values", () => {
+  const temp = tempConfigPath();
+  try {
+    writeFileSync(temp.path, `${JSON.stringify({ provider: "openai", env: { apiKey: "raw secret value" } })}\n`);
+    const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const configCheck = report.checks.find((check) => check.name === "config");
+    assert.equal(report.status, "fail");
+    assert.equal(configCheck.status, "fail");
+    assert.match(configCheck.message, /Invalid config/);
+    assert.doesNotMatch(JSON.stringify(report), /raw secret value/);
+
+    const cli = runCli(["doctor", "--json"], { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.equal(cli.status, 1);
+    assert.doesNotMatch(cli.stdout, /raw secret value/);
+    const cliReport = JSON.parse(cli.stdout);
+    assert.equal(cliReport.status, "fail");
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }

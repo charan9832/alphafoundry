@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { configExists, defaultConfigPath, readConfig } from "./config.js";
 import { resolvePiPackageJsonPath } from "./dependencies.js";
+import { redactConfig, redactText } from "./redaction.js";
 
 function packageRoot() {
   return dirname(dirname(fileURLToPath(import.meta.url)));
@@ -66,8 +67,16 @@ export function runDoctor(options = {}) {
   checks.push(gitInfo(cwd));
 
   if (configExists({ path })) {
-    const config = readConfig({ path });
-    checks.push(check("pass", "config", `Config file found at ${path}`, { path, provider: config.provider, model: config.model }));
+    try {
+      const config = readConfig({ path });
+      checks.push(
+        check("pass", "config", `Config file found at ${path}`, { path, provider: config.provider, model: config.model, config: redactConfig(config) }),
+      );
+    } catch (error) {
+      checks.push(
+        check("fail", "config", `Invalid config at ${path}: ${redactText(error instanceof Error ? error.message : String(error))}`, { path }),
+      );
+    }
   } else {
     checks.push(check("warn", "config", `Config file not found at ${path}`, { path }));
   }

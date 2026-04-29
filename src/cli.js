@@ -6,6 +6,7 @@ import { buildConfiguredPiArgs, resolvePiProcessEnv } from "./pi-backend.js";
 import { defaultConfigPath, getConfigValue, initConfig, resolveRuntimeConfig, setConfigValue } from "./config.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
 import { resolveTsxLoaderUrl } from "./dependencies.js";
+import { redactConfigValue } from "./redaction.js";
 
 function packageRoot() {
   return dirname(dirname(fileURLToPath(import.meta.url)));
@@ -68,7 +69,7 @@ function handleConfig(args) {
       console.error("Usage: af config get <key>");
       return 1;
     }
-    const value = getConfigValue(key);
+    const value = redactConfigValue(key, getConfigValue(key));
     if (typeof value === "object") console.log(JSON.stringify(value, null, 2));
     else if (value !== undefined) console.log(String(value));
     return value === undefined ? 1 : 0;
@@ -94,7 +95,7 @@ function handleDoctor(args) {
   } else {
     console.log(formatDoctor(report));
   }
-  return 0;
+  return report.status === "fail" ? 1 : 0;
 }
 
 function handleModels() {

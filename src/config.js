@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
 const SUPPORTED_KEYS = new Set(["provider", "model", "env.apiKey", "env.baseUrl"]);
+const INTERNAL_KEYS = new Set(["product", "version", ...SUPPORTED_KEYS]);
 const DEFAULT_RUNTIME_PROVIDER = "default";
 const DEFAULT_RUNTIME_MODEL = "default";
 
@@ -46,19 +47,52 @@ function assertSafeValue(key, value) {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Config value for ${key} must be a non-empty string`);
   }
-  if (key.startsWith("env.") && !isEnvVarName(value)) {
-    throw new Error("AlphaFoundry config stores environment variable names only, not raw secrets");
+  if (key.startsWith("env.")) {
+    if (!isEnvVarName(value)) {
+      throw new Error("AlphaFoundry config stores environment variable names only, not raw secrets");
+    }
+    return;
   }
   if (/sk-|secret|token|password|bearer\s+/i.test(value) && !isEnvVarName(value)) {
     throw new Error("AlphaFoundry config stores environment variable names only, not raw secrets");
   }
 }
 
+function flattenConfigKeys(config, prefix = "") {
+  const keys = [];
+  for (const [key, value] of Object.entries(config ?? {})) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === "object" && !Array.isArray(value)) keys.push(...flattenConfigKeys(value, path));
+    else keys.push(path);
+  }
+  return keys;
+}
+
+export function validateConfig(config) {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    throw new Error("AlphaFoundry config must be a JSON object");
+  }
+  for (const key of flattenConfigKeys(config)) {
+    if (!INTERNAL_KEYS.has(key)) throw new Error(`Unsupported config key: ${key}`);
+  }
+  if (config.product !== undefined && config.product !== "AlphaFoundry") {
+    throw new Error("Config product must be AlphaFoundry");
+  }
+  if (config.version !== undefined && config.version !== 1) {
+    throw new Error("Config version must be 1");
+  }
+  for (const key of SUPPORTED_KEYS) {
+    const value = key.split(".").reduce((current, part) => current?.[part], config);
+    if (value !== undefined) assertSafeValue(key, value);
+  }
+  return config;
+}
+
 export function readConfig(options = {}) {
   const path = configPath(options);
   if (!existsSync(path)) return defaultConfig();
-  const parsed = JSON.parse(readFileSync(path, "utf8"));
-  return {
+  const parsed = validateConfig(JSON.parse(readFileSync(path, "utf8")));
+  const merged = {
     ...defaultConfig(),
     ...parsed,
     product: "AlphaFoundry",
@@ -67,16 +101,17 @@ export function readConfig(options = {}) {
       ...(parsed.env ?? {}),
     },
   };
+  return validateConfig(merged);
 }
 
 export function writeConfig(config, options = {}) {
   const path = configPath(options);
   ensureParent(path);
-  const sanitized = {
+  const sanitized = validateConfig({
     ...config,
     product: "AlphaFoundry",
     env: { ...(config.env ?? {}) },
-  };
+  });
   writeFileSync(path, `${JSON.stringify(sanitized, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   return { path, config: sanitized };
 }

@@ -28,7 +28,12 @@ export function detectRuntime(overrides = {}) {
   const backendInfo = existsSync(backendPackagePath) ? readJson(backendPackagePath) : { name: "@mariozechner/pi-coding-agent", version: "not installed" };
   const gitBranch = maybeGit(["branch", "--show-current"], root) || "no git";
   const gitStatus = maybeGit(["status", "--short"], root);
-  const configRuntime = resolveRuntimeConfig({}, { env: process.env });
+  let configRuntime = { provider: "default", model: "default" };
+  try {
+    configRuntime = resolveRuntimeConfig({}, { env: process.env });
+  } catch {
+    configRuntime = { provider: "default", model: "default" };
+  }
   const provider = process.env.ALPHAFOUNDRY_PROVIDER ?? process.env.AF_PROVIDER ?? process.env.PI_PROVIDER ?? configRuntime.provider ?? "default";
   const model = process.env.ALPHAFOUNDRY_MODEL ?? process.env.AF_MODEL ?? process.env.PI_MODEL ?? configRuntime.model ?? "default";
 
