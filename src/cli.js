@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildConfiguredPiArgs, resolvePiProcessEnv } from "./pi-backend.js";
-import { defaultConfigPath, getConfigValue, initConfig, resolveRuntimeConfig, setConfigValue } from "./config.js";
+import { defaultConfigPath, getConfigValue, initConfig, repairConfig, resolveRuntimeConfig, setConfigValue } from "./config.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
 import { resolveTsxLoaderUrl } from "./dependencies.js";
 import { redactConfigValue } from "./redaction.js";
@@ -37,6 +37,7 @@ Usage:
   af config path             Print active config path
   af config get <key>        Read config key (provider, model, env.apiKey, env.baseUrl)
   af config set <key> <value> Set provider/model/env var names only; never raw secrets
+  af config repair           Remove unsupported legacy config keys and preserve safe values
   af models                  Explain backend-delegated model listing
   af session                 Explain AlphaFoundry session support
   af -p "message"             Run one prompt through the Pi Agent runtime adapter
@@ -84,7 +85,18 @@ function handleConfig(args) {
     console.log(`AlphaFoundry config updated: ${key} (${result.path})`);
     return 0;
   }
-  console.error("Usage: af config path|get|set");
+  if (subcommand === "repair") {
+    const result = repairConfig();
+    if (result.created) {
+      console.log(`AlphaFoundry config created: ${result.path}`);
+    } else if (result.removed.length > 0) {
+      console.log(`AlphaFoundry config repaired: removed unsupported keys: ${result.removed.join(", ")} (${result.path})`);
+    } else {
+      console.log(`AlphaFoundry config already valid: ${result.path}`);
+    }
+    return 0;
+  }
+  console.error("Usage: af config path|get|set|repair");
   return 1;
 }
 

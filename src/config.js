@@ -151,6 +151,39 @@ export function configExists(options = {}) {
   return existsSync(configPath(options));
 }
 
+function pruneUnsupportedKeys(config) {
+  const removed = [];
+  const pruned = {};
+  for (const [key, value] of Object.entries(config ?? {})) {
+    if (key === "env" && value && typeof value === "object" && !Array.isArray(value)) {
+      const env = {};
+      for (const [envKey, envValue] of Object.entries(value)) {
+        const path = `env.${envKey}`;
+        if (INTERNAL_KEYS.has(path)) env[envKey] = envValue;
+        else removed.push(path);
+      }
+      if (Object.keys(env).length > 0) pruned.env = env;
+    } else if (INTERNAL_KEYS.has(key)) {
+      pruned[key] = value;
+    } else {
+      removed.push(key);
+    }
+  }
+  return { pruned, removed };
+}
+
+export function repairConfig(options = {}) {
+  const path = configPath(options);
+  if (!existsSync(path)) {
+    const result = initConfig({ ...options, path, nonInteractive: true });
+    return { ...result, repaired: true, removed: [], created: true };
+  }
+  const parsed = JSON.parse(readFileSync(path, "utf8"));
+  const { pruned, removed } = pruneUnsupportedKeys(parsed);
+  const result = writeConfig({ ...defaultConfig(), ...pruned, env: { ...defaultConfig().env, ...(pruned.env ?? {}) } }, { ...options, path });
+  return { ...result, repaired: removed.length > 0, removed, created: false };
+}
+
 function valueOrDefault(value, fallback) {
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }

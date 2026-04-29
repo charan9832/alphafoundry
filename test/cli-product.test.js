@@ -222,6 +222,42 @@ test("af config path|get|set manage native config", () => {
   }
 });
 
+test("af config repair removes unsupported legacy keys and preserves supported values", () => {
+  const temp = tempConfigPath();
+  try {
+    const env = { ALPHAFOUNDRY_CONFIG_PATH: temp.path };
+    writeFileSync(temp.path, `${JSON.stringify({
+      product: "AlphaFoundry",
+      version: 1,
+      provider: "openai",
+      model: "gpt-4o-mini",
+      default_mode: "build",
+      env: { apiKey: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
+    })}\n`);
+
+    const before = runCli(["doctor", "--json"], env);
+    assert.equal(before.status, 1);
+    assert.match(before.stdout, /default_mode/);
+
+    const repair = runCli(["config", "repair"], env);
+    assert.equal(repair.status, 0, repair.stderr);
+    assert.match(repair.stdout, /removed unsupported keys: default_mode/i);
+
+    const repaired = readConfig({ path: temp.path });
+    assert.equal(repaired.provider, "openai");
+    assert.equal(repaired.model, "gpt-4o-mini");
+    assert.equal(repaired.env.apiKey, "OPENAI_API_KEY");
+    assert.equal(repaired.env.baseUrl, "OPENAI_BASE_URL");
+    assert.equal(repaired.default_mode, undefined);
+
+    const after = runCli(["doctor", "--json"], env);
+    assert.equal(after.status, 0, after.stderr);
+    assert.doesNotMatch(after.stdout, /default_mode/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("af doctor --json emits parseable doctor JSON", () => {
   const temp = tempConfigPath();
   try {
