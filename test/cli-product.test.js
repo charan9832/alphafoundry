@@ -281,6 +281,86 @@ test("af models and af session are native informational commands", () => {
   assert.match(session.stdout, /session/i);
 });
 
+test("af sessions list is real and machine-readable for an empty session store", () => {
+  const temp = tempConfigPath();
+  try {
+    const env = { ALPHAFOUNDRY_HOME: temp.dir };
+    const result = runCli(["sessions", "list", "--json"], env);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout);
+    assert.deepEqual(payload.sessions, []);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("af run --json creates a durable AlphaFoundry session without leaking secrets", () => {
+  const temp = tempConfigPath();
+  try {
+    const env = { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" };
+    const result = runCli(["run", "-p", "token=sk-testsecret1234567890", "--json", "--provider", "default", "--model", "default"], env);
+    assert.equal(result.status, 0, result.stderr);
+    const payload = JSON.parse(result.stdout);
+    assert.match(payload.session.id, /^ses_/);
+    assert.equal(payload.session.adapter, "mock");
+    assert.equal(payload.result.ok, true);
+    assert.doesNotMatch(result.stdout, /sk-testsecret/);
+    assert.match(result.stdout, /\[REDACTED_SECRET\]/);
+
+    const listed = runCli(["sessions", "list", "--json"], env);
+    assert.equal(listed.status, 0, listed.stderr);
+    const listPayload = JSON.parse(listed.stdout);
+    assert.equal(listPayload.sessions.length, 1);
+
+    const shown = runCli(["sessions", "show", payload.session.id, "--json"], env);
+    assert.equal(shown.status, 0, shown.stderr);
+    assert.doesNotMatch(shown.stdout, /sk-testsecret/);
+    const showPayload = JSON.parse(shown.stdout);
+    assert.equal(showPayload.manifest.id, payload.session.id);
+    assert.ok(showPayload.events.length >= 3);
+
+    const exported = runCli(["sessions", "export", payload.session.id, "--ndjson"], env);
+    assert.equal(exported.status, 0, exported.stderr);
+    assert.doesNotMatch(exported.stdout, /sk-testsecret/);
+    assert.ok(exported.stdout.trim().split("\n").length >= 3);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("af run --stream-json emits parseable NDJSON events", () => {
+  const temp = tempConfigPath();
+  try {
+    const result = runCli(["run", "-p", "hello", "--stream-json"], { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" });
+    assert.equal(result.status, 0, result.stderr);
+    const lines = result.stdout.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    assert.ok(lines.length >= 3);
+    assert.equal(lines[0].type, "run_start");
+    assert.equal(lines.at(-1).type, "run_end");
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("af run records resolved config provider and model in canonical run events", () => {
+  const temp = tempConfigPath();
+  try {
+    const env = { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_CONFIG_PATH: temp.path, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" };
+    assert.equal(runCli(["init", "--non-interactive"], env).status, 0);
+    assert.equal(runCli(["config", "set", "provider", "anthropic"], env).status, 0);
+    assert.equal(runCli(["config", "set", "model", "claude-test"], env).status, 0);
+
+    const result = runCli(["run", "-p", "hello", "--stream-json"], env);
+    assert.equal(result.status, 0, result.stderr);
+    const first = JSON.parse(result.stdout.trim().split("\n")[0]);
+    assert.equal(first.type, "run_start");
+    assert.equal(first.payload.provider, "anthropic");
+    assert.equal(first.payload.model, "claude-test");
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("help presents AlphaFoundry native command surface before passthrough", () => {
   const result = runCli(["--help"]);
   assert.equal(result.status, 0, result.stderr);
@@ -289,4 +369,6 @@ test("help presents AlphaFoundry native command surface before passthrough", () 
   assert.match(result.stdout, /af config path/);
   assert.match(result.stdout, /af models/);
   assert.match(result.stdout, /af session/);
+  assert.match(result.stdout, /af sessions list/);
+  assert.match(result.stdout, /af run -p/);
 });

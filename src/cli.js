@@ -7,6 +7,8 @@ import { defaultConfigPath, getConfigValue, initConfig, repairConfig, resolveRun
 import { formatDoctor, runDoctor } from "./doctor.js";
 import { resolveTsxLoaderUrl } from "./dependencies.js";
 import { redactConfigValue } from "./redaction.js";
+import { createSessionStore } from "./runtime/session-store.js";
+import { runPrompt } from "./runtime/runner.js";
 
 function packageRoot() {
   return dirname(dirname(fileURLToPath(import.meta.url)));
@@ -40,6 +42,10 @@ Usage:
   af config repair           Remove unsupported legacy config keys and preserve safe values
   af models                  Explain backend-delegated model listing
   af session                 Explain AlphaFoundry session support
+  af sessions list [--json]  List durable AlphaFoundry sessions
+  af sessions show <id> [--json] Show a durable session transcript
+  af sessions export <id> [--json|--ndjson] Export a session transcript
+  af run -p "message" [--json|--stream-json] Run a prompt with AlphaFoundry-owned session/events
   af -p "message"             Run one prompt through the Pi Agent runtime adapter
   af --provider openai --model gpt-4o-mini -p "message"
 
@@ -126,9 +132,128 @@ Use:
 function handleSession() {
   console.log(`AlphaFoundry sessions
 
-Session-aware workflows are part of the AlphaFoundry product surface. Current one-shot and TUI execution are available; richer native session listing/resume commands are planned while backend session behavior remains delegated to the runtime adapter.
+Session-aware workflows are part of the AlphaFoundry product surface. Current one-shot and TUI execution are available; native durable session listing/export is available through:
+
+  af sessions list
+  af sessions show <id>
+  af sessions export <id>
 `);
   return 0;
+}
+
+function printJson(value) {
+  console.log(JSON.stringify(value, null, 2));
+}
+
+function parseFlagValue(args, names) {
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    for (const name of names) {
+      if (arg === name) return args[i + 1];
+      if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1);
+    }
+  }
+  return undefined;
+}
+
+function removeOptionPairs(args, names) {
+  const output = [];
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (names.includes(arg)) {
+      i += 1;
+      continue;
+    }
+    if (names.some((name) => arg.startsWith(`${name}=`))) continue;
+    output.push(arg);
+  }
+  return output;
+}
+
+function handleSessions(args) {
+  const [subcommand, maybeId] = args;
+  const store = createSessionStore();
+  const json = args.includes("--json");
+  const ndjson = args.includes("--ndjson");
+
+  try {
+    if (subcommand === "list") {
+      const sessions = store.listSessions();
+      if (json) printJson({ sessions });
+      else if (sessions.length === 0) console.log("No AlphaFoundry sessions found.");
+      else for (const session of sessions) console.log(`${session.id}\t${session.status}\t${session.updatedAt}\t${session.cwd}`);
+      return 0;
+    }
+    if (subcommand === "show") {
+      if (!maybeId) {
+        console.error("Usage: af sessions show <id> [--json]");
+        return 1;
+      }
+      const session = store.readSession(maybeId);
+      if (json) printJson(session);
+      else {
+        console.log(`Session ${session.manifest.id}`);
+        console.log(`Status: ${session.manifest.status}`);
+        console.log(`CWD: ${session.manifest.cwd}`);
+        console.log(`Events: ${session.events.length}`);
+        for (const event of session.events) console.log(`${event.sequence ?? "?"}\t${event.type}\t${event.timestamp}`);
+      }
+      return 0;
+    }
+    if (subcommand === "export") {
+      if (!maybeId) {
+        console.error("Usage: af sessions export <id> [--json|--ndjson]");
+        return 1;
+      }
+      const exported = store.exportSession(maybeId, { format: ndjson ? "ndjson" : "json" });
+      if (typeof exported === "string") process.stdout.write(exported);
+      else printJson(exported);
+      return 0;
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
+
+  console.error("Usage: af sessions list|show|export");
+  return 1;
+}
+
+async function handleRun(args) {
+  const json = args.includes("--json");
+  const streamJson = args.includes("--stream-json");
+  const prompt = parseFlagValue(args, ["-p", "--prompt"]);
+  if (!prompt) {
+    console.error("Usage: af run -p <message> [--json|--stream-json]");
+    return 1;
+  }
+  const providerOverride = parseFlagValue(args, ["--provider"]);
+  const modelOverride = parseFlagValue(args, ["--model"]);
+
+  try {
+    const runtimeConfig = resolveRuntimeConfig({ provider: providerOverride, model: modelOverride });
+    const result = await runPrompt({
+      prompt,
+      provider: runtimeConfig.provider,
+      model: runtimeConfig.model,
+      runtimeEnv: runtimeConfig.env,
+      cwd: process.cwd(),
+      env: process.env,
+    });
+    if (streamJson) {
+      for (const event of result.events) process.stdout.write(`${JSON.stringify(event)}\n`);
+    } else if (json) {
+      printJson(result);
+    } else {
+      const text = result.events.find((event) => event.type === "assistant")?.payload?.text ?? "";
+      if (text) process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
+      console.error(`AlphaFoundry session: ${result.session.id}`);
+    }
+    return result.result.ok ? 0 : 1;
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
 }
 
 async function main() {
@@ -150,6 +275,8 @@ async function main() {
   if (command === "config") return handleConfig(rest);
   if (command === "models") return handleModels(rest);
   if (command === "session") return handleSession(rest);
+  if (command === "sessions") return handleSessions(rest);
+  if (command === "run") return handleRun(rest);
 
   if (args.length === 0 || args[0] === "tui") {
     return runInkTui();
