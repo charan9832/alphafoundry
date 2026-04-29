@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderFrame, parseSlashCommand } from "../src/tui.js";
+import { renderFrame, parseSlashCommand, spinnerFrame, stripAnsi } from "../src/tui.js";
 
-test("renderFrame shows OpenCode-style AlphaFoundry layout", () => {
+test("renderFrame uses OpenCode-like session layout", () => {
   const output = renderFrame({
     cwd: "/tmp/project",
     provider: "azure-openai",
@@ -14,14 +14,32 @@ test("renderFrame shows OpenCode-style AlphaFoundry layout", () => {
     ],
     input: "next task",
     status: "idle",
+    sessionID: "ses_test123",
+    tokens: 128,
+    cost: "$0.00",
   });
+  const plain = stripAnsi(output);
 
-  assert.match(output, /AlphaFoundry/);
-  assert.match(output, /azure-openai/);
-  assert.match(output, /Kimi-K2\.6-1/);
-  assert.match(output, /\/help/);
-  assert.match(output, /ctrl\+c/i);
-  assert.match(output, /> next task/);
+  assert.match(plain, /alphafoundry\s+ses_test123/i);
+  assert.match(plain, /azure-openai\/Kimi-K2\.6-1/);
+  assert.match(plain, /▸ you/);
+  assert.match(plain, /▸ assistant/);
+  assert.match(plain, /ctrl\+p command/);
+  assert.match(plain, /ctrl\+x m model/);
+  assert.match(plain, /tokens 128/);
+  assert.match(plain, /cost \$0\.00/);
+  assert.match(plain, /│ next task/);
+});
+
+test("running state shows OpenCode-style spinner frame", () => {
+  const output = stripAnsi(renderFrame({ status: "running", messages: [], input: "" }));
+  assert.match(output, /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] thinking/);
+});
+
+test("spinnerFrame cycles through braille frames", () => {
+  assert.equal(spinnerFrame(0), "⠋");
+  assert.equal(spinnerFrame(1), "⠙");
+  assert.equal(spinnerFrame(10), "⠋");
 });
 
 test("parseSlashCommand recognizes core TUI commands", () => {

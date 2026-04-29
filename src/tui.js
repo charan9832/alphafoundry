@@ -10,26 +10,81 @@ const colors = {
   green: "\x1b[32m",
   yellow: "\x1b[33m",
   magenta: "\x1b[35m",
+  red: "\x1b[31m",
   gray: "\x1b[90m",
+  inverse: "\x1b[7m",
 };
 
+const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+export function spinnerFrame(index = 0) {
+  return spinnerFrames[Math.abs(index) % spinnerFrames.length];
+}
+
 export function stripAnsi(value) {
-  return value.replace(/\x1b\[[0-9;]*m/g, "");
+  return String(value).replace(/\x1b\[[0-9;]*m/g, "");
 }
 
 export function visibleLength(value) {
   return stripAnsi(value).length;
 }
 
-export function line(char = "─", width = 80) {
-  return char.repeat(Math.max(10, width));
+function truncateMiddle(value, max = 48) {
+  const text = String(value);
+  if (text.length <= max) return text;
+  const left = Math.max(4, Math.floor((max - 1) / 2));
+  const right = Math.max(4, max - left - 1);
+  return `${text.slice(0, left)}…${text.slice(-right)}`;
+}
+
+function tint(role) {
+  if (role === "user") return colors.cyan;
+  if (role === "assistant") return colors.green;
+  if (role === "system") return colors.yellow;
+  if (role === "error") return colors.red;
+  return colors.magenta;
 }
 
 export function roleLabel(role) {
+  if (role === "assistant") return `${colors.green}assistant${colors.reset}`;
   if (role === "user") return `${colors.cyan}you${colors.reset}`;
-  if (role === "assistant") return `${colors.green}af${colors.reset}`;
   if (role === "system") return `${colors.yellow}system${colors.reset}`;
-  return `${colors.magenta}${role}${colors.reset}`;
+  return `${tint(role)}${role}${colors.reset}`;
+}
+
+function renderMessage(message, width) {
+  const label = roleLabel(message.role);
+  const bullet = `${tint(message.role)}▸${colors.reset}`;
+  const text = String(message.text ?? "").split("\n");
+  const first = `${bullet} ${label} ${text[0] ?? ""}`;
+  const rest = text.slice(1).map((line) => `${colors.gray}│${colors.reset} ${line}`);
+  const block = [first, ...rest].join("\n");
+  return width < 64 ? block : `${block}`;
+}
+
+function renderStatus(state, width) {
+  const provider = state.provider ?? process.env.AF_PROVIDER ?? process.env.PI_PROVIDER ?? "google";
+  const model = state.model ?? process.env.AF_MODEL ?? process.env.PI_MODEL ?? "default";
+  const modelLabel = `${provider}/${model}`;
+  const running = state.status === "running";
+  const status = running ? `${colors.yellow}${spinnerFrame(state.tick ?? 0)} thinking${colors.reset}` : `${colors.green}● idle${colors.reset}`;
+  const tokens = state.tokens === undefined ? "tokens 0" : `tokens ${state.tokens}`;
+  const cost = state.cost === undefined ? "cost $0.00" : `cost ${state.cost}`;
+  const cwd = truncateMiddle(state.cwd ?? process.cwd(), Math.max(24, Math.floor(width / 3)));
+  return `${colors.gray}${cwd}${colors.reset}  ${colors.cyan}${modelLabel}${colors.reset}  ${status}  ${colors.gray}${tokens}  ${cost}${colors.reset}`;
+}
+
+function renderTopBar(state, width) {
+  const sessionID = state.sessionID ?? "new";
+  const title = `${colors.inverse}${colors.bold} alphafoundry ${colors.reset} ${colors.gray}${sessionID}${colors.reset}`;
+  const right = `${colors.gray}ctrl+p command  ctrl+x m model  ctrl+x l sessions${colors.reset}`;
+  const gap = Math.max(1, width - visibleLength(title) - visibleLength(right));
+  return `${title}${" ".repeat(gap)}${right}`;
+}
+
+function renderPrompt(inputValue) {
+  const placeholder = inputValue ? inputValue : `${colors.gray}message AlphaFoundry…${colors.reset}`;
+  return `${colors.gray}╭────────────────────────────────────────────────────────────────────────────╮${colors.reset}\n${colors.gray}│${colors.reset} ${placeholder}\n${colors.gray}╰────────────────────────────────────────────────────────────────────────────╯${colors.reset}`;
 }
 
 export function parseSlashCommand(raw) {
@@ -43,21 +98,21 @@ export function parseSlashCommand(raw) {
 }
 
 export function renderFrame(state = {}) {
-  const width = Math.min(Number(process.stdout.columns) || 88, 110);
-  const cwd = state.cwd ?? process.cwd();
-  const provider = state.provider ?? process.env.AF_PROVIDER ?? process.env.PI_PROVIDER ?? "google";
-  const model = state.model ?? process.env.AF_MODEL ?? process.env.PI_MODEL ?? "default";
-  const status = state.status ?? "idle";
+  const width = Math.min(Number(process.stdout.columns) || 96, 120);
   const messages = state.messages ?? [];
   const inputValue = state.input ?? "";
-  const header = `${colors.bold}${colors.cyan}AlphaFoundry${colors.reset} ${colors.gray}opencode-style terminal agent${colors.reset}`;
-  const meta = `${colors.gray}${cwd}  provider:${colors.reset} ${provider} ${colors.gray}model:${colors.reset} ${model} ${colors.gray}status:${colors.reset} ${status}`;
-  const help = `${colors.gray}/help commands  /model <id>  /provider <name>  /clear  /exit  ctrl+c quit${colors.reset}`;
-  const body = messages.length
-    ? messages.map((message) => `${roleLabel(message.role)} ${message.text}`).join("\n\n")
-    : `${colors.gray}No messages yet. Type a prompt and press Enter.${colors.reset}`;
-  const prompt = `> ${inputValue}`;
-  return [header, line("─", width), meta, help, line("─", width), body, line("─", width), prompt].join("\n");
+  const transcript = messages.length
+    ? messages.map((message) => renderMessage(message, width)).join("\n\n")
+    : `${colors.gray}No messages yet. Ask for a task, review, or command.${colors.reset}`;
+  return [
+    renderTopBar(state, width),
+    renderStatus(state, width),
+    "",
+    transcript,
+    "",
+    renderPrompt(inputValue),
+    `${colors.gray}/help  /clear  /model <provider/model>  /provider <name>  /exit${colors.reset}`,
+  ].join("\n");
 }
 
 export function helpMessage() {
@@ -69,6 +124,7 @@ export function helpMessage() {
     "  /clear             clear visible chat",
     "  /exit              quit",
     "",
+    "Key hints mirror OpenCode: ctrl+p command, ctrl+x m model, ctrl+x l sessions.",
     "Prompts are delegated to Pi Agent with `-p --no-session`.",
   ].join("\n");
 }
@@ -80,7 +136,11 @@ export async function startTui(options = {}) {
     provider: options.provider ?? process.env.AF_PROVIDER ?? process.env.PI_PROVIDER ?? "google",
     model: options.model ?? process.env.AF_MODEL ?? process.env.PI_MODEL ?? "default",
     status: "idle",
-    messages: [{ role: "system", text: "AlphaFoundry TUI ready. Type /help for commands." }],
+    tick: 0,
+    sessionID: `ses_${Date.now().toString(36)}`,
+    tokens: 0,
+    cost: "$0.00",
+    messages: [{ role: "system", text: "AlphaFoundry ready. Use ctrl+p-style commands or type /help." }],
   };
 
   const draw = () => {
@@ -92,7 +152,7 @@ export async function startTui(options = {}) {
   try {
     draw();
     while (true) {
-      const raw = await rl.question("\n> ");
+      const raw = await rl.question("\n› ");
       const command = parseSlashCommand(raw);
       if (command.type === "exit") break;
       if (command.type === "help") {
@@ -106,8 +166,15 @@ export async function startTui(options = {}) {
         continue;
       }
       if (command.type === "model") {
-        state.model = command.value || state.model;
-        state.messages.push({ role: "system", text: `model set to ${state.model}` });
+        const value = command.value || state.model;
+        if (value.includes("/")) {
+          const [provider, ...modelParts] = value.split("/");
+          state.provider = provider || state.provider;
+          state.model = modelParts.join("/") || state.model;
+        } else {
+          state.model = value;
+        }
+        state.messages.push({ role: "system", text: `model set to ${state.provider}/${state.model}` });
         draw();
         continue;
       }
@@ -124,10 +191,12 @@ export async function startTui(options = {}) {
 
       state.messages.push({ role: "user", text: command.value });
       state.status = "running";
+      state.tick += 1;
       draw();
       const result = await runPiPrompt(command.value, { provider: state.provider, model: state.model });
       state.status = result.ok ? "idle" : "error";
-      state.messages.push({ role: "assistant", text: result.output.trim() || result.error || "No output." });
+      state.messages.push({ role: result.ok ? "assistant" : "error", text: result.output.trim() || result.error || "No output." });
+      state.tokens += command.value.split(/\s+/).filter(Boolean).length;
       draw();
     }
   } finally {
