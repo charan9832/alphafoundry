@@ -8,6 +8,10 @@ All notable AlphaFoundry changes are recorded here.
 
 - Documented the manual release runbook, required local gates, CI matrix expectations, npm publish dry-run, tagging, rollback guidance, and Pi package integration boundary.
 
+### Hardened
+
+- Replaced remaining primary TUI status/footer labels with AlphaFoundry runtime-adapter wording while keeping Pi mentions limited to adapter internals and diagnostics.
+
 ### Verification
 
 - Pending final release verification for the next published version.

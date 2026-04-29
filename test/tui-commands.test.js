@@ -173,3 +173,16 @@ test("state supports runtime run lifecycle, cancellation, errors, stats, and ses
   assert.equal(withSession.session.id, "ses_next");
   assert.equal(withSession.events.at(-1).type, "session");
 });
+
+test("workspace status labels preserve AlphaFoundry product identity", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+
+  const submitted = reducer(initial, { type: "SUBMIT_HOME", value: "inspect" });
+  assert.equal(submitted.product, "AlphaFoundry");
+  assert.equal(submitted.tasks.find((task) => task.id === "execute").label, "Run runtime adapter");
+  assert.doesNotMatch(JSON.stringify(submitted.tasks), /Pi Agent backend/);
+
+  const running = reducer(initial, { type: "RUN_STARTED", prompt: "inspect", run: { id: "run_1" } });
+  assert.equal(running.action, "Running runtime adapter...");
+  assert.doesNotMatch(running.action, /Pi runtime/);
+});

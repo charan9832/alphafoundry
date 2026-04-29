@@ -40,7 +40,7 @@ export function Home({ state, columns, rows, onSubmit }) {
             <Text color={theme.muted}>   backend {state.runtime.backendPackage}@{state.runtime.backendVersion}</Text>
           </Box>
           <Box marginTop={1} justifyContent="center">
-            <Text color={theme.muted}>Pi Agent backend   real project data   ctrl+c exit</Text>
+            <Text color={theme.muted}>Runtime adapter   real project data   ctrl+c exit</Text>
           </Box>
         </Box>
       </Box>

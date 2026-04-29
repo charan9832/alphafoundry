@@ -80,7 +80,7 @@ export function reducer(state, action) {
         tasks: [
           { id: "understand", label: "Understand request", status: "done" },
           { id: "inspect", label: "Read AlphaFoundry project context", status: "active" },
-          { id: "execute", label: "Run Pi Agent backend", status: "pending" },
+          { id: "execute", label: "Run runtime adapter", status: "pending" },
           { id: "verify", label: "Verify result", status: "pending" },
         ],
         events: [
@@ -107,7 +107,7 @@ export function reducer(state, action) {
         view: "workspace",
         goal: action.prompt ?? state.goal,
         status: "running",
-        action: "Running Pi runtime...",
+        action: "Running runtime adapter...",
         activeRun: action.run ?? null,
         cancelling: false,
         cancelled: false,
