@@ -12,8 +12,13 @@ const installDir = join(temp, "install");
 mkdirSync(packDir, { recursive: true });
 mkdirSync(installDir, { recursive: true });
 
+function commandName(name) {
+  return process.platform === "win32" ? `${name}.cmd` : name;
+}
+
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
+  const resolvedCommand = commandName(command);
+  const result = spawnSync(resolvedCommand, args, {
     cwd: options.cwd ?? repoRoot,
     env: { ...process.env, ...(options.env ?? {}) },
     encoding: "utf8",
@@ -21,7 +26,7 @@ function run(command, args, options = {}) {
   });
   if (result.status !== 0) {
     const details = [
-      `$ ${command} ${args.join(" ")}`,
+      `$ ${resolvedCommand} ${args.join(" ")}`,
       `exit ${result.status}`,
       result.stdout ? `stdout:\n${result.stdout}` : "",
       result.stderr ? `stderr:\n${result.stderr}` : "",
