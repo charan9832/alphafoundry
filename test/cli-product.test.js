@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, normalize } from "node:path";
 import {
   defaultConfigPath,
   initConfig,
@@ -30,7 +30,7 @@ function tempConfigPath() {
 }
 
 test("defaultConfigPath uses ~/.alphafoundry/config.json unless overridden", () => {
-  assert.match(defaultConfigPath({ HOME: "/home/example" }), /\/home\/example\/\.alphafoundry\/config\.json$/);
+  assert.equal(defaultConfigPath({ HOME: "/home/example" }), normalize("/home/example/.alphafoundry/config.json"));
   assert.equal(defaultConfigPath({ ALPHAFOUNDRY_CONFIG_PATH: "/tmp/af.json" }), "/tmp/af.json");
 });
 

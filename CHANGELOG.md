@@ -14,6 +14,8 @@ All notable AlphaFoundry changes are recorded here.
 
 ### Verification
 
+- Added cross-platform test runner script so CI does not rely on shell glob expansion.
+- Hardened path-sensitive config tests for Windows runners.
 - Pending final release verification for the next published version.
 
 ## 0.3.0

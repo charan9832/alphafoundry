@@ -8,7 +8,7 @@
     "alphafoundry": "./src/cli.js"
   },
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "node scripts/run-tests.mjs",
     "check": "npm test && node src/cli.js --help && node src/cli.js --version && npm run pack:dry-run && npm run smoke:installed",
     "pack:dry-run": "npm pack --dry-run --json",
     "smoke:installed": "node scripts/smoke-installed.mjs"
