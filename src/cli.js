@@ -1,34 +1,48 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { startTui } from "./tui.js";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildPiArgs } from "./pi-backend.js";
+
+function packageRoot() {
+  return dirname(dirname(fileURLToPath(import.meta.url)));
+}
+
+function runInkTui() {
+  const root = packageRoot();
+  const tsxLoader = join(root, "node_modules", "tsx", "dist", "loader.mjs");
+  const runFile = join(root, "src", "tui", "run-cli.jsx");
+  const result = spawnSync(process.execPath, ["--import", tsxLoader, runFile], {
+    stdio: "inherit",
+    env: { ...process.env },
+  });
+  if (result.error) {
+    console.error(result.error.message);
+    return 1;
+  }
+  return result.status ?? 0;
+}
 
 async function main() {
   const args = process.argv.slice(2);
 
   if (args.includes("--version") || args.includes("-v")) {
-    console.log("AlphaFoundry 0.2.0");
+    console.log("AlphaFoundry 0.3.0");
     return 0;
   }
 
   if (args.includes("--help") || args.includes("-h")) {
-    console.log(`AlphaFoundry - context-first TUI powered by Pi Agent
+    console.log(`AlphaFoundry - React Ink TUI powered by Pi Agent
 
 Usage:
-  af                         Start AlphaFoundry TUI
-  af tui                     Start AlphaFoundry TUI
+  af                         Start AlphaFoundry Ink TUI
+  af tui                     Start AlphaFoundry Ink TUI
   af -p "message"             Run one prompt with Pi Agent and exit
   af --provider openai --model gpt-4o-mini -p "message"
 
-TUI commands:
-  /help                      Show TUI help
-  /model <provider/model>    Set provider/model hint
-  /provider <name>           Set provider hint
-  /clear                     Clear chat
-  /exit                      Quit
-
-Design direction:
-  Huashu-inspired: context first, restrained palette, visible reasoning, craft review.
+TUI:
+  Home screen: centered opencode-style logo + input palette
+  Workspace: split pane with transcript, context sidebar, and sticky status bar
 
 AlphaFoundry keeps the af command and delegates model/tool execution to @mariozechner/pi-coding-agent.
 `);
@@ -36,8 +50,7 @@ AlphaFoundry keeps the af command and delegates model/tool execution to @marioze
   }
 
   if (args.length === 0 || args[0] === "tui") {
-    await startTui();
-    return 0;
+    return runInkTui();
   }
 
   const result = spawnSync(process.execPath, buildPiArgs(args), {

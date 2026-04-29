@@ -1,8 +1,8 @@
 # AlphaFoundry
 
-AlphaFoundry is a context-first terminal TUI that keeps the `af` command and delegates model/tool execution to Pi Agent.
+AlphaFoundry is a React Ink split-pane terminal TUI that keeps the `af` command and delegates model/tool execution to Pi Agent.
 
-The current TUI is inspired by Huashu Design principles: do not start from generic AI chrome; start from design context, restrained hierarchy, reasoning, craft review, and clear placeholders.
+The current TUI uses a proper React Ink native terminal architecture: home input palette, active workspace split pane, context sidebar, task list, diff formatting, and sticky status bar. The visual direction stays restrained and context-first.
 
 ## Run
 
