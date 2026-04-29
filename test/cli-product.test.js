@@ -160,6 +160,20 @@ test("doctor reports package, node, backend, git, config, and tty checks", () =>
   }
 });
 
+test("doctor warns missing config with recovery guidance", () => {
+  const temp = tempConfigPath();
+  try {
+    const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const configCheck = report.checks.find((check) => check.name === "config");
+    assert.equal(configCheck.status, "warn");
+    assert.match(configCheck.message, /not found/i);
+    assert.match(configCheck.message, /af init --non-interactive/i);
+    assert.match(JSON.stringify(configCheck.details), /af init --non-interactive/i);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("doctor reports invalid config as a failure and redacts secret-looking values", () => {
   const temp = tempConfigPath();
   try {

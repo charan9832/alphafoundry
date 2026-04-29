@@ -78,7 +78,12 @@ export function runDoctor(options = {}) {
       );
     }
   } else {
-    checks.push(check("warn", "config", `Config file not found at ${path}`, { path }));
+    checks.push(
+      check("warn", "config", `Config file not found at ${path}; recover with af init --non-interactive`, {
+        path,
+        recovery: "af init --non-interactive",
+      }),
+    );
   }
 
   checks.push(
