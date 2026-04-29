@@ -1,46 +1,60 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { startTui } from "./tui.js";
+import { buildPiArgs } from "./pi-backend.js";
 
-const args = process.argv.slice(2);
+async function main() {
+  const args = process.argv.slice(2);
 
-if (args.includes("--version") || args.includes("-v")) {
-  console.log("AlphaFoundry 0.1.0");
-  process.exit(0);
-}
+  if (args.includes("--version") || args.includes("-v")) {
+    console.log("AlphaFoundry 0.2.0");
+    return 0;
+  }
 
-if (args.includes("--help") || args.includes("-h")) {
-  console.log(`AlphaFoundry - Pi Agent under the af command
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(`AlphaFoundry - opencode-style TUI powered by Pi Agent
 
 Usage:
-  af [options] [@files...] [messages...]
-
-Common commands:
-  af                         Start interactive agent
-  af -p "message"             Run one prompt and exit
+  af                         Start AlphaFoundry TUI
+  af tui                     Start AlphaFoundry TUI
+  af -p "message"             Run one prompt with Pi Agent and exit
   af --provider openai --model gpt-4o-mini -p "message"
-  af /login                  Open provider login flow inside interactive mode
 
-AlphaFoundry delegates to @mariozechner/pi-coding-agent, so Pi Agent flags also work.
+TUI commands:
+  /help                      Show TUI help
+  /model <id>                Set model hint
+  /provider <name>           Set provider hint
+  /clear                     Clear chat
+  /exit                      Quit
+
+AlphaFoundry keeps the af command and delegates model/tool execution to @mariozechner/pi-coding-agent.
 `);
-  process.exit(0);
+    return 0;
+  }
+
+  if (args.length === 0 || args[0] === "tui") {
+    await startTui();
+    return 0;
+  }
+
+  const result = spawnSync(process.execPath, buildPiArgs(args), {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      PI_CONFIG_DIR: process.env.ALPHAFOUNDRY_CONFIG_DIR ?? process.env.PI_CONFIG_DIR,
+    },
+  });
+
+  if (result.error) {
+    console.error(result.error.message);
+    return 1;
+  }
+  return result.status ?? 0;
 }
 
-const here = dirname(fileURLToPath(import.meta.url));
-const packageRoot = dirname(here);
-const piCli = join(packageRoot, "node_modules", "@mariozechner", "pi-coding-agent", "dist", "cli.js");
-
-const result = spawnSync(process.execPath, [piCli, ...args], {
-  stdio: "inherit",
-  env: {
-    ...process.env,
-    PI_CONFIG_DIR: process.env.ALPHAFOUNDRY_CONFIG_DIR ?? process.env.PI_CONFIG_DIR,
-  },
-});
-
-if (result.error) {
-  console.error(result.error.message);
-  process.exit(1);
-}
-process.exit(result.status ?? 0);
+main()
+  .then((code) => process.exit(code))
+  .catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });

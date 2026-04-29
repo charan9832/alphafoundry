@@ -1,14 +1,15 @@
 {
   "name": "alphafoundry",
-  "version": "0.1.0",
-  "description": "AlphaFoundry: Pi Agent rebranded behind the af command.",
+  "version": "0.2.0",
+  "description": "AlphaFoundry: an opencode-style terminal TUI powered by Pi Agent.",
   "type": "module",
   "bin": {
     "af": "./src/cli.js",
     "alphafoundry": "./src/cli.js"
   },
   "scripts": {
-    "check": "node src/cli.js --help",
+    "test": "node --test test/*.test.js",
+    "check": "npm test && node src/cli.js --help && node src/cli.js --version",
     "pack:dry-run": "npm pack --dry-run --json"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
   },
   "files": [
     "src",
+    "test",
     "README.md",
     "AGENTS.md",
     "docs"

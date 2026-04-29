@@ -1,8 +1,8 @@
 # AlphaFoundry
 
-AlphaFoundry is now the Pi Agent experience under the `af` command.
+AlphaFoundry is an opencode-style terminal TUI that keeps the `af` command and delegates model/tool execution to Pi Agent.
 
-Install/run from this repo:
+## Run
 
 ```bash
 npm install
@@ -10,12 +10,27 @@ npm link
 af
 ```
 
-Use it like Pi Agent, but launch it as AlphaFoundry:
+## Commands
 
 ```bash
-af
-af --help
-af /login
+af                         # open the AlphaFoundry TUI
+af tui                     # same
+af --help                  # command help
+af -p "hello"              # one-shot prompt through Pi Agent
 ```
 
-The repository and package stay named `alphafoundry`. The runtime is powered by `@mariozechner/pi-coding-agent`.
+## TUI commands
+
+```text
+/help
+/model <id>
+/provider <name>
+/clear
+/exit
+```
+
+## Design
+
+The TUI borrows the OpenCode feel: compact header, current provider/model, scrollable chat-like transcript, command hints, and a prompt line.
+
+Runtime backend: `@mariozechner/pi-coding-agent`.
