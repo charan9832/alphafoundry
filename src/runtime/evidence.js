@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { redactUnknown } from "../redaction.js";
 
 export const EVIDENCE_SCHEMA_VERSION = 1;
+export const VERIFICATION_SUMMARY_ARTIFACT_NAME = "verification-summary.json";
 export const VERIFIER_STATUSES = Object.freeze(["PASS", "WARN", "FAIL"]);
 
 const STATUS_SET = new Set(VERIFIER_STATUSES);
@@ -62,5 +63,20 @@ export function summarizeVerifierResults(results = [], options = {}) {
     results: normalizedResults,
     ...(options.runId ? { runId: options.runId } : {}),
     timestamp: options.timestamp ?? new Date().toISOString(),
+  });
+}
+
+export function createVerificationArtifact(results = [], options = {}) {
+  const content = summarizeVerifierResults(results, options);
+  const evidence = createEvidence({
+    kind: "artifact",
+    title: "Verification summary",
+    uri: `artifacts/${VERIFICATION_SUMMARY_ARTIFACT_NAME}`,
+    timestamp: content.timestamp,
+  });
+  return redactUnknown({
+    name: VERIFICATION_SUMMARY_ARTIFACT_NAME,
+    content,
+    evidence,
   });
 }

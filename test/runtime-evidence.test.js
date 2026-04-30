@@ -6,8 +6,10 @@ import { join } from "node:path";
 
 import {
   createEvidence,
+  createVerificationArtifact,
   createVerifierResult,
   summarizeVerifierResults,
+  VERIFICATION_SUMMARY_ARTIFACT_NAME,
   VERIFIER_STATUSES,
 } from "../src/runtime/evidence.js";
 import { createSessionStore } from "../src/runtime/session-store.js";
@@ -71,6 +73,24 @@ test("verification summaries aggregate PASS WARN and FAIL results", () => {
   assert.equal(summary.status, "FAIL");
   assert.deepEqual(summary.counts, { PASS: 1, WARN: 1, FAIL: 1 });
   assert.equal(summary.results.length, 3);
+});
+
+test("verification artifacts bundle summary data and artifact evidence", () => {
+  const artifact = createVerificationArtifact([
+    { name: "summary-check", status: "WARN", summary: "token=sk-secret1234567890" },
+  ], {
+    runId: "run_test",
+    timestamp: "2026-01-01T00:00:00.000Z",
+  });
+
+  assert.equal(VERIFICATION_SUMMARY_ARTIFACT_NAME, "verification-summary.json");
+  assert.equal(artifact.name, "verification-summary.json");
+  assert.equal(artifact.content.status, "WARN");
+  assert.deepEqual(artifact.content.counts, { PASS: 0, WARN: 1, FAIL: 0 });
+  assert.equal(artifact.evidence.kind, "artifact");
+  assert.equal(artifact.evidence.title, "Verification summary");
+  assert.equal(artifact.evidence.uri, "artifacts/verification-summary.json");
+  assert.doesNotMatch(JSON.stringify(artifact), /sk-secret/);
 });
 
 test("session store persists generic redacted verification artifacts", () => {
