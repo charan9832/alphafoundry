@@ -43,7 +43,11 @@ function eventText(event) {
     return `${evidence.kind ?? "artifact"}${evidence.title ? ` · ${evidence.title}` : ""}${evidence.uri ? ` · ${evidence.uri}` : ""}`;
   }
   if (event.type === "run_start") return `run started${payload.prompt ? ` · ${payload.prompt}` : ""}`;
-  if (event.type === "run_end") return `run ended · ${firstDefined(event.ok, payload.ok, true) ? "success" : "error"}`;
+  if (event.type === "run_end") {
+    const aborted = Boolean(firstDefined(event.aborted, payload.aborted, false));
+    const ok = firstDefined(event.ok, payload.ok, !aborted);
+    return `run ended · ${aborted ? "cancelled" : ok ? "success" : "error"}`;
+  }
   return JSON.stringify(event);
 }
 
@@ -76,6 +80,7 @@ function sessionFromRuntimeEvent(current, event) {
   return {
     ...current,
     id,
+    runtimeObserved: true,
     ...(firstDefined(event.title, payload.title) ? { title: firstDefined(event.title, payload.title) } : {}),
   };
 }
@@ -303,12 +308,29 @@ export function applyCommand(state, command = {}) {
       const provider = command.provider || state.provider;
       return appendEvent({ ...state, provider }, { type: "assistant", text: `local preference set to provider ${provider}; applies on the next runtime prompt` });
     }
-    case "stats":
-      return appendEvent(state, { type: "stats", text: `local TUI counters: tokens ${state.tokenUsage.tokens} · ${state.tokenUsage.percent}% · ${state.tokenUsage.cost}` });
+    case "stats": {
+      if (state.runtimeStats) {
+        const stats = state.runtimeStats;
+        const parts = [
+          `tokens ${state.tokenUsage.tokens}`,
+          `${state.tokenUsage.percent}%`,
+          state.tokenUsage.cost,
+          ...(stats.runs !== undefined ? [`runs ${stats.runs}`] : []),
+          ...(stats.completed !== undefined ? [`completed ${stats.completed}`] : []),
+          ...(stats.failed !== undefined ? [`failed ${stats.failed}`] : []),
+          ...(stats.aborted !== undefined ? [`aborted ${stats.aborted}`] : []),
+        ];
+        return appendEvent(state, { type: "stats", text: `runtime stats observed: ${parts.join(" · ")}` });
+      }
+      return appendEvent(state, { type: "stats", text: `local TUI counters: tokens ${state.tokenUsage.tokens} · ${state.tokenUsage.percent}% · ${state.tokenUsage.cost}; no runtime stats observed yet` });
+    }
     case "tools":
       return appendEvent({ ...state, tools: command.tools ?? [] }, { type: "tool", text: `local tool preference set: ${(command.tools ?? []).join(", ") || "none"}; runtime enforcement depends on adapter support` });
-    case "session":
-      return appendEvent(state, { type: "session", text: `local TUI session ${state.session.id} · ${state.events.length} events` });
+    case "session": {
+      const knownCount = state.sessions.length;
+      const source = state.session.runtimeObserved ? "runtime-observed" : "local TUI";
+      return appendEvent(state, { type: "session", text: `${source} session ${state.session.id} · ${state.events.length} events · ${knownCount} known sessions` });
+    }
     case "new": {
       const session = createSession();
       return appendEvent({ ...state, view: "workspace", goal: "", intent: null, session, sessions: upsertSession(state.sessions, session), events: [], status: "idle", terminalState: "idle", action: "new session", activeRun: null, evidence: [] }, { type: "session", text: `started local TUI session ${session.id}; backend session not changed` });

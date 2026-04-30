@@ -199,6 +199,7 @@ test("canonical runtime events drive terminal state, errors, stats, sessions, an
   assert.equal(started.goal, "inspect");
   assert.deepEqual(started.intent, { prompt: "inspect" });
   assert.equal(started.session.id, "ses_runtime");
+  assert.equal(started.session.runtimeObserved, true);
   assert.equal(started.sessions.at(-1).id, "ses_runtime");
 
   const withStats = reducer(started, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "stats", sessionId: "ses_runtime", runId: "run_2", payload: { stats: { runs: 1, running: true }, tokens: 64, percent: 12, cost: "$0.02" } } });
@@ -214,10 +215,33 @@ test("canonical runtime events drive terminal state, errors, stats, sessions, an
   assert.equal(ended.terminalState, "success");
   assert.equal(ended.activeRun, null);
 
+  const aborted = reducer(started, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "run_end", sessionId: "ses_runtime", runId: "run_2", payload: { aborted: true } } });
+  assert.equal(aborted.status, "cancelled");
+  assert.equal(aborted.terminalState, "cancelled");
+  assert.match(aborted.events.at(-1).text, /cancelled/);
+  assert.doesNotMatch(aborted.events.at(-1).text, /success/);
+
   const failed = reducer(started, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "error", sessionId: "ses_runtime", runId: "run_2", payload: { error: "boom" } } });
   assert.equal(failed.status, "error");
   assert.equal(failed.terminalState, "error");
   assert.equal(failed.error, "boom");
+});
+
+test("runtime-backed commands report observed runtime data when available", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const withRuntimeSession = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "session", sessionId: "ses_runtime", title: "Runtime session" } });
+  const withStats = reducer(withRuntimeSession, { type: "RUNTIME_EVENT", event: { type: "stats", stats: { runs: 2, completed: 1, failed: 1, running: false }, tokens: 128, percent: 20, cost: "$0.03" } });
+
+  const stats = reducer(withStats, { type: "COMMAND", command: parseSlashCommand("/stats") });
+  assert.match(stats.events.at(-1).text, /runtime stats/i);
+  assert.match(stats.events.at(-1).text, /runs 2/i);
+  assert.match(stats.events.at(-1).text, /completed 1/i);
+  assert.match(stats.events.at(-1).text, /failed 1/i);
+  assert.doesNotMatch(stats.events.at(-1).text, /local TUI counters/i);
+
+  const session = reducer(withStats, { type: "COMMAND", command: parseSlashCommand("/session") });
+  assert.match(session.events.at(-1).text, /runtime-observed session ses_runtime/i);
+  assert.match(session.events.at(-1).text, /2 known sessions/i);
 });
 
 test("workspace status labels preserve AlphaFoundry product identity without synthetic agentic tasks", () => {
