@@ -1,4 +1,4 @@
-import { decidePermission } from "./permissions.js";
+import { decidePermission, normalizeMode } from "./permissions.js";
 
 export const PI_BUILTIN_TOOLS = Object.freeze(["read", "bash", "edit", "write", "grep", "find", "ls"]);
 
@@ -83,7 +83,12 @@ function summarizeDecisions(decisions) {
 }
 
 export function mapPiToolPolicy(options = {}) {
-  const mode = options.mode ?? "ask";
+  let mode;
+  try {
+    mode = normalizeMode(options.mode ?? "ask");
+  } catch (error) {
+    return deny(error.message);
+  }
 
   let profile = "default";
   let tools = [];

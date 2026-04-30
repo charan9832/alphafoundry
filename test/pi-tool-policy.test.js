@@ -41,7 +41,7 @@ test("explicit Pi allowlists validate built-ins and preserve requested order", (
   assert.ok(result.decisions.every((decision) => ["allow", "ask"].includes(decision.decision)));
 });
 
-test("unknown profiles and tools fail closed without Pi flags", () => {
+test("unknown profiles, tools, and modes fail closed without Pi flags", () => {
   const unknownProfile = mapPiToolPolicy({ profile: "yolo", mode: "auto" });
   assert.equal(unknownProfile.ok, false);
   assert.equal(unknownProfile.decision, "deny");
@@ -53,6 +53,14 @@ test("unknown profiles and tools fail closed without Pi flags", () => {
   assert.equal(unknownTool.decision, "deny");
   assert.deepEqual(unknownTool.flags, []);
   assert.match(unknownTool.reason, /Unknown Pi tool/);
+
+  const unknownMode = mapPiToolPolicy({ profile: "none", mode: "bypass" });
+  assert.equal(unknownMode.ok, false);
+  assert.equal(unknownMode.decision, "deny");
+  assert.equal(unknownMode.requiresApproval, false);
+  assert.deepEqual(unknownMode.flags, []);
+  assert.match(unknownMode.reason, /Unsupported permission mode/);
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(unknownMode)));
 });
 
 test("policy decisions are derived from AlphaFoundry permission mode", () => {
