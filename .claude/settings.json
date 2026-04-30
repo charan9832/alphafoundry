@@ -4,25 +4,10 @@
       "Read",
       "Write",
       "Edit",
-      "Bash(pwd)",
-      "Bash(ls *)",
-      "Bash(git status*)",
-      "Bash(git diff*)",
-      "Bash(git log*)",
-      "Bash(git show*)",
-      "Bash(npm test*)",
-      "Bash(npm run check*)",
-      "Bash(npm run pack:dry-run*)",
-      "Bash(npm run smoke:installed*)",
-      "Bash(node *)",
-      "Bash(find .claude*)"
-    ],
-    "ask": [
-      "Bash(git add*)",
-      "Bash(git commit*)",
-      "Bash(git checkout*)",
-      "Bash(git switch*)",
-      "Bash(mkdir *)"
+      "MultiEdit",
+      "Glob",
+      "Grep",
+      "Bash(*)"
     ],
     "deny": [
       "Read(.env)",
@@ -31,6 +16,8 @@
       "Read(**/*_ed25519)",
       "Read(**/id_rsa)",
       "Read(**/id_ed25519)",
+      "Read(**/.npmrc)",
+      "Read(**/.git-credentials)",
       "Bash(rm -rf *)",
       "Bash(sudo *)",
       "Bash(git push*)",
