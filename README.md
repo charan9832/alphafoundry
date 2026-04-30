@@ -1,6 +1,6 @@
 # AlphaFoundry
 
-AlphaFoundry is a native terminal workspace for agentic software work. It provides the `af` command, first-run configuration, health diagnostics, and a React Ink TUI designed around context, tasks, diffs, and clear runtime status.
+AlphaFoundry is a native terminal workspace for agentic software work. It provides the `af` command, first-run configuration, health diagnostics, durable run/session records, and a React Ink TUI designed around context, tasks, diffs, and clear runtime status.
 
 AlphaFoundry is its own product. Runtime execution is adapter-based: the current adapter is `@mariozechner/pi-coding-agent`, which handles model/tool execution behind the AlphaFoundry command surface. Pi Agent is an implementation detail of the runtime layer, not the product identity.
 
@@ -118,8 +118,14 @@ af config set model gpt-4o-mini
 af config set env.apiKey OPENAI_API_KEY
 af config set env.baseUrl OPENAI_BASE_URL
 af models                  # explain runtime-adapter model listing
-af session                 # explain current/planned session support
-af -p "hello"              # one-shot prompt through the runtime adapter
+af session                 # explain session support
+af run -p "hello"          # one-shot prompt with AlphaFoundry-owned session/events
+af run -p "hello" --json
+af run -p "hello" --stream-json
+af sessions list [--json]
+af sessions show <id> [--json]
+af sessions export <id> [--json|--ndjson]
+af -p "hello"              # compatibility passthrough through the runtime adapter
 ```
 
 Provider credentials stay in your shell environment:
@@ -168,9 +174,15 @@ Use JSON output for scripts:
 af doctor --json
 ```
 
+## Runtime control plane
+
+AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, and durable run/session records. `af run -p ...` records schema-versioned events under `~/.alphafoundry/sessions/` and supports JSON or NDJSON export through `af sessions`. The current Pi adapter path normalizes one-shot output into canonical events; `--stream-json` currently emits those events after the adapter returns, not as a live token stream.
+
+Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, and Pi built-in tool profile mapping, but it does not implement native AlphaFoundry file, shell, MCP, finance, or domain tool execution.
+
 ## Runtime adapter
 
-AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, and TUI workflow. The current runtime adapter delegates model/tool execution to `@mariozechner/pi-coding-agent`. Future runtime work will deepen streaming, sessions, cancellation, tool visibility, and provider/model discovery while preserving AlphaFoundry as the product identity.
+The current runtime adapter delegates model/tool execution to `@mariozechner/pi-coding-agent`. Future runtime work will deepen live streaming, backend session integration, cancellation, tool visibility, and provider/model discovery while preserving AlphaFoundry as the product identity.
 
 ## Release and roadmap
 

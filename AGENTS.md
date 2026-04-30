@@ -16,17 +16,20 @@ Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. The curren
 
 AlphaFoundry-owned layers:
 
-- Native CLI command surface: `init`, `doctor`, `config`, `models`, `session`, `tui`
+- Native CLI command surface: `init`, `doctor`, `config`, `models`, `session`, `sessions`, `run`, `tui`
 - Product docs and onboarding
 - Config schema that stores provider/model/env var names only
 - Doctor/diagnostic reporting
+- Durable run/session/event records and redacted exports
+- Generic permission/protected-path decisions and verification evidence summaries
 - Ink TUI workflow and state model
 
 Runtime adapter layer:
 
 - Model/tool execution
 - Provider-specific behavior
-- Backend session details until native AlphaFoundry session commands are completed
+- Pi built-in tool execution when allowed through mapped adapter flags
+- Backend session details beyond current AlphaFoundry session/event persistence
 
 ## Config and secrets
 
@@ -53,4 +56,8 @@ Respect ownership boundaries. Do not modify `src/tui/**`, `src/pi-runtime/**`, o
 
 ## Documentation tone
 
-Docs should present AlphaFoundry as the product users install and operate. Keep runtime adapter details in diagnostics, troubleshooting, or architecture notes. Prefer Windows-friendly npm and PowerShell examples when showing install/update/config commands.
+Docs should present AlphaFoundry as the product users install and operate. Keep runtime adapter details in diagnostics, troubleshooting, or architecture notes. Prefer Windows-friendly npm and PowerShell examples when showing install/update/config commands. Do not overclaim production readiness: current control-plane docs should distinguish implemented durable one-shot session/event recording from future live streaming, richer tool events, approval persistence, replay/evals, MCP, native AlphaFoundry tools, and autonomous workflows.
+
+## No-finance boundary
+
+Do not add finance tools, trading workflows, market-data connectors, broker/exchange APIs, portfolio logic, alpha models, finance-specific MCP servers, finance config keys, or finance examples. Future finance work can only be described as gated, opt-in, read-only research/council/tool-pack exploration after the generic plugin boundary, permissions, redaction, replay/evals, and default-excludes-finance behavior exist and are tested.

@@ -54,4 +54,10 @@ Goal: make AlphaFoundry releasable and supportable.
 
 ## Current status
 
-The installed package path, config-controlled runtime execution, config validation/redaction, doctor diagnostics, RPC lifecycle hardening, and TUI command honesty are in place. The next release-readiness focus is reproducible release discipline: follow `docs/RELEASE.md`, keep CI green across supported platforms, and update `CHANGELOG.md` before publishing. Curated Pi package integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the AlphaFoundry release path is stable.
+The installed package path, config-controlled runtime execution, config validation/redaction, doctor diagnostics, RPC lifecycle hardening, TUI command honesty, durable `af run` session/event records, `af sessions` list/show/export, Pi tool-policy flag mapping, generic permission/protected-path decisions, and generic verification evidence summaries are in place.
+
+This is still foundation work. Current one-shot Pi adapter events are normalized after the adapter returns; live incremental streaming, richer runtime tool events, approval persistence, replay/evals, native AlphaFoundry tools, MCP execution, and production-grade autonomous workflows remain future work.
+
+The next release-readiness focus is reproducible release discipline: follow `docs/RELEASE.md`, keep CI green across supported platforms, and update `CHANGELOG.md` before publishing. Curated Pi package integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the AlphaFoundry release path is stable.
+
+Finance remains intentionally gated. Do not add finance tools, trading workflows, market-data connectors, broker/exchange APIs, portfolio logic, alpha models, finance-specific MCP servers, finance config keys, or finance examples. Future finance work, if approved later, should start as gated read-only research/council/tool-pack exploration after the generic plugin boundary, permissions, redaction, replay/evals, and default-excludes-finance behavior are tested.

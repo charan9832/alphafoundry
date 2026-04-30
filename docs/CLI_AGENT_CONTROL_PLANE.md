@@ -12,7 +12,9 @@ AlphaFoundry CLI/TUI
   -> runtime adapter (Pi today, native/OpenAI-compatible later)
 ```
 
-The goal is not to add finance, MCP, subagents, or shell autonomy yet. The goal is to stop treating execution as an opaque passthrough and start recording AlphaFoundry-owned, schema-versioned runs.
+The initial generic control-plane slice is implemented: `af run -p ...` creates AlphaFoundry session/run records, persists schema-versioned events, and `af sessions` can list, show, and export those records. The Pi adapter still handles model/tool execution, and the current one-shot path normalizes adapter output after the process returns. This is control-plane foundation work, not a production-grade autonomous agent stack.
+
+The goal is not to add finance, MCP, subagents, or shell autonomy yet. The goal is to stop treating execution as an opaque passthrough and keep expanding AlphaFoundry-owned, schema-versioned runs before adding more agency.
 
 ## Product principles
 
@@ -85,7 +87,7 @@ Not every adapter can emit every event today. The Pi adapter currently normalize
 
 ## CLI surface
 
-Phase 1 commands:
+Implemented Phase 1 commands:
 
 ```sh
 af run -p "message" --json
@@ -95,7 +97,7 @@ af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
 ```
 
-`--stream-json` emits newline-delimited canonical events. In the current one-shot Pi adapter path these events are flushed after the adapter returns; future native tool/runner phases should make this a live incremental event stream.
+`af run` creates a durable session when no existing session is supplied internally. `--json` returns the run result, session manifest, run ID, and persisted events. `--stream-json` emits newline-delimited canonical events. In the current one-shot Pi adapter path these events are flushed after the adapter returns; future native tool/runner phases should make this a live incremental event stream.
 
 Compatibility:
 
@@ -112,9 +114,23 @@ ALPHAFOUNDRY_RUNTIME_ADAPTER=mock
 
 is reserved for deterministic local tests and examples. Normal user runs should use the default adapter path.
 
+Implemented adapter-facing policy mapping compiles AlphaFoundry tool profiles to Pi flags when a prompt is delegated through Pi:
+
+```text
+default        -> no tool flag
+none           -> --no-tools
+read-only      -> --tools read,grep,find,ls
+code-edit      -> --tools read,grep,find,ls,edit,write
+shell          -> --tools read,grep,find,ls,bash
+extension-only -> --no-builtin-tools
+explicit list  -> --tools <comma-list> after built-in validation
+```
+
+Unknown profiles, unknown tools, unsupported permission modes, protected paths, and denied risk classes fail closed before Pi flags are emitted.
+
 ## Implemented safety-control slice
 
-AlphaFoundry now has a pure deterministic permission/protected-path layer. It does not execute tools; it classifies whether a future tool invocation should be allowed, denied, or require approval.
+AlphaFoundry now has pure deterministic permission/protected-path and runtime tool-policy layers. They do not execute tools; they classify whether a future tool invocation should be allowed, denied, or require approval, and map permitted Pi built-ins to runtime adapter flags.
 
 Implemented primitives:
 
@@ -138,6 +154,24 @@ Implemented primitives:
    - `requiresApproval`
 
 These decisions are pure JSON-serializable data and are redacted before return.
+
+## Implemented verification evidence slice
+
+AlphaFoundry now has generic verification evidence primitives for future run summaries:
+
+1. Schema-versioned evidence objects
+2. Verifier results with `PASS`, `WARN`, and `FAIL` statuses
+3. Aggregated verification summaries
+4. A redacted `verification-summary.json` artifact shape
+5. Session artifact persistence with path traversal rejection
+
+This is generic evidence plumbing only. It is not a finance council, trading verifier, or production eval harness.
+
+## No-finance-yet boundary
+
+Finance remains out of scope until the generic control plane is safer and more complete. Do not add finance tools, trading workflows, market-data connectors, broker/exchange APIs, portfolio logic, alpha models, finance-specific MCP servers, finance config keys, or finance examples.
+
+Future finance research may only appear as a gated, opt-in, read-only council/research direction after the generic plugin/tool-pack boundary, permissions, redaction, replay/evals, and default-excludes-finance behavior are tested. That future direction is not implemented in this milestone.
 
 ## Next gates before more agency
 
