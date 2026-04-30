@@ -31,7 +31,8 @@
   },
   "files": [
     "src",
-    "scripts",
+    "scripts/run-tests.mjs",
+    "scripts/smoke-installed.mjs",
     "README.md",
     "CHANGELOG.md",
     "AGENTS.md",

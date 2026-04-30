@@ -39,6 +39,14 @@ function currentHead() {
   return run('git', ['rev-parse', '--short', 'HEAD'], { timeout: 60_000 }).stdout.trim();
 }
 
+function statusBranchShort() {
+  return run('git', ['status', '--short', '--branch'], { timeout: 60_000 }).stdout.trim();
+}
+
+function commitAllowed() {
+  return process.env.ALPHAFOUNDRY_OVERNIGHT_COMMIT === '1';
+}
+
 function verify() {
   const checks = [
     ['npm', ['test'], 600_000],
@@ -58,7 +66,11 @@ function commitIfChanged(message) {
     log('No changes to commit.');
     return { committed: false, reason: 'no_changes' };
   }
-  const stageCandidates = ['src', 'test', 'tests', 'docs', 'README.md', 'AGENTS.md', 'package.json', 'scripts'].filter((path) => existsSync(join(root, path)));
+  if (!commitAllowed()) {
+    log('Commit skipped. Set ALPHAFOUNDRY_OVERNIGHT_COMMIT=1 to let the overnight loop commit verified changes.');
+    return { committed: false, reason: 'commit_not_enabled', status: before };
+  }
+  const stageCandidates = ['src', 'test', 'tests', 'docs', 'README.md', 'CHANGELOG.md', 'AGENTS.md', 'package.json', 'package-lock.json'].filter((path) => existsSync(join(root, path)));
   const add = run('git', ['add', ...stageCandidates], { timeout: 120_000 });
   if (add.status !== 0) return { committed: false, reason: 'git_add_failed' };
   const staged = run('git', ['diff', '--cached', '--stat'], { timeout: 120_000 }).stdout.trim();
@@ -127,11 +139,29 @@ Constraints:
   }
 ];
 
-const summary = { runId, startedAt: new Date().toISOString(), logPath, results: [], initialHead: currentHead() };
+const summary = {
+  runId,
+  startedAt: new Date().toISOString(),
+  logPath,
+  results: [],
+  initialHead: currentHead(),
+  commitMode: commitAllowed() ? 'enabled' : 'disabled_review_only',
+};
 writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
 
 log(`AlphaFoundry overnight Claude Code loop started. runId=${runId}`);
 log(`Initial HEAD=${summary.initialHead}`);
+log(`Commit mode=${summary.commitMode}`);
+
+const initialStatus = statusShort();
+summary.initialStatus = statusBranchShort();
+if (initialStatus) {
+  log(`Worktree must be clean before overnight automation. Status:\n${initialStatus}`);
+  summary.completedAt = new Date().toISOString();
+  summary.status = 'blocked_dirty_worktree';
+  writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+  process.exit(1);
+}
 
 const baseline = verify();
 summary.baselineVerified = baseline;
@@ -148,12 +178,9 @@ for (const task of tasks) {
   const beforeHead = currentHead();
   const beforeStatus = statusShort();
   if (beforeStatus) {
-    log(`Worktree dirty before task ${task.id}; attempting verification/commit boundary first. Status:\n${beforeStatus}`);
-    if (!verify()) {
-      summary.results.push({ id: task.id, status: 'blocked_dirty_failed_verify', beforeStatus });
-      break;
-    }
-    commitIfChanged(`chore: checkpoint before ${task.id}`);
+    log(`Worktree became dirty before task ${task.id}; stopping for review. Status:\n${beforeStatus}`);
+    summary.results.push({ id: task.id, status: 'blocked_dirty_worktree', beforeStatus });
+    break;
   }
 
   const claude = run('claude-azure-task', [task.prompt, root], {
@@ -204,6 +231,7 @@ for (const task of tasks) {
 
 summary.finalVerified = verify();
 summary.finalStatus = statusShort();
+summary.finalStatusBranch = statusBranchShort();
 summary.finalHead = currentHead();
 summary.completedAt = new Date().toISOString();
 summary.status = summary.finalVerified && !summary.finalStatus ? 'pass_clean' : 'warn_needs_review';

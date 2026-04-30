@@ -10,7 +10,23 @@
       "Bash(*)"
     ],
     "ask": [],
-    "deny": []
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.npmrc)",
+      "Read(~/.aws/**)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Bash(rm -rf *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean*)",
+      "Bash(git push --force*)",
+      "Bash(npm publish*)",
+      "Bash(curl * | sh*)",
+      "Bash(wget * | sh*)",
+      "Bash(cat .env*)",
+      "Bash(printenv*)"
+    ]
   },
   "env": {
     "CLAUDE_CODE_NO_FLICKER": "1",
