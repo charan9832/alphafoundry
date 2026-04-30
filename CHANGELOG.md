@@ -13,6 +13,7 @@ All notable AlphaFoundry changes are recorded here.
 ### Hardened
 
 - Replaced remaining primary TUI status/footer labels with AlphaFoundry runtime-adapter wording while keeping Pi mentions limited to adapter internals and diagnostics.
+- Added a pure deterministic runtime permission/protected-path layer for future tool calls, covering plan/ask/act/auto modes, risk classes, protected workspace paths, AlphaFoundry state, credential files, and redacted JSON-serializable decisions.
 
 ### Verification
 

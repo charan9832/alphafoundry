@@ -112,18 +112,43 @@ ALPHAFOUNDRY_RUNTIME_ADAPTER=mock
 
 is reserved for deterministic local tests and examples. Normal user runs should use the default adapter path.
 
+## Implemented safety-control slice
+
+AlphaFoundry now has a pure deterministic permission/protected-path layer. It does not execute tools; it classifies whether a future tool invocation should be allowed, denied, or require approval.
+
+Implemented primitives:
+
+1. Permission modes: `plan`, `ask`, `act`, `auto`
+2. Risk classes: `read`, `write`, `shell`, `network`, `mcp`, `credential`, `destructive`
+3. Protected path matching for:
+   - `.git/**`
+   - `.env*`
+   - SSH keys/config
+   - cloud credentials
+   - npm/yarn/pnpm token files
+   - AlphaFoundry config/session state
+   - paths outside the active workspace
+4. Deterministic decision shape:
+   - `allow`
+   - `deny`
+   - `ask`
+   - `reason`
+   - `risk`
+   - `protectedPath`
+   - `requiresApproval`
+
+These decisions are pure JSON-serializable data and are redacted before return.
+
 ## Next gates before more agency
 
-Before native writes/shell/MCP/domain work, implement and test:
+Before native writes/shell/MCP/domain work, still implement and test:
 
-1. `PermissionPolicy`
-2. protected path matching
-3. risk classes for tools
-4. approval events and durable decisions
-5. workspace boundary checks
-6. transcript redaction fixtures
-7. prompt-injection/malicious repo fixtures
-8. replay/eval harness
+1. tool registry metadata and risk classifier integration
+2. approval events and durable decisions
+3. workspace boundary checks wired into actual tool calls
+4. transcript redaction fixtures
+5. prompt-injection/malicious repo fixtures
+6. replay/eval harness
 
 ## Non-goals for this milestone
 
