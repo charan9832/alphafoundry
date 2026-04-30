@@ -142,47 +142,97 @@ test("state supports runtime run lifecycle, cancellation, errors, stats, and ses
   const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
   assert.equal(initial.activeRun, null);
   assert.equal(initial.status, "idle");
+  assert.equal(initial.terminalState, "idle");
+  assert.deepEqual(initial.evidence, []);
+  assert.deepEqual(initial.sessions, [initial.session]);
   assert.match(initial.session.id, /^ses_/);
 
   const run = { id: "run_1", abort: () => {} };
   const running = reducer(initial, { type: "RUN_STARTED", prompt: "build", run });
   assert.equal(running.status, "running");
+  assert.equal(running.terminalState, "running");
   assert.equal(running.activeRun, run);
   assert.equal(running.goal, "build");
+  assert.deepEqual(running.intent, { prompt: "build" });
+  assert.equal(running.tasks.length, 0);
+  assert.doesNotMatch(JSON.stringify(running.events), /af -p/);
 
   const cancelling = reducer(running, { type: "RUN_CANCELLING" });
   assert.equal(cancelling.status, "cancelling");
+  assert.equal(cancelling.terminalState, "cancelling");
   assert.equal(cancelling.cancelling, true);
 
   const cancelled = reducer(cancelling, { type: "RUN_CANCELLED", reason: "escape" });
   assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.terminalState, "cancelled");
   assert.equal(cancelled.activeRun, null);
   assert.equal(cancelled.cancelled, true);
   assert.match(cancelled.events.at(-1).text, /escape/);
 
+  const finished = reducer(running, { type: "RUN_FINISHED", result: { ok: true } });
+  assert.equal(finished.status, "idle");
+  assert.equal(finished.terminalState, "success");
+
   const errored = reducer(running, { type: "RUN_ERROR", error: new Error("boom") });
   assert.equal(errored.status, "error");
+  assert.equal(errored.terminalState, "error");
   assert.equal(errored.activeRun, null);
   assert.equal(errored.error, "boom");
 
-  const withStats = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "stats", tokens: 42, cost: "$0.01", percent: 7 } });
+  const withStats = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "stats", stats: { runs: 1, completed: 1 }, tokens: 42, cost: "$0.01", percent: 7 } });
   assert.deepEqual(withStats.tokenUsage, { tokens: 42, cost: "$0.01", percent: 7 });
+  assert.deepEqual(withStats.runtimeStats, { runs: 1, completed: 1 });
   assert.equal(withStats.events.at(-1).type, "stats");
 
   const withSession = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "session", id: "ses_next", title: "Next" } });
   assert.equal(withSession.session.id, "ses_next");
+  assert.equal(withSession.sessions.at(-1).id, "ses_next");
   assert.equal(withSession.events.at(-1).type, "session");
 });
 
-test("workspace status labels preserve AlphaFoundry product identity", () => {
+test("canonical runtime events drive terminal state, errors, stats, sessions, and evidence", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+
+  const started = reducer(initial, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "run_start", sessionId: "ses_runtime", runId: "run_2", payload: { prompt: "inspect", provider: "pi-agent", model: "pi-default" } } });
+  assert.equal(started.status, "running");
+  assert.equal(started.terminalState, "running");
+  assert.equal(started.goal, "inspect");
+  assert.deepEqual(started.intent, { prompt: "inspect" });
+  assert.equal(started.session.id, "ses_runtime");
+  assert.equal(started.sessions.at(-1).id, "ses_runtime");
+
+  const withStats = reducer(started, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "stats", sessionId: "ses_runtime", runId: "run_2", payload: { stats: { runs: 1, running: true }, tokens: 64, percent: 12, cost: "$0.02" } } });
+  assert.deepEqual(withStats.runtimeStats, { runs: 1, running: true });
+  assert.deepEqual(withStats.tokenUsage, { tokens: 64, percent: 12, cost: "$0.02" });
+
+  const withEvidence = reducer(withStats, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "artifact", sessionId: "ses_runtime", runId: "run_2", payload: { evidence: { kind: "artifact", title: "Run summary", uri: "artifacts/run-summary.json" } } } });
+  assert.deepEqual(withEvidence.evidence, [{ kind: "artifact", title: "Run summary", uri: "artifacts/run-summary.json" }]);
+  assert.equal(withEvidence.events.at(-1).type, "artifact");
+
+  const ended = reducer(withEvidence, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "run_end", sessionId: "ses_runtime", runId: "run_2", payload: { ok: true, exitCode: 0 } } });
+  assert.equal(ended.status, "idle");
+  assert.equal(ended.terminalState, "success");
+  assert.equal(ended.activeRun, null);
+
+  const failed = reducer(started, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "error", sessionId: "ses_runtime", runId: "run_2", payload: { error: "boom" } } });
+  assert.equal(failed.status, "error");
+  assert.equal(failed.terminalState, "error");
+  assert.equal(failed.error, "boom");
+});
+
+test("workspace status labels preserve AlphaFoundry product identity without synthetic agentic tasks", () => {
   const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
 
   const submitted = reducer(initial, { type: "SUBMIT_HOME", value: "inspect" });
   assert.equal(submitted.product, "AlphaFoundry");
-  assert.equal(submitted.tasks.find((task) => task.id === "execute").label, "Run runtime adapter");
-  assert.doesNotMatch(JSON.stringify(submitted.tasks), /Pi Agent backend/);
+  assert.deepEqual(submitted.intent, { prompt: "inspect" });
+  assert.equal(submitted.status, "idle");
+  assert.equal(submitted.terminalState, "idle");
+  assert.deepEqual(submitted.tasks, []);
+  assert.doesNotMatch(JSON.stringify(submitted.events), /Understand request|Read AlphaFoundry project context|Verify result/);
 
   const running = reducer(initial, { type: "RUN_STARTED", prompt: "inspect", run: { id: "run_1" } });
-  assert.equal(running.action, "Running runtime adapter...");
+  assert.equal(running.action, "Runtime request running");
   assert.doesNotMatch(running.action, /Pi runtime/);
+  assert.doesNotMatch(JSON.stringify(running.events), /af -p/);
 });

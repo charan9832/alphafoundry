@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { resolvePiCliPath } from "./dependencies.js";
 import { resolveRuntimeConfig } from "./config.js";
+import { mapPiToolPolicy } from "./runtime/pi-tool-policy.js";
 
 export function piCliPath() {
   return resolvePiCliPath();
@@ -30,8 +31,26 @@ function withConfiguredModelArgs(args = [], runtimeConfig = {}) {
   return next;
 }
 
-export function buildConfiguredPiArgs(args = [], runtimeConfig = resolveRuntimeConfig()) {
-  return buildPiArgs(withConfiguredModelArgs(args, runtimeConfig));
+function withToolPolicyArgs(args = [], options = {}) {
+  if (!hasPrompt(args)) return [...args];
+  if (options.toolProfile === undefined && options.toolAllow === undefined) return [...args];
+
+  const result = mapPiToolPolicy({
+    profile: options.toolProfile,
+    allow: options.toolAllow,
+    mode: options.permissionMode,
+    path: options.path,
+    workspace: options.workspace,
+    alphaFoundryHome: options.alphaFoundryHome,
+    env: options.processEnv,
+    home: options.home,
+  });
+  if (!result.ok) throw new Error(`Pi tool policy denied: ${result.reason}`);
+  return [...args, ...result.flags];
+}
+
+export function buildConfiguredPiArgs(args = [], runtimeConfig = resolveRuntimeConfig(), options = {}) {
+  return buildPiArgs(withToolPolicyArgs(withConfiguredModelArgs(args, runtimeConfig), options));
 }
 
 export function resolvePiProcessEnv(runtimeConfig = resolveRuntimeConfig(), baseEnv = process.env) {
@@ -84,5 +103,16 @@ export function runPiPrompt(prompt, options = {}) {
   if (runtimeConfig.provider && runtimeConfig.provider !== "default") args.push("--provider", runtimeConfig.provider);
   if (runtimeConfig.model && runtimeConfig.model !== "default") args.push("--model", runtimeConfig.model);
   args.push(prompt);
-  return runPi(args, { ...options, env: runtimeConfig.env });
+  const toolPolicy = mapPiToolPolicy({
+    profile: options.toolProfile,
+    allow: options.toolAllow,
+    mode: options.permissionMode,
+    path: options.path,
+    workspace: options.workspace,
+    alphaFoundryHome: options.alphaFoundryHome,
+    env: options.processEnv,
+    home: options.home,
+  });
+  if (!toolPolicy.ok) throw new Error(`Pi tool policy denied: ${toolPolicy.reason}`);
+  return runPi([...args, ...toolPolicy.flags], { ...options, env: runtimeConfig.env });
 }

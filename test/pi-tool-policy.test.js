@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { buildConfiguredPiArgs, piCliPath } from "../src/pi-backend.js";
 import {
   PI_BUILTIN_TOOLS,
   mapPiToolPolicy,
@@ -75,4 +76,18 @@ test("policy decisions are derived from AlphaFoundry permission mode", () => {
   assert.equal(askShell.ok, true);
   assert.equal(askShell.requiresApproval, true);
   assert.deepEqual(askShell.flags, ["--tools", "read,grep,find,ls,bash"]);
+});
+
+test("configured Pi prompt args include mapped tool policy flags", () => {
+  const args = buildConfiguredPiArgs(["-p", "hello"], { provider: "openai", model: "gpt-test" }, { toolProfile: "read-only", permissionMode: "ask" });
+
+  assert.deepEqual(args.slice(0, 1), [piCliPath()]);
+  assert.deepEqual(args.slice(-2), ["--tools", "read,grep,find,ls"]);
+});
+
+test("configured Pi prompt args fail closed for denied tool policy", () => {
+  assert.throws(
+    () => buildConfiguredPiArgs(["-p", "hello"], {}, { toolProfile: "shell", permissionMode: "auto" }),
+    /Pi tool policy denied: shell operations are denied in auto mode\./,
+  );
 });

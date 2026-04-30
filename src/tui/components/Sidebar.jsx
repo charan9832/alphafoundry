@@ -30,13 +30,21 @@ export function Sidebar({ state, width }) {
       </Box>
       <Box marginTop={1} flexDirection="column">
         <Text color={theme.muted}>Usage</Text>
-        <Text color={theme.text}>{state.tokenUsage.tokens.toLocaleString()} prompt tokens</Text>
+        <Text color={theme.text}>{state.tokenUsage.tokens.toLocaleString()} tokens observed</Text>
         <Text color={theme.muted}>{state.tokenUsage.percent}% tracked · {state.tokenUsage.cost}</Text>
       </Box>
       <Box marginTop={1} flexDirection="column">
         <Text color={theme.muted}>Session</Text>
         <Text color={theme.text}>{state.session?.id ?? "new"}</Text>
-        <Text color={theme.muted}>{state.status}{state.activeRun ? " · active run" : ""}</Text>
+        <Text color={theme.muted}>{state.terminalState ?? state.status}{state.activeRun ? " · active run" : ""}</Text>
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text color={theme.muted}>Intent</Text>
+        <Text color={state.intent?.prompt ? theme.text : theme.muted}>{state.intent?.prompt ?? "none submitted"}</Text>
+      </Box>
+      <Box marginTop={1} flexDirection="column">
+        <Text color={theme.muted}>Evidence</Text>
+        {state.evidence.length ? state.evidence.slice(-3).map((item, index) => <Text key={`${item.evidenceId ?? item.uri ?? item.title ?? "evidence"}-${index}`} color={theme.text}>• {item.title ?? item.kind ?? "runtime evidence"}</Text>) : <Text color={theme.muted}>none observed</Text>}
       </Box>
       <Box marginTop={1} flexDirection="column">
         <Text color={theme.muted}>Tools</Text>

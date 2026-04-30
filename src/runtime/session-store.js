@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, appendFileSync } from "node:fs";
-import { join, normalize } from "node:path";
+import { basename, join, normalize } from "node:path";
 import { sessionsDir } from "../paths.js";
 import { createRuntimeId, parseRuntimeEvent } from "./events.js";
 import { redactUnknown } from "../redaction.js";
@@ -18,6 +18,13 @@ function eventPath(root, sessionId) {
 
 function manifestPath(root, sessionId) {
   return join(root, sessionId, "manifest.json");
+}
+
+function artifactPath(root, sessionId, name) {
+  if (typeof name !== "string" || name.length === 0 || name !== basename(name)) {
+    throw new Error(`Invalid artifact name: ${name ?? "<missing>"}`);
+  }
+  return join(root, sessionId, "artifacts", name);
 }
 
 function sessionPath(root, sessionId) {
@@ -67,6 +74,7 @@ export function createSessionStore(options = {}) {
         createdAt: now,
         updatedAt: now,
         eventCount: 0,
+        artifactCount: 0,
         status: "created",
       };
       writeManifest(manifest);
@@ -106,6 +114,24 @@ export function createSessionStore(options = {}) {
     readSession(sessionId) {
       const manifest = readManifest(sessionId);
       return { manifest, events: readEvents(eventPath(root, sessionId)) };
+    },
+
+    writeArtifact(sessionId, artifact) {
+      ensureRoot();
+      const manifest = readManifest(sessionId);
+      const path = artifactPath(root, sessionId, artifact?.name);
+      const content = redactUnknown(artifact.content ?? {});
+      writeJson(path, content);
+      manifest.artifactCount = (manifest.artifactCount ?? 0) + 1;
+      manifest.updatedAt = artifact.updatedAt ?? new Date().toISOString();
+      writeManifest(manifest);
+      return { name: artifact.name, path, content };
+    },
+
+    readArtifact(sessionId, name) {
+      readManifest(sessionId);
+      const path = artifactPath(root, sessionId, name);
+      return { name, path, content: readJson(path) };
     },
 
     exportSession(sessionId, options = {}) {

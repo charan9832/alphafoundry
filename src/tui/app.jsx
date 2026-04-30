@@ -119,11 +119,7 @@ export function App() {
         (event) => dispatch({ type: "RUNTIME_EVENT", event }),
       );
       if (controller.signal.aborted) return;
-      dispatch({ type: "ADD_EVENT", event: { type: "command", command: `af -p ${JSON.stringify(command.value)}`, status: result?.ok === false ? "error" : "success" } });
-      dispatch({ type: "UPDATE_TASK", id: "inspect", patch: { status: "done" } });
-      dispatch({ type: "UPDATE_TASK", id: "execute", patch: { status: "done" } });
-      dispatch({ type: "UPDATE_TASK", id: "verify", patch: { status: "active" } });
-      dispatch({ type: "RUN_FINISHED" });
+      dispatch({ type: "RUN_FINISHED", result });
     } catch (error) {
       if (controller.signal.aborted) {
         dispatch({ type: "RUN_CANCELLED", reason: controller.signal.reason ?? "aborted" });

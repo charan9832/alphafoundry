@@ -33,15 +33,16 @@ test("initial state is AlphaFoundry branded and does not use OpenCode placeholde
   assert.doesNotMatch(serialized, /OpenCode|Claude Opus|Hard Connected/);
 });
 
-test("reducer transitions home submit into active workspace", () => {
+test("reducer records home submit intent without claiming runtime work", () => {
   const state = reducer(initialState, { type: "SUBMIT_HOME", value: "Fix broken tests" });
 
   assert.equal(state.view, "workspace");
   assert.equal(state.goal, "Fix broken tests");
-  assert.equal(state.status, "running");
-  assert.equal(state.action, "Writing command...");
-  assert.equal(state.tasks[0].status, "done");
-  assert.equal(state.tasks[1].status, "active");
+  assert.deepEqual(state.intent, { prompt: "Fix broken tests" });
+  assert.equal(state.status, "idle");
+  assert.equal(state.terminalState, "idle");
+  assert.equal(state.action, "ready");
+  assert.deepEqual(state.tasks, []);
   assert.equal(state.events[0].type, "user");
 });
 
