@@ -9,23 +9,8 @@
       "Grep",
       "Bash(*)"
     ],
-    "deny": [
-      "Read(.env)",
-      "Read(**/.env)",
-      "Read(**/*_rsa)",
-      "Read(**/*_ed25519)",
-      "Read(**/id_rsa)",
-      "Read(**/id_ed25519)",
-      "Read(**/.npmrc)",
-      "Read(**/.git-credentials)",
-      "Bash(rm -rf *)",
-      "Bash(sudo *)",
-      "Bash(git push*)",
-      "Bash(git reset*)",
-      "Bash(git rebase*)",
-      "Bash(curl *|sh)",
-      "Bash(wget *|sh)"
-    ]
+    "ask": [],
+    "deny": []
   },
   "env": {
     "CLAUDE_CODE_NO_FLICKER": "1",

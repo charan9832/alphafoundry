@@ -58,7 +58,8 @@ function commitIfChanged(message) {
     log('No changes to commit.');
     return { committed: false, reason: 'no_changes' };
   }
-  const add = run('git', ['add', 'src', 'test', 'tests', 'docs', 'README.md', 'AGENTS.md', 'package.json', 'scripts'], { timeout: 120_000 });
+  const stageCandidates = ['src', 'test', 'tests', 'docs', 'README.md', 'AGENTS.md', 'package.json', 'scripts'].filter((path) => existsSync(join(root, path)));
+  const add = run('git', ['add', ...stageCandidates], { timeout: 120_000 });
   if (add.status !== 0) return { committed: false, reason: 'git_add_failed' };
   const staged = run('git', ['diff', '--cached', '--stat'], { timeout: 120_000 }).stdout.trim();
   if (!staged) return { committed: false, reason: 'nothing_staged' };
