@@ -24,4 +24,17 @@ if (result.error) {
   console.error(result.error.message);
   process.exit(1);
 }
-process.exit(result.status ?? 0);
+if ((result.status ?? 0) !== 0) {
+  process.exit(result.status ?? 1);
+}
+
+const claudeSetup = spawnSync(process.execPath, ["scripts/validate-claude-setup.mjs"], {
+  cwd: process.cwd(),
+  stdio: "inherit",
+  env: process.env,
+});
+if (claudeSetup.error) {
+  console.error(claudeSetup.error.message);
+  process.exit(1);
+}
+process.exit(claudeSetup.status ?? 0);
