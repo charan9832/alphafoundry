@@ -186,8 +186,9 @@ Tool governance is generic foundation work. AlphaFoundry has deterministic permi
 
 The current runtime adapter delegates model/tool execution to `@mariozechner/pi-coding-agent`. Future runtime work will deepen live streaming, backend session integration, cancellation, tool visibility, and provider/model discovery while preserving AlphaFoundry as the product identity.
 
-## Release and roadmap
+## Release, roadmap, and project support
 
 - See `docs/ROADMAP.md` for the council-derived implementation phases.
 - See `docs/RELEASE.md` for the release checklist, verification gates, and npm publish runbook.
+- See `docs/BENEFITS_APPLICATION_KIT.md` for reusable open-source, student, startup, and cloud-credit application language.
 - See `CHANGELOG.md` for notable changes and known limitations.
