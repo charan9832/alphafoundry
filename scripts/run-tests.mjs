@@ -28,6 +28,19 @@ if ((result.status ?? 0) !== 0) {
   process.exit(result.status ?? 1);
 }
 
+const releaseAudit = spawnSync(process.execPath, ["scripts/release-static-audit.mjs"], {
+  cwd: process.cwd(),
+  stdio: "inherit",
+  env: process.env,
+});
+if (releaseAudit.error) {
+  console.error(releaseAudit.error.message);
+  process.exit(1);
+}
+if ((releaseAudit.status ?? 0) !== 0) {
+  process.exit(releaseAudit.status ?? 1);
+}
+
 const claudeSetup = spawnSync(process.execPath, ["scripts/validate-claude-setup.mjs"], {
   cwd: process.cwd(),
   stdio: "inherit",

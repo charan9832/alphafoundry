@@ -10,6 +10,7 @@ All notable AlphaFoundry changes are recorded here.
 - Added the CLI agent control-plane architecture note covering AlphaFoundry-owned sessions, canonical runtime events, adapter boundaries, and safety gates before native tools/MCP/domain work.
 - Added durable AlphaFoundry session storage with schema-versioned event logs, `af sessions list|show|export`, and `af run -p` JSON/NDJSON output over the current runtime adapter.
 - Added an empty opt-in tool-pack boundary with generic pack id validation, fail-closed enablement, domain-gated pack id rejection, and redacted JSON-serializable decisions.
+- Added a release static-audit gate that checks required release files, secret-like tokens outside test fixtures, external Claude-upgrade/runtime references in AlphaFoundry files, and obvious finance/trading implementation symbols.
 
 ### Hardened
 
@@ -20,6 +21,7 @@ All notable AlphaFoundry changes are recorded here.
 ### Verification
 
 - Added cross-platform test runner script so CI does not rely on shell glob expansion.
+- Wired release static audit and Claude setup validation into the default test runner.
 - Hardened path-sensitive config tests and installed-package smoke command spawning for Windows runners.
 - Pending final release verification for the next published version.
 
