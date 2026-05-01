@@ -179,8 +179,9 @@ Implemented primitives:
 4. Explicit enablement resolution for registered generic packs
 5. Fail-closed decisions for unknown or invalid packs
 6. Redacted JSON-serializable pack metadata and decisions
+7. Native `af tool-packs` and `af tool-packs --json` status reporting for the current registry and enablement boundary
 
-Default AlphaFoundry behavior still enables no optional packs. Future packs must be registered explicitly, enabled explicitly, and wired through the existing permission/protected-path and verification gates before any runtime execution exists.
+Default AlphaFoundry behavior still enables no optional packs. Future packs must be registered explicitly, enabled explicitly, and wired through the existing permission/protected-path and verification gates before any runtime execution exists. The `af tool-packs` command reports this state honestly instead of implying executable packs are available.
 
 ## No-finance-yet boundary
 

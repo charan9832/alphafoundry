@@ -126,3 +126,36 @@ export function resolveToolPackEnablement(options = {}) {
       : "All requested tool packs were explicitly enabled.",
   });
 }
+
+export function summarizeToolPackStatus(options = {}) {
+  const registry = options.registry ?? DEFAULT_TOOL_PACK_REGISTRY;
+  const enablement = resolveToolPackEnablement({ registry, enable: options.enable ?? [] });
+  const registered = Object.values(registry.packs ?? {}).map((pack) => redactUnknown({
+    id: pack.id,
+    name: pack.name,
+    description: pack.description,
+    enabledByDefault: pack.enabledByDefault,
+    toolCount: Array.isArray(pack.tools) ? pack.tools.length : 0,
+  }));
+
+  return redactUnknown({
+    schemaVersion: TOOL_PACK_SCHEMA_VERSION,
+    product: "AlphaFoundry",
+    registry: {
+      schemaVersion: registry.schemaVersion ?? TOOL_PACK_SCHEMA_VERSION,
+      defaultOptionalPacks: [],
+      registered,
+      registeredCount: registered.length,
+    },
+    enablement,
+    status: enablement.decision === "deny" ? "gated" : "ready",
+    boundary: {
+      optionalPacksEnabledByDefault: false,
+      domainPacksGated: true,
+      executablePacksAvailable: false,
+      mcpLoadingAvailable: false,
+      nativeToolExecutionAvailable: false,
+    },
+    nextGate: "Register generic packs explicitly, enable them explicitly, then wire permission, protected-path, redaction, and verification gates before execution.",
+  });
+}

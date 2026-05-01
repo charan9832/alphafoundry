@@ -118,6 +118,8 @@ af config set model gpt-4o-mini
 af config set env.apiKey OPENAI_API_KEY
 af config set env.baseUrl OPENAI_BASE_URL
 af models                  # explain runtime-adapter model listing
+af tool-packs              # show optional pack boundary; no packs enabled by default
+af tool-packs --json       # machine-readable pack registry/enablement status
 af session                 # explain session support
 af run -p "hello"          # one-shot prompt with AlphaFoundry-owned session/events
 af run -p "hello" --json

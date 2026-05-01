@@ -9,6 +9,7 @@ import { resolveTsxLoaderUrl } from "./dependencies.js";
 import { redactConfigValue } from "./redaction.js";
 import { createSessionStore } from "./runtime/session-store.js";
 import { runPrompt } from "./runtime/runner.js";
+import { summarizeToolPackStatus } from "./runtime/tool-packs.js";
 
 function packageRoot() {
   return dirname(dirname(fileURLToPath(import.meta.url)));
@@ -41,6 +42,7 @@ Usage:
   af config set <key> <value> Set provider/model/env var names only; never raw secrets
   af config repair           Remove unsupported legacy config keys and preserve safe values
   af models                  Explain backend-delegated model listing
+  af tool-packs [--json]     Show optional tool-pack registry and enablement boundary
   af session                 Explain AlphaFoundry session support
   af sessions list [--json]  List durable AlphaFoundry sessions
   af sessions show <id> [--json] Show a durable session transcript
@@ -126,6 +128,28 @@ Use:
   af config set model <model>
   af --provider <name> --model <model> -p "hello"
 `);
+  return 0;
+}
+
+function handleToolPacks(args) {
+  const status = summarizeToolPackStatus();
+  if (args.includes("--json")) {
+    printJson(status);
+  } else {
+    console.log(`AlphaFoundry tool packs
+
+Default optional packs: none enabled
+Registered optional packs: ${status.registry.registeredCount}
+Current enabled packs: ${status.enablement.enabled.length === 0 ? "none" : status.enablement.enabled.join(", ")}
+
+Boundary:
+- optional packs are disabled by default
+- domain packs are gated until an explicit opt-in policy exists
+- executable packs, MCP loading, and native tool execution are not available in this milestone
+
+Next gate: ${status.nextGate}
+`);
+  }
   return 0;
 }
 
@@ -274,6 +298,7 @@ async function main() {
   if (command === "doctor") return handleDoctor(rest);
   if (command === "config") return handleConfig(rest);
   if (command === "models") return handleModels(rest);
+  if (command === "tool-packs") return handleToolPacks(rest);
   if (command === "session") return handleSession(rest);
   if (command === "sessions") return handleSessions(rest);
   if (command === "run") return handleRun(rest);

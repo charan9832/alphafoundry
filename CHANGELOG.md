@@ -9,7 +9,7 @@ All notable AlphaFoundry changes are recorded here.
 - Documented the manual release runbook, required local gates, CI matrix expectations, npm publish dry-run, tagging, rollback guidance, and Pi package integration boundary.
 - Added the CLI agent control-plane architecture note covering AlphaFoundry-owned sessions, canonical runtime events, adapter boundaries, and safety gates before native tools/MCP/domain work.
 - Added durable AlphaFoundry session storage with schema-versioned event logs, `af sessions list|show|export`, and `af run -p` JSON/NDJSON output over the current runtime adapter.
-- Added an empty opt-in tool-pack boundary with generic pack id validation, fail-closed enablement, domain-gated pack id rejection, and redacted JSON-serializable decisions.
+- Added an empty opt-in tool-pack boundary with generic pack id validation, fail-closed enablement, domain-gated pack id rejection, redacted JSON-serializable decisions, and native `af tool-packs [--json]` status reporting.
 - Added a release static-audit gate that checks required release files, secret-like tokens outside test fixtures, external Claude-upgrade/runtime references in AlphaFoundry files, and obvious finance/trading implementation symbols.
 
 ### Hardened

@@ -271,10 +271,25 @@ test("af doctor --json emits parseable doctor JSON", () => {
   }
 });
 
-test("af models and af session are native informational commands", () => {
+test("af models, af tool-packs, and af session are native informational commands", () => {
   const models = runCli(["models"]);
   assert.equal(models.status, 0, models.stderr);
   assert.match(models.stdout, /delegated/i);
+
+  const toolPacks = runCli(["tool-packs"]);
+  assert.equal(toolPacks.status, 0, toolPacks.stderr);
+  assert.match(toolPacks.stdout, /Default optional packs: none enabled/);
+  assert.match(toolPacks.stdout, /domain packs are gated/i);
+
+  const toolPacksJson = runCli(["tool-packs", "--json"]);
+  assert.equal(toolPacksJson.status, 0, toolPacksJson.stderr);
+  const toolPacksPayload = JSON.parse(toolPacksJson.stdout);
+  assert.equal(toolPacksPayload.product, "AlphaFoundry");
+  assert.equal(toolPacksPayload.registry.registeredCount, 0);
+  assert.deepEqual(toolPacksPayload.enablement.enabled, []);
+  assert.equal(toolPacksPayload.boundary.optionalPacksEnabledByDefault, false);
+  assert.equal(toolPacksPayload.boundary.domainPacksGated, true);
+  assert.equal(toolPacksPayload.boundary.executablePacksAvailable, false);
 
   const session = runCli(["session"]);
   assert.equal(session.status, 0, session.stderr);
@@ -368,6 +383,7 @@ test("help presents AlphaFoundry native command surface before passthrough", () 
   assert.match(result.stdout, /af doctor/);
   assert.match(result.stdout, /af config path/);
   assert.match(result.stdout, /af models/);
+  assert.match(result.stdout, /af tool-packs/);
   assert.match(result.stdout, /af session/);
   assert.match(result.stdout, /af sessions list/);
   assert.match(result.stdout, /af run -p/);

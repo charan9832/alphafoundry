@@ -6,6 +6,7 @@ import {
   TOOL_PACK_SCHEMA_VERSION,
   createToolPackRegistry,
   resolveToolPackEnablement,
+  summarizeToolPackStatus,
   validateToolPackId,
 } from "../src/runtime/tool-packs.js";
 
@@ -85,4 +86,22 @@ test("registry creation rejects finance-like packs before they can be registered
     () => createToolPackRegistry({ "finance-research": { name: "Finance research" } }),
     /Domain-specific tool pack ids are gated/,
   );
+});
+
+test("tool-pack status summary exposes the honest default boundary", () => {
+  const status = summarizeToolPackStatus();
+
+  assert.equal(status.product, "AlphaFoundry");
+  assert.equal(status.schemaVersion, TOOL_PACK_SCHEMA_VERSION);
+  assert.equal(status.status, "ready");
+  assert.deepEqual(status.registry.defaultOptionalPacks, []);
+  assert.equal(status.registry.registeredCount, 0);
+  assert.deepEqual(status.enablement.enabled, []);
+  assert.equal(status.boundary.optionalPacksEnabledByDefault, false);
+  assert.equal(status.boundary.domainPacksGated, true);
+  assert.equal(status.boundary.executablePacksAvailable, false);
+  assert.equal(status.boundary.mcpLoadingAvailable, false);
+  assert.equal(status.boundary.nativeToolExecutionAvailable, false);
+  assert.match(status.nextGate, /permission/);
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(status)));
 });
