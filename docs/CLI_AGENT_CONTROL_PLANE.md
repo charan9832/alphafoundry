@@ -167,6 +167,21 @@ AlphaFoundry now has generic verification evidence primitives for future run sum
 
 This is generic evidence plumbing only. It is not a finance council, trading verifier, or production eval harness.
 
+## Implemented generic tool-pack boundary
+
+AlphaFoundry now has a neutral opt-in tool-pack boundary for future extension work. This is registry and enablement plumbing only; it does not execute tools, load MCP servers, or ship any domain packs.
+
+Implemented primitives:
+
+1. Empty default tool-pack registry
+2. Kebab-case pack id validation
+3. Domain-gated id rejection for finance/trading/broker/market/order/account-style packs
+4. Explicit enablement resolution for registered generic packs
+5. Fail-closed decisions for unknown or invalid packs
+6. Redacted JSON-serializable pack metadata and decisions
+
+Default AlphaFoundry behavior still enables no optional packs. Future packs must be registered explicitly, enabled explicitly, and wired through the existing permission/protected-path and verification gates before any runtime execution exists.
+
 ## No-finance-yet boundary
 
 Finance remains out of scope until the generic control plane is safer and more complete. Do not add finance tools, trading workflows, market-data connectors, broker/exchange APIs, portfolio logic, alpha models, finance-specific MCP servers, finance config keys, or finance examples.
@@ -177,7 +192,7 @@ Future finance research may only appear as a gated, opt-in, read-only council/re
 
 Before native writes/shell/MCP/domain work, still implement and test:
 
-1. tool registry metadata and risk classifier integration
+1. tool registry metadata and risk classifier integration beyond pack metadata
 2. approval events and durable decisions
 3. workspace boundary checks wired into actual tool calls
 4. transcript redaction fixtures

@@ -178,7 +178,7 @@ af doctor --json
 
 AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, and durable run/session records. `af run -p ...` records schema-versioned events under `~/.alphafoundry/sessions/` and supports JSON or NDJSON export through `af sessions`. The current Pi adapter path normalizes one-shot output into canonical events; `--stream-json` currently emits those events after the adapter returns, not as a live token stream.
 
-Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, and Pi built-in tool profile mapping, but it does not implement native AlphaFoundry file, shell, MCP, finance, or domain tool execution.
+Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, Pi built-in tool profile mapping, and an empty opt-in tool-pack boundary. It does not implement native AlphaFoundry file, shell, MCP, finance, or domain tool execution.
 
 ## Runtime adapter
 
