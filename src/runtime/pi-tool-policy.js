@@ -40,6 +40,9 @@ function deny(reason, extra = {}) {
     reason,
     flags: [],
     decisions: extra.decisions ?? [],
+    enforcement: "startup-allowlist",
+    liveInterception: false,
+    pathPolicyScope: extra.pathPolicyScope ?? "none",
     ...(extra.deniedTool ? { deniedTool: extra.deniedTool } : {}),
     ...(extra.profile ? { profile: extra.profile } : {}),
   };
@@ -136,5 +139,8 @@ export function mapPiToolPolicy(options = {}) {
     decisions,
     decision,
     requiresApproval: decision === "ask",
+    enforcement: "startup-allowlist",
+    liveInterception: false,
+    pathPolicyScope: options.path ? "requested-path" : "none",
   };
 }

@@ -49,12 +49,19 @@ test("protected path classifier catches git, env, credentials, npm tokens, Alpha
     [".git/config", "git"],
     [".env", "env"],
     [".env.local", "env"],
+    ["apps/api/.env", "env"],
+    ["apps/api/.env.local", "env"],
+    ["config/.env.production", "env"],
     ["~/.ssh/id_rsa", "ssh"],
     ["~/.aws/credentials", "cloud"],
     ["~/.config/gcloud/application_default_credentials.json", "cloud"],
     ["~/.npmrc", "npm-token"],
     ["~/.yarnrc.yml", "npm-token"],
     ["~/.pnpmrc", "npm-token"],
+    ["~/.netrc", "netrc"],
+    ["~/.docker/config.json", "docker"],
+    ["~/.kube/config", "kube"],
+    ["~/.azure/accessTokens.json", "cloud"],
     [join(afHome, "config.json"), "alphafoundry-state"],
     [join(afHome, "sessions", "ses_test", "events.ndjson"), "alphafoundry-state"],
     ["../outside.txt", "outside-workspace"],
@@ -68,6 +75,17 @@ test("protected path classifier catches git, env, credentials, npm tokens, Alpha
   }
 
   assert.equal(classifyProtectedPath("src/index.js", { workspace, alphaFoundryHome: afHome }).protected, false);
+
+  const windowsCredentialCases = [
+    ["C:\\Users\\me\\.ssh\\id_rsa", "ssh"],
+    ["C:\\Users\\me\\.npmrc", "npm-token"],
+    ["C:\\Users\\me\\outside.txt", "outside-workspace"],
+  ];
+  for (const [path, category] of windowsCredentialCases) {
+    const result = classifyProtectedPath(path, { workspace, alphaFoundryHome: afHome });
+    assert.equal(result.protected, true, path);
+    assert.equal(result.category, category, path);
+  }
 });
 
 test("plan mode denies write, shell, network, mcp, credential, and destructive risks", () => {

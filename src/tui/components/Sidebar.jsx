@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import Spinner from "ink-spinner";
 import { theme } from "../theme.js";
+import { summarizeSafety } from "../safety.js";
 
 function TaskIcon({ status }) {
   if (status === "done") return <Text color={theme.green}>[v]</Text>;
@@ -10,6 +11,7 @@ function TaskIcon({ status }) {
 }
 
 export function Sidebar({ state, width }) {
+  const safety = summarizeSafety(state);
   return (
     <Box flexDirection="column" width={width}>
       <Text bold color={theme.text}>{state.goal || "AlphaFoundry workspace"}</Text>
@@ -47,8 +49,13 @@ export function Sidebar({ state, width }) {
         {state.evidence.length ? state.evidence.slice(-3).map((item, index) => <Text key={`${item.evidenceId ?? item.uri ?? item.title ?? "evidence"}-${index}`} color={theme.text}>• {item.title ?? item.kind ?? "runtime evidence"}</Text>) : <Text color={theme.muted}>none observed</Text>}
       </Box>
       <Box marginTop={1} flexDirection="column">
+        <Text color={theme.muted}>Safety</Text>
+        <Text color={safety.tone === "pending" ? theme.yellow : safety.tone === "approved" ? theme.green : theme.muted}>{safety.short}</Text>
+        <Text color={theme.muted}>{safety.detail}</Text>
+      </Box>
+      <Box marginTop={1} flexDirection="column">
         <Text color={theme.muted}>Tools</Text>
-        {state.tools?.length ? state.tools.map((tool) => <Text key={tool} color={theme.text}>• {tool}</Text>) : <Text color={theme.muted}>default runtime tools</Text>}
+        {state.tools?.length ? state.tools.map((tool) => <Text key={tool} color={theme.text}>• {tool}</Text>) : <Text color={theme.muted}>none enabled</Text>}
       </Box>
       <Box marginTop={1} flexDirection="column">
         <Text color={theme.muted}>Language tools</Text>

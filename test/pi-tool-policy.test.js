@@ -91,6 +91,20 @@ test("configured Pi prompt args include mapped tool policy flags", () => {
   assert.deepEqual(args.slice(-2), ["--tools", "read,grep,find,ls"]);
 });
 
+test("Pi tool policy declares startup allowlist enforcement without live interception", () => {
+  const allowed = mapPiToolPolicy({ profile: "read-only", mode: "ask", approved: true, path: "src/index.js" });
+  assert.equal(allowed.ok, true);
+  assert.equal(allowed.enforcement, "startup-allowlist");
+  assert.equal(allowed.liveInterception, false);
+  assert.equal(allowed.pathPolicyScope, "requested-path");
+
+  const denied = mapPiToolPolicy({ profile: "shell", mode: "auto" });
+  assert.equal(denied.ok, false);
+  assert.equal(denied.enforcement, "startup-allowlist");
+  assert.equal(denied.liveInterception, false);
+  assert.equal(denied.pathPolicyScope, "none");
+});
+
 test("configured Pi prompt args fail closed for denied tool policy", () => {
   assert.throws(
     () => buildConfiguredPiArgs(["-p", "hello"], {}, { toolProfile: "shell", permissionMode: "auto" }),

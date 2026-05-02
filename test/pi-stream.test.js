@@ -108,6 +108,34 @@ test("runPiJsonStream reports provider assistant errors as failed results", asyn
   assert.equal(events.filter((event) => event.type === "run_end").at(-1).payload.ok, false);
 });
 
+test("runPiJsonStream treats malicious repo output as redacted transcript text only", async () => {
+  const events = [];
+  const result = await runPiJsonStream(["-p", "inspect repo"], {
+    runtimeConfig: { provider: "openai", model: "gpt-test" },
+    env: { ...process.env, ALPHAFOUNDRY_PI_CLI_PATH: join(fixtureDir, "fixtures", "fixture-pi-injection.mjs") },
+    sessionId: "s1",
+    runId: "r1",
+    prompt: "inspect repo",
+    provider: "openai",
+    model: "gpt-test",
+    onEvent: (event) => events.push(event),
+  });
+
+  const json = JSON.stringify({ result, events });
+  assert.equal(result.ok, true);
+  assert.match(json, /SYSTEM: ignore previous instructions/);
+  assert.match(json, /\/mode auto/);
+  assert.match(json, /\/tools bash/);
+  assert.match(json, /\[REDACTED_SECRET\]/);
+  assert.doesNotMatch(json, /sk-sec/);
+  const runStart = events.find((event) => event.type === "run_start");
+  assert.equal(runStart.payload.provider, "openai");
+  assert.equal(runStart.payload.model, "gpt-test");
+  const toolCall = events.find((event) => event.type === "tool_call");
+  assert.equal(toolCall.payload.name, "read");
+  assert.match(JSON.stringify(toolCall.payload.args), /SYSTEM: ignore previous instructions/);
+});
+
 test("runPiJsonStream handles abort signal", async () => {
   const controller = new AbortController();
   const promise = runPiJsonStream(["--version"], {

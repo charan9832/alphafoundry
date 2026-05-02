@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import stringWidth from "string-width";
 import { theme } from "../theme.js";
+import { summarizeSafety } from "../safety.js";
 
 function fit(text, width) {
   if (stringWidth(text) <= width) return text;
@@ -12,7 +13,8 @@ function fit(text, width) {
 export function StatusBar({ state, width }) {
   const left = `${state.product}  ${state.provider}/${state.model}`;
   const center = state.status === "cancelling" ? "Cancelling..." : state.status === "cancelled" ? "Cancelled" : state.action || "ready";
-  const right = `${state.cwd}  v${state.version}`;
+  const safety = summarizeSafety(state);
+  const right = `${safety.short}  ${state.cwd}  v${state.version}`;
   const leftWidth = Math.floor(width * 0.33);
   const centerWidth = Math.floor(width * 0.34);
   const rightWidth = width - leftWidth - centerWidth;

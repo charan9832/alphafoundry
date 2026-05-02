@@ -17,12 +17,27 @@ function withTrailingSep(path) {
   return path.endsWith(sep) ? path : `${path}${sep}`;
 }
 
+function isPortableAbsolute(path) {
+  return isAbsolute(path) || /^[A-Za-z]:[\\/]/.test(path) || /^\\\\/.test(path);
+}
+
+function credentialPathCategory(path) {
+  if (/(^|\/)\.env($|\.)/.test(path)) return "env";
+  if (/(^|\/)\.ssh(\/|$)|(^|\/)id_rsa$|(^|\/)id_ed25519$/.test(path)) return "ssh";
+  if (/(^|\/)\.aws\/credentials$|(^|\/)\.config\/gcloud\/|(^|\/)\.azure(\/|$)/.test(path)) return "cloud";
+  if (/(^|\/)\.npmrc$|(^|\/)\.yarnrc(\.yml)?$|(^|\/)\.pnpmrc$/.test(path)) return "npm-token";
+  if (/(^|\/)\.netrc$/.test(path)) return "netrc";
+  if (/(^|\/)\.docker\/config\.json$/.test(path)) return "docker";
+  if (/(^|\/)\.kube\/config$/.test(path)) return "kube";
+  return null;
+}
+
 export function normalizeWorkspacePath(path, workspace, options = {}) {
   const home = options.home ?? homedir();
   const expanded = expandHome(path, home);
   const portable = expanded.replaceAll("\\", sep);
   const base = normalize(workspace ?? process.cwd());
-  return normalize(isAbsolute(portable) ? portable : resolve(base, portable));
+  return normalize(isPortableAbsolute(expanded) || isPortableAbsolute(portable) ? portable : resolve(base, portable));
 }
 
 export function isPathInsideWorkspace(path, workspace, options = {}) {
@@ -51,20 +66,17 @@ export function classifyProtectedPath(path, options = {}) {
   const rel = relativePortable(path, workspace, { home });
   const lower = slashPath(rel).toLowerCase();
   const fullLower = slashPath(fullPath).toLowerCase();
+  const credentialCategory = credentialPathCategory(lower);
+  const fullCredentialCategory = credentialPathCategory(fullLower);
 
   if (!isPathInsideWorkspace(path, workspace, { home })) {
     if (isAlphaFoundryState(fullPath, options)) return { protected: true, category: "alphafoundry-state", path: fullPath };
-    if (/(^|\/)\.ssh(\/|$)|(^|\/)id_rsa$|(^|\/)id_ed25519$/.test(fullLower)) return { protected: true, category: "ssh", path: fullPath };
-    if (/(^|\/)\.aws\/credentials$|(^|\/)\.config\/gcloud\//.test(fullLower)) return { protected: true, category: "cloud", path: fullPath };
-    if (/(^|\/)\.npmrc$|(^|\/)\.yarnrc(\.yml)?$|(^|\/)\.pnpmrc$/.test(fullLower)) return { protected: true, category: "npm-token", path: fullPath };
+    if (fullCredentialCategory) return { protected: true, category: fullCredentialCategory, path: fullPath };
     return { protected: true, category: "outside-workspace", path: fullPath };
   }
 
   if (lower === ".git" || lower.startsWith(".git/")) return { protected: true, category: "git", path: fullPath };
-  if (lower === ".env" || lower.startsWith(".env.")) return { protected: true, category: "env", path: fullPath };
-  if (/(^|\/)\.ssh(\/|$)|(^|\/)id_rsa$|(^|\/)id_ed25519$/.test(lower)) return { protected: true, category: "ssh", path: fullPath };
-  if (/(^|\/)\.aws\/credentials$|(^|\/)\.config\/gcloud\//.test(lower)) return { protected: true, category: "cloud", path: fullPath };
-  if (/(^|\/)\.npmrc$|(^|\/)\.yarnrc(\.yml)?$|(^|\/)\.pnpmrc$/.test(lower)) return { protected: true, category: "npm-token", path: fullPath };
+  if (credentialCategory) return { protected: true, category: credentialCategory, path: fullPath };
   if (isAlphaFoundryState(fullPath, options)) return { protected: true, category: "alphafoundry-state", path: fullPath };
 
   return { protected: false, category: null, path: fullPath };

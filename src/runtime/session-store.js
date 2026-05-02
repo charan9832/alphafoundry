@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, appendFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync, appendFileSync, renameSync, rmSync } from "node:fs";
 import { basename, join, normalize } from "node:path";
 import { sessionsDir } from "../paths.js";
 import { createRuntimeId, parseRuntimeEvent } from "./events.js";
@@ -8,39 +8,69 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
+function writeTextAtomic(path, text) {
+  const tmpPath = `${path}.${createRuntimeId("tmp")}`;
+  try {
+    writeFileSync(tmpPath, text, { encoding: "utf8", mode: 0o600 });
+    renameSync(tmpPath, path);
+  } catch (error) {
+    rmSync(tmpPath, { force: true });
+    throw error;
+  }
+}
+
 function writeJson(path, value) {
-  writeFileSync(path, `${JSON.stringify(redactUnknown(value), null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  writeTextAtomic(path, `${JSON.stringify(redactUnknown(value), null, 2)}\n`);
+}
+
+function validateSessionId(sessionId) {
+  if (typeof sessionId !== "string" || sessionId.length === 0 || sessionId !== basename(sessionId)) {
+    throw new Error(`Invalid session id: ${sessionId ?? "<missing>"}`);
+  }
+  return sessionId;
 }
 
 function eventPath(root, sessionId) {
-  return join(root, sessionId, "events.ndjson");
+  return join(root, validateSessionId(sessionId), "events.ndjson");
 }
 
 function manifestPath(root, sessionId) {
-  return join(root, sessionId, "manifest.json");
+  return join(root, validateSessionId(sessionId), "manifest.json");
 }
 
 function artifactPath(root, sessionId, name) {
   if (typeof name !== "string" || name.length === 0 || name !== basename(name)) {
     throw new Error(`Invalid artifact name: ${name ?? "<missing>"}`);
   }
-  return join(root, sessionId, "artifacts", name);
+  return join(root, validateSessionId(sessionId), "artifacts", name);
 }
 
 function sessionPath(root, sessionId) {
-  return join(root, sessionId);
+  return join(root, validateSessionId(sessionId));
 }
 
 function readEvents(path) {
   if (!existsSync(path)) return [];
   return readFileSync(path, "utf8")
     .split("\n")
-    .filter(Boolean)
-    .map((line) => parseRuntimeEvent(line));
+    .flatMap((line) => {
+      if (!line.trim()) return [];
+      try {
+        return [parseRuntimeEvent(line)];
+      } catch {
+        return [];
+      }
+    });
+}
+
+function writeEventsAtomic(path, events) {
+  const text = events.map((event) => JSON.stringify(redactUnknown(event))).join("\n");
+  writeTextAtomic(path, text ? `${text}\n` : "");
 }
 
 export function createSessionStore(options = {}) {
   const root = normalize(options.root ?? sessionsDir(options.env ?? process.env));
+  const maxEventsPerSession = Number.isInteger(options.maxEventsPerSession) && options.maxEventsPerSession > 0 ? options.maxEventsPerSession : null;
 
   function ensureRoot() {
     mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -54,6 +84,26 @@ export function createSessionStore(options = {}) {
 
   function writeManifest(manifest) {
     writeJson(manifestPath(root, manifest.id), manifest);
+  }
+
+  function compactSession(sessionId, options = {}) {
+    ensureRoot();
+    const manifest = readManifest(sessionId);
+    let events = readEvents(eventPath(root, sessionId));
+    const keepLast = Number.isInteger(options.keepLast) && options.keepLast > 0 ? options.keepLast : null;
+    if (keepLast !== null && events.length > keepLast) events = events.slice(-keepLast);
+
+    events = events.map((event, index) => ({
+      ...event,
+      sessionId: event.sessionId ?? sessionId,
+      sequence: index + 1,
+    }));
+
+    writeEventsAtomic(eventPath(root, sessionId), events);
+    manifest.eventCount = events.length;
+    manifest.updatedAt = events.at(-1)?.timestamp ?? manifest.updatedAt ?? new Date().toISOString();
+    writeManifest(manifest);
+    return { manifest, events, compactedEventCount: events.length };
   }
 
   return {
@@ -93,8 +143,11 @@ export function createSessionStore(options = {}) {
       if (event.type === "run_end") manifest.status = event.payload?.ok ? "success" : "error";
       else if (event.type === "run_start") manifest.status = "running";
       writeManifest(manifest);
+      if (maxEventsPerSession !== null && manifest.eventCount > maxEventsPerSession) compactSession(sessionId, { keepLast: maxEventsPerSession });
       return next;
     },
+
+    compactSession,
 
     listSessions() {
       ensureRoot();

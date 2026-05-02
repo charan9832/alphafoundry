@@ -93,6 +93,76 @@ test("session store rejects missing sessions", () => {
   }
 });
 
+test("session store rejects path traversal session ids", () => {
+  const home = tempHome();
+  try {
+    const store = createSessionStore({ env: { ALPHAFOUNDRY_HOME: home } });
+    assert.throws(() => store.createSession({ id: "../escape" }), /Invalid session id/);
+    assert.throws(() => store.readSession("../escape"), /Invalid session id/);
+    assert.throws(() => store.appendEvent("../escape", createRuntimeEvent("run_start")), /Invalid session id/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("session store tolerates corrupt NDJSON event lines", () => {
+  const home = tempHome();
+  try {
+    const store = createSessionStore({ env: { ALPHAFOUNDRY_HOME: home } });
+    const session = store.createSession({ cwd: "/repo", title: "corrupt events", adapter: "mock" });
+    const valid = store.appendEvent(session.id, createRuntimeEvent("assistant", { sessionId: session.id, runId: "run_1", payload: { text: "hello" } }));
+    const eventsPath = join(home, "sessions", session.id, "events.ndjson");
+    writeFileSync(eventsPath, `${JSON.stringify(valid)}\nnot-json\n${JSON.stringify({ schemaVersion: 1, type: "not_a_type" })}\n`, { encoding: "utf8" });
+
+    const read = store.readSession(session.id);
+    assert.equal(read.events.length, 1);
+    assert.equal(read.events[0].type, "assistant");
+    assert.equal(store.exportSession(session.id, { format: "ndjson" }).trim().split("\n").length, 1);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("session store compacts events by dropping corrupt lines and updating manifest", () => {
+  const home = tempHome();
+  try {
+    const store = createSessionStore({ env: { ALPHAFOUNDRY_HOME: home } });
+    const session = store.createSession({ cwd: "/repo", title: "compact events", adapter: "mock" });
+    const first = store.appendEvent(session.id, createRuntimeEvent("run_start", { sessionId: session.id, runId: "run_1", payload: { n: 1 } }));
+    const second = store.appendEvent(session.id, createRuntimeEvent("assistant", { sessionId: session.id, runId: "run_1", payload: { text: "answer" } }));
+    const eventsPath = join(home, "sessions", session.id, "events.ndjson");
+    writeFileSync(eventsPath, `${JSON.stringify(first)}\n{bad json\n${JSON.stringify(second)}\n`, { encoding: "utf8" });
+
+    const compacted = store.compactSession(session.id);
+    assert.equal(compacted.events.length, 2);
+    assert.deepEqual(compacted.events.map((event) => event.sequence), [1, 2]);
+    const read = store.readSession(session.id);
+    assert.equal(read.manifest.eventCount, 2);
+    assert.doesNotMatch(readFileSync(eventsPath, "utf8"), /bad json/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("session store optionally retains only the latest events per session", () => {
+  const home = tempHome();
+  try {
+    const store = createSessionStore({ env: { ALPHAFOUNDRY_HOME: home }, maxEventsPerSession: 2 });
+    const session = store.createSession({ cwd: "/repo", title: "retention", adapter: "mock" });
+    store.appendEvent(session.id, createRuntimeEvent("run_start", { sessionId: session.id, runId: "run_1", payload: { n: 1 } }));
+    store.appendEvent(session.id, createRuntimeEvent("assistant", { sessionId: session.id, runId: "run_1", payload: { text: "two" } }));
+    store.appendEvent(session.id, createRuntimeEvent("run_end", { sessionId: session.id, runId: "run_1", payload: { ok: true } }));
+
+    const read = store.readSession(session.id);
+    assert.equal(read.events.length, 2);
+    assert.deepEqual(read.events.map((event) => event.sequence), [1, 2]);
+    assert.deepEqual(read.events.map((event) => event.type), ["assistant", "run_end"]);
+    assert.equal(read.manifest.eventCount, 2);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("Pi adapter converts prompt results into canonical runtime events", () => {
   const events = piResultToEvents({
     sessionId: "ses_test",

@@ -62,6 +62,12 @@ export function commandHelp() {
     "  /session             show durable session metadata",
     "  /new                 start a fresh durable session",
     "  /export              print visible transcript in the conversation",
+    "",
+    "Keys:",
+    "  Enter               submit prompt or slash command",
+    "  ↑/↓                 recall prompt history when available",
+    "  Esc or Ctrl+C       cancel a running request; exit when idle",
+    "  Paste multiline text; AlphaFoundry preserves it as one prompt",
   ].join("\n");
 }
 

@@ -74,6 +74,17 @@ test("command help is honest about local-only runtime command fallbacks", () => 
   assert.match(help, /\/export\s+print visible transcript/i);
 });
 
+test("command help documents keyboard hints without one-shot prompt flags", () => {
+  const help = commandHelp();
+  assert.match(help, /Keys:/);
+  assert.match(help, /Enter\s+submit prompt/i);
+  assert.match(help, /↑\/↓\s+recall prompt history/i);
+  assert.match(help, /Esc or Ctrl\+C\s+cancel/i);
+  assert.match(help, /multiline/i);
+  assert.doesNotMatch(help, /af run/);
+  assert.doesNotMatch(help, /\s-p\b|--prompt/);
+});
+
 test("reducer applies slash command effects to TUI state", () => {
   const initial = createInitialState({
     cwd: "/tmp/alphafoundry",

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { initialState, reducer, createInitialState } from "../src/tui/state.js";
 import { paneWidths } from "../src/tui/layout.js";
 import { formatDiffLines, wrapPlain } from "../src/tui/formatters.js";
+import { summarizeSafety } from "../src/tui/safety.js";
 
 test("createInitialState uses real AlphaFoundry runtime data", () => {
   const state = createInitialState({
@@ -78,4 +79,24 @@ test("loadRuntimeRunner clears rejected cached runner promise before retry", () 
   assert.match(source, /createRuntimeRunner\(\)\.catch\(\(error\) => \{/);
   assert.match(source, /cachedRuntimeRunnerPromise = undefined;/);
   assert.match(source, /throw error;/);
+});
+
+test("TUI safety summary is explicit about mode, disabled tools, approvals, and approved tools", () => {
+  const state = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  assert.deepEqual(summarizeSafety(state), {
+    tone: "restricted",
+    short: "mode ask · tools off",
+    detail: "runtime tools disabled until /tools",
+  });
+
+  const pending = { ...state, pendingToolApproval: { tools: ["write"] } };
+  assert.equal(summarizeSafety(pending).tone, "pending");
+  assert.match(summarizeSafety(pending).detail, /write/);
+
+  const approved = { ...state, tools: ["read", "grep"], permissionMode: "ask" };
+  assert.equal(summarizeSafety(approved).tone, "approved");
+  assert.match(summarizeSafety(approved).detail, /read, grep/);
+
+  const plan = { ...state, permissionMode: "plan" };
+  assert.equal(summarizeSafety(plan).tone, "safe");
 });
