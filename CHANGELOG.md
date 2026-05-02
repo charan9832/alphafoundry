@@ -22,6 +22,7 @@ All notable AlphaFoundry changes are recorded here.
 - Added internal tool policy mapping so AlphaFoundry can retain product-owned sessions and policy checks around runtime tool profiles.
 - Added `af onboard` as the first-run setup wizard; it stores env var names only, can run `af doctor` after writing config, and can open the TUI.
 - Added provider-aware doctor guidance for OpenAI, Anthropic, Gemini, and OpenRouter API-key/base-url environment variables without printing secret values.
+- Added optional pasted-key onboarding: `af onboard` can save a pasted API key into a restricted local `.env` file while keeping `config.json` secret-free; doctor and runtime config load that file automatically.
 
 ### Hardened
 

@@ -67,7 +67,13 @@ Use the interactive onboarding wizard for normal setup:
 af onboard
 ```
 
-`af onboard` prompts for provider, model, API-key environment variable name, optional base-url environment variable name, whether to run `af doctor` immediately, and whether to open the TUI. It writes:
+`af onboard` prompts for provider, model, and an API-key input. You can either type an environment variable name such as `OPENROUTER_API_KEY` or paste the actual API key. If you paste a key, AlphaFoundry asks whether to save it locally in:
+
+```text
+~/.alphafoundry/.env
+```
+
+That secret file is written with `0600` permissions and loaded automatically by `af doctor` and runtime prompts. `config.json` still stores only provider/model/env-var names, never the raw key. Onboard also asks whether to run `af doctor` immediately and whether to open the TUI. It writes config to:
 
 ```text
 ~/.alphafoundry/config.json
@@ -93,7 +99,7 @@ $env:ALPHAFOUNDRY_CONFIG_PATH = "C:\Users\you\.alphafoundry\config.json"
 af onboard
 ```
 
-The config stores provider names, model names, and environment variable names only. It must not contain raw API keys, tokens, or passwords.
+The config stores provider names, model names, and environment variable names only. It must not contain raw API keys, tokens, or passwords. If you choose to save a pasted key during onboarding, it goes into the separate local `.env` file instead.
 
 Example:
 
@@ -138,7 +144,13 @@ af approvals list [--json]
 af approvals show <id> [--json]
 af approvals export [--json|--ndjson]
 af approvals expire <id> [--json]
-Provider credentials stay in your shell environment:
+Provider credentials can come from either your shell environment or the local AlphaFoundry env file created by `af onboard` when you paste and save a key:
+
+```text
+~/.alphafoundry/.env
+```
+
+Shell example:
 
 ```sh
 export OPENAI_API_KEY="***"

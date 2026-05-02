@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -23,6 +23,63 @@ export function defaultConfig() {
       apiKey: "ALPHAFOUNDRY_API_KEY",
     },
   };
+}
+
+export function defaultSecretsPath(env = process.env, options = {}) {
+  if (env.ALPHAFOUNDRY_ENV_PATH) return env.ALPHAFOUNDRY_ENV_PATH;
+  if (options.configPath) return join(dirname(options.configPath), ".env");
+  return join(dirname(defaultConfigPath(env)), ".env");
+}
+
+export function parseEnvFile(content = "") {
+  const parsed = {};
+  for (const rawLine of String(content).split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) continue;
+    let value = match[2];
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    parsed[match[1]] = value.replace(/\\n/g, "\n");
+  }
+  return parsed;
+}
+
+function quoteEnvValue(value) {
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
+}
+
+export function readLocalEnv(options = {}) {
+  const path = options.path ?? defaultSecretsPath(options.env ?? process.env, { configPath: options.configPath });
+  if (!existsSync(path)) return { path, env: {} };
+  return { path, env: parseEnvFile(readFileSync(path, "utf8")) };
+}
+
+export function writeLocalEnv(values, options = {}) {
+  const path = options.path ?? defaultSecretsPath(options.env ?? process.env, { configPath: options.configPath });
+  ensureParent(path);
+  const existing = options.merge === false ? {} : readLocalEnv({ path }).env;
+  const next = { ...existing };
+  for (const [key, value] of Object.entries(values ?? {})) {
+    if (!isEnvVarName(key)) throw new Error(`Invalid environment variable name: ${key}`);
+    if (typeof value !== "string" || value.length === 0) throw new Error(`Secret value for ${key} must be non-empty`);
+    next[key] = value;
+  }
+  const lines = [
+    "# AlphaFoundry local provider secrets. Do not commit this file.",
+    ...Object.entries(next).map(([key, value]) => `${key}=${quoteEnvValue(value)}`),
+    "",
+  ];
+  writeFileSync(path, lines.join("\n"), { encoding: "utf8", mode: 0o600 });
+  chmodSync(path, 0o600);
+  return { path, env: next };
+}
+
+export function mergeLocalEnv(env = process.env, options = {}) {
+  const local = readLocalEnv({ env, configPath: options.configPath, path: options.path });
+  return { ...local.env, ...env };
 }
 
 function configPath(options = {}) {
@@ -199,8 +256,10 @@ function envFromConfig(config, env) {
 }
 
 export function resolveRuntimeConfig(overrides = {}, options = {}) {
-  const env = options.env ?? process.env;
-  const config = readConfig({ ...options, env });
+  const rawEnv = options.env ?? process.env;
+  const configPathValue = options.path ?? defaultConfigPath(rawEnv);
+  const env = mergeLocalEnv(rawEnv, { configPath: configPathValue, path: options.envPath });
+  const config = readConfig({ ...options, path: configPathValue, env });
   const provider = valueOrDefault(overrides.provider, valueOrDefault(config.provider, DEFAULT_RUNTIME_PROVIDER));
   const model = valueOrDefault(overrides.model, valueOrDefault(config.model, DEFAULT_RUNTIME_MODEL));
   return {

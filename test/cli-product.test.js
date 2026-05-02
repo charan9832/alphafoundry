@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, normalize } from "node:path";
 import { createApprovalStore } from "../src/runtime/approval-store.js";
@@ -9,11 +9,13 @@ import { createSessionStore } from "../src/runtime/session-store.js";
 import { createRuntimeEvent } from "../src/runtime/events.js";
 import {
   defaultConfigPath,
+  defaultSecretsPath,
   initConfig,
   readConfig,
   resolveRuntimeConfig,
   setConfigValue,
   getConfigValue,
+  writeLocalEnv,
 } from "../src/config.js";
 import { runDoctor } from "../src/doctor.js";
 
@@ -264,6 +266,45 @@ test("doctor recommends provider-specific env var names", () => {
   }
 });
 
+test("resolveRuntimeConfig loads local AlphaFoundry env file without persisting secrets in config", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("provider", "openrouter", { path: temp.path });
+    setConfigValue("model", "openai/gpt-oss-20b:free", { path: temp.path });
+    setConfigValue("env.apiKey", "OPENROUTER_API_KEY", { path: temp.path });
+    const secrets = writeLocalEnv({ OPENROUTER_API_KEY: "sk-or-test-local-secret" }, { configPath: temp.path });
+
+    const runtime = resolveRuntimeConfig({}, { path: temp.path, env: { ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    assert.equal(defaultSecretsPath({}, { configPath: temp.path }), secrets.path);
+    assert.equal(runtime.env.OPENROUTER_API_KEY, "sk-or-test-local-secret");
+    assert.doesNotMatch(readFileSync(temp.path, "utf8"), /sk-or-test-local-secret/);
+    assert.equal((statSync(secrets.path).mode & 0o777), 0o600);
+
+    const shellOverride = resolveRuntimeConfig({}, { path: temp.path, env: { OPENROUTER_API_KEY: "shell-wins" } });
+    assert.equal(shellOverride.env.OPENROUTER_API_KEY, "shell-wins");
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("doctor reads local AlphaFoundry env file and redacts secret values", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("provider", "openrouter", { path: temp.path });
+    setConfigValue("env.apiKey", "OPENROUTER_API_KEY", { path: temp.path });
+    writeLocalEnv({ OPENROUTER_API_KEY: "sk-or-test-local-secret" }, { configPath: temp.path });
+
+    const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const envCheck = report.checks.find((check) => check.name === "env");
+    assert.equal(envCheck.status, "pass");
+    assert.doesNotMatch(JSON.stringify(report), /sk-or-test-local-secret/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("af init --non-interactive creates config at ALPHAFOUNDRY_CONFIG_PATH", () => {
   const temp = tempConfigPath();
   try {
@@ -303,6 +344,32 @@ test("af onboard interactively writes provider model and env var names", () => {
   }
 });
 
+test("af onboard accepts a pasted API key and stores it in local env file, not config", () => {
+  const temp = tempConfigPath();
+  try {
+    const secret = "sk-or-v1-testpastedsecret000000000000000000000";
+    const input = ["openrouter", "openai/gpt-oss-20b:free", secret, "", "Y", "Y", "N"].join("\n");
+    const result = runCliWithInput(["onboard"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /API key saved locally/);
+    assert.match(result.stdout, /AlphaFoundry doctor:/);
+    assert.doesNotMatch(result.stdout, new RegExp(secret));
+
+    const configText = readFileSync(temp.path, "utf8");
+    const config = JSON.parse(configText);
+    assert.equal(config.env.apiKey, "OPENROUTER_API_KEY");
+    assert.doesNotMatch(configText, new RegExp(secret));
+
+    const envPath = join(temp.dir, ".env");
+    const envText = readFileSync(envPath, "utf8");
+    assert.match(envText, /OPENROUTER_API_KEY=/);
+    assert.match(envText, new RegExp(secret));
+    assert.equal((statSync(envPath).mode & 0o777), 0o600);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("af onboard can run doctor after writing config", () => {
   const temp = tempConfigPath();
   try {
@@ -329,7 +396,7 @@ test("af onboard rejects raw secrets and misspelled command is unsupported", () 
 
     const bad = runCliWithInput(["onboard", "--force"], ["openai", "gpt-4o-mini", "not-an-env-var", "", "N", ""].join("\n"), { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
     assert.notEqual(bad.status, 0);
-    assert.match(bad.stderr, /environment variable names only/i);
+    assert.match(bad.stderr, /environment variable name or a pasted API key/i);
     assert.doesNotMatch(readFileSync(temp.path, "utf8"), /not-an-env-var/);
 
     const misspelled = runCli(["onborad"], { ALPHAFOUNDRY_CONFIG_PATH: temp.path });

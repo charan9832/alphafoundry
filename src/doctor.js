@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { configExists, defaultConfigPath, readConfig } from "./config.js";
+import { configExists, defaultConfigPath, mergeLocalEnv, readConfig } from "./config.js";
 import { resolvePiPackageJsonPath } from "./dependencies.js";
 import { providerDefaults, knownProviderNames } from "./provider-defaults.js";
 import { redactConfig, redactText } from "./redaction.js";
@@ -76,9 +76,10 @@ function envResolutionInfo(config, env) {
 
 export function runDoctor(options = {}) {
   const cwd = options.cwd ?? process.cwd();
-  const env = options.env ?? process.env;
+  const rawEnv = options.env ?? process.env;
+  const path = options.configPath ?? defaultConfigPath(rawEnv);
+  const env = mergeLocalEnv(rawEnv, { configPath: path, path: options.envPath });
   const pkg = readPackageJson();
-  const path = options.configPath ?? defaultConfigPath(env);
   let backendPath = "";
   try {
     backendPath = resolvePiPackageJsonPath();

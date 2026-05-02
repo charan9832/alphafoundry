@@ -33,7 +33,7 @@ Runtime adapter layer:
 
 ## Config and secrets
 
-Never store raw secrets in AlphaFoundry config. Store environment variable names such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `ALPHAFOUNDRY_API_KEY`. `af doctor` should validate whether the configured names resolve in the current shell and recommend provider-standard names without printing values.
+Never store raw secrets in AlphaFoundry config. Store environment variable names such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `ALPHAFOUNDRY_API_KEY`. `af onboard` may accept a pasted key for user convenience, but it must store that key only in the separate local env file (`~/.alphafoundry/.env` by default, `0600` permissions), while `config.json` remains secret-free. `af doctor` should validate whether the configured names resolve from either shell env or the local env file and recommend provider-standard names without printing values.
 
 Allowed config keys are intentionally narrow:
 
