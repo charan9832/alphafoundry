@@ -2,21 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { stdin as defaultInput, stdout as defaultOutput } from "node:process";
 import { defaultConfig, defaultConfigPath, readConfig, writeConfig } from "./config.js";
-
-const PROVIDER_DEFAULTS = Object.freeze({
-  openai: { model: "gpt-4o-mini", apiKey: "OPENAI_API_KEY", baseUrl: "OPENAI_BASE_URL" },
-  anthropic: { model: "claude-sonnet-4", apiKey: "ANTHROPIC_API_KEY", baseUrl: "ANTHROPIC_BASE_URL" },
-  gemini: { model: "gemini-1.5-flash", apiKey: "GEMINI_API_KEY", baseUrl: "GEMINI_BASE_URL" },
-  openrouter: { model: "openai/gpt-4o-mini", apiKey: "OPENROUTER_API_KEY", baseUrl: "OPENROUTER_BASE_URL" },
-  default: { model: "default", apiKey: "ALPHAFOUNDRY_API_KEY", baseUrl: "" },
-});
+import { formatDoctor, runDoctor } from "./doctor.js";
+import { providerDefaults } from "./provider-defaults.js";
 
 function isEnvVarName(value) {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
-}
-
-function providerDefaults(provider) {
-  return PROVIDER_DEFAULTS[String(provider ?? "").toLowerCase()] ?? PROVIDER_DEFAULTS.default;
 }
 
 async function askInteractive(rl, question, fallback = "") {
@@ -65,6 +55,7 @@ export async function runOnboarding(options = {}) {
     const model = await ask("Model", existing.model && existing.model !== "default" ? existing.model : defaults.model);
     const apiKey = await ask("API key environment variable name", existing.env?.apiKey ?? defaults.apiKey);
     const baseUrl = await ask("Base URL environment variable name (optional)", existing.env?.baseUrl ?? "");
+    const runDoctorNow = await ask("Run doctor now? [Y/n]", "Y");
     const openNow = await ask("Open AlphaFoundry after setup? [y/N]", "N");
 
     if (!isEnvVarName(apiKey)) throw new Error("AlphaFoundry config stores environment variable names only, not raw secrets");
@@ -82,14 +73,21 @@ export async function runOnboarding(options = {}) {
     writeConfig(config, { path, env });
 
     output.write(`\nConfig written: ${path}\n`);
-    output.write("Next steps:\n");
+    if (!/^n(o)?$/i.test(runDoctorNow)) {
+      const report = runDoctor({ configPath: path, env });
+      output.write("\n");
+      output.write(formatDoctor(report));
+      output.write("\n");
+    }
+
+    output.write("\nNext steps:\n");
     output.write(`  export ${apiKey}=...\n`);
     if (baseUrl) output.write(`  export ${baseUrl}=...\n`);
     output.write("  af doctor\n");
     output.write("  af\n");
     output.write("Run af to open AlphaFoundry.\n");
 
-    return { path, created: true, config, openNow: /^y(es)?$/i.test(openNow) };
+    return { path, created: true, config, doctorRun: !/^n(o)?$/i.test(runDoctorNow), openNow: /^y(es)?$/i.test(openNow) };
   } finally {
     rl?.close();
   }

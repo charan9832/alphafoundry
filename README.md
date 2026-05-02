@@ -61,21 +61,28 @@ af doctor
 
 ## First run
 
-Create an AlphaFoundry-native config file:
+Use the interactive onboarding wizard for normal setup:
 
 ```sh
-af init --non-interactive
+af onboard
 ```
 
-By default this writes:
+`af onboard` prompts for provider, model, API-key environment variable name, optional base-url environment variable name, whether to run `af doctor` immediately, and whether to open the TUI. It writes:
 
 ```text
 ~/.alphafoundry/config.json
 ```
 
+For non-interactive setup, create the default AlphaFoundry-native config file with:
+
+```sh
+af init --non-interactive
+```
+
 Override the path with:
 
 ```sh
+ALPHAFOUNDRY_CONFIG_PATH=/path/to/config.json af onboard
 ALPHAFOUNDRY_CONFIG_PATH=/path/to/config.json af init --non-interactive
 ```
 
@@ -83,7 +90,7 @@ PowerShell:
 
 ```powershell
 $env:ALPHAFOUNDRY_CONFIG_PATH = "C:\Users\you\.alphafoundry\config.json"
-af init --non-interactive
+af onboard
 ```
 
 The config stores provider names, model names, and environment variable names only. It must not contain raw API keys, tokens, or passwords.
@@ -172,6 +179,7 @@ af config set env.apiKey OPENAI_API_KEY
 - Git branch/dirty state when available
 - Config file path and existence
 - TTY capability for interactive terminal use
+- Provider-specific environment-variable guidance for `openai`, `anthropic`, `gemini`, and `openrouter` without exposing secret values
 
 Use JSON output for scripts:
 
@@ -183,7 +191,7 @@ af doctor --json
 
 AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, durable session records, approval-decision records, and local replay/eval summaries. Session records live under `~/.alphafoundry/sessions/` and can be listed, shown, exported, replayed, and evaluated through `af sessions`.
 
-Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, Pi built-in tool profile mapping, persisted approval decisions, local replay/eval checks, and a safe in-process tool-pack executor skeleton. It does not yet implement full interactive approval UI, MCP/server loading, external tool marketplaces, finance, or domain tool execution.
+Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, Pi built-in tool profile mapping, persisted approval decisions, local replay/eval checks, and a safe in-process tool-pack executor skeleton. In the TUI, `/tools <list>` requests runtime tools and `/approve-tools` approves pending write/shell-capable requests for the current session before retrying. It does not yet implement a full live tool-call pause/resume prompt, MCP/server loading, external tool marketplaces, finance, or domain tool execution.
 
 ## Runtime adapter
 

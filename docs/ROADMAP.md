@@ -25,7 +25,7 @@ Goal: make the Ink TUI command model real and session-aware.
 Goal: make AlphaFoundry installable, diagnosable, and understandable as its own product.
 
 - Rewrite README and agent guidance around AlphaFoundry-native identity.
-- Add native CLI commands: `af init`, `af doctor`, `af config`, `af models`, and `af session`.
+- Add native CLI commands: `af init`, `af onboard`, `af doctor`, `af config`, `af models`, and `af session`.
 - Define config at `~/.alphafoundry/config.json`, with `ALPHAFOUNDRY_CONFIG_PATH` override.
 - Store provider/model/environment variable names only; never raw secrets.
 - Move runtime adapter details into diagnostics and architecture notes.
@@ -54,9 +54,9 @@ Goal: make AlphaFoundry releasable and supportable.
 
 ## Current status
 
-The installed package path, config-controlled runtime execution, config validation/redaction, doctor diagnostics, RPC lifecycle hardening, TUI command honesty, durable session/event records, `af sessions` list/show/export/replay/eval, `af approvals` list/show/export/expire, Pi JSONL live streaming, Pi tool-policy flag mapping, generic permission/protected-path decisions, generic verification evidence summaries, and an opt-in tool-pack boundary with a safe in-process executor skeleton are in place.
+The installed package path, `af onboard`, config-controlled runtime execution, config validation/redaction, provider-aware doctor diagnostics, RPC lifecycle hardening, TUI command honesty, durable session/event records, `af sessions` list/show/export/replay/eval, `af approvals` list/show/export/expire, Pi JSONL live streaming, Pi tool-policy flag mapping, generic permission/protected-path decisions, generic verification evidence summaries, and an opt-in tool-pack boundary with a safe in-process executor skeleton are in place.
 
-This is still foundation work. Remaining product work is concentrated in live TUI approval prompts, richer runtime tool panels, first built-in generic tool packs, adversarial redaction/prompt-injection fixtures, CI matrix confirmation, and production-grade autonomous workflows.
+This is still foundation work. Remaining product work is concentrated in live TUI approval prompts that pause/resume actual tool calls, richer runtime tool panels, first built-in generic tool packs, adversarial redaction/prompt-injection fixtures, CI matrix confirmation, and production-grade autonomous workflows.
 
 The next release-readiness focus is reproducible release discipline: follow `docs/RELEASE.md`, keep CI green across supported platforms, and update `CHANGELOG.md` before publishing. Curated Pi package integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the AlphaFoundry release path is stable.
 

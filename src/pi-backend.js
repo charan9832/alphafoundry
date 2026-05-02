@@ -3,12 +3,12 @@ import { resolvePiCliPath } from "./dependencies.js";
 import { resolveRuntimeConfig } from "./config.js";
 import { mapPiToolPolicy } from "./runtime/pi-tool-policy.js";
 
-export function piCliPath() {
-  return resolvePiCliPath();
+export function piCliPath(env = process.env) {
+  return env.ALPHAFOUNDRY_PI_CLI_PATH || resolvePiCliPath();
 }
 
-export function buildPiArgs(args = []) {
-  return [piCliPath(), ...args];
+export function buildPiArgs(args = [], options = {}) {
+  return [piCliPath(options.env), ...args];
 }
 
 function hasPrompt(args = []) {
@@ -51,7 +51,7 @@ function withToolPolicyArgs(args = [], options = {}) {
 }
 
 export function buildConfiguredPiArgs(args = [], runtimeConfig = resolveRuntimeConfig(), options = {}) {
-  return buildPiArgs(withToolPolicyArgs(withConfiguredModelArgs(args, runtimeConfig), options));
+  return buildPiArgs(withToolPolicyArgs(withConfiguredModelArgs(args, runtimeConfig), options), { env: options.processEnv });
 }
 
 export function resolvePiProcessEnv(runtimeConfig = resolveRuntimeConfig(), baseEnv = process.env) {
@@ -64,12 +64,13 @@ export function resolvePiProcessEnv(runtimeConfig = resolveRuntimeConfig(), base
 
 export function runPi(args = [], options = {}) {
   const maxOutputBytes = options.maxOutputBytes ?? 1024 * 1024;
+  const processEnv = options.processEnv ?? process.env;
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, buildPiArgs(args), {
+    const child = spawn(process.execPath, buildPiArgs(args, { env: processEnv }), {
       stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
       env: {
-        ...process.env,
-        PI_CONFIG_DIR: process.env.ALPHAFOUNDRY_CONFIG_DIR ?? process.env.PI_CONFIG_DIR,
+        ...processEnv,
+        PI_CONFIG_DIR: processEnv.ALPHAFOUNDRY_CONFIG_DIR ?? processEnv.PI_CONFIG_DIR,
         ...(options.env ?? {}),
       },
     });

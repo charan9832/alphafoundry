@@ -20,6 +20,8 @@ All notable AlphaFoundry changes are recorded here.
 - Added `af sessions replay <id>` and `af sessions eval <id>` to expose deterministic local replay summaries and PASS/WARN/FAIL session checks.
 - Added `af approvals list|show|export|expire` to expose the persisted approval-decision foundation with human-readable and JSON/NDJSON output.
 - Added internal tool policy mapping so AlphaFoundry can retain product-owned sessions and policy checks around runtime tool profiles.
+- Added `af onboard` as the first-run setup wizard; it stores env var names only, can run `af doctor` after writing config, and can open the TUI.
+- Added provider-aware doctor guidance for OpenAI, Anthropic, Gemini, and OpenRouter API-key/base-url environment variables without printing secret values.
 
 ### Hardened
 
@@ -44,7 +46,7 @@ All notable AlphaFoundry changes are recorded here.
 
 - Runtime execution still delegates through the Pi Agent adapter.
 - Live incremental streaming is now implemented for the Pi JSONL path; legacy batch mode remains for non-streaming runtime paths.
-- Approval persistence, local replay/evals, and the safe tool-pack executor skeleton are implemented foundations; full interactive approval prompts, native file/shell/MCP execution, external tool-pack marketplaces, and production-grade autonomous workflows remain gated future work.
+- Approval persistence, local replay/evals, `/tools` plus `/approve-tools` request/approval flow, and the safe tool-pack executor skeleton are implemented foundations; full interactive approval prompts that pause/resume live tool calls, native file/shell/MCP execution, external tool-pack marketplaces, and production-grade autonomous workflows remain gated future work.
 - Finance remains intentionally out of scope: no finance tools, trading workflows, market-data connectors, broker/exchange APIs, portfolio logic, alpha models, finance-specific MCP servers, finance config keys, or finance examples are included.
 
 ## 0.3.0

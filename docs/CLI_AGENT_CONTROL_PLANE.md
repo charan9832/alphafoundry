@@ -90,6 +90,8 @@ Not every adapter can emit every event today. Runtime adapters normalize activit
 Implemented Phase 1 commands:
 
 ```sh
+af onboard [--force]
+af doctor [--json]
 af sessions list [--json]
 af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
@@ -102,7 +104,9 @@ af approvals expire <id> [--json]
 ```
 
 
-`af sessions replay` and `af sessions eval` provide local deterministic summaries and PASS/WARN/FAIL checks over persisted session events. `af approvals` exposes the persisted approval-decision foundation; full interactive approval prompts are still a future TUI/runtime loop.
+`af onboard` is the normal first-run path. It writes provider/model/environment-variable-name config only, can run provider-aware `af doctor` immediately, and can open the TUI after setup. `af doctor` reports package, Node, adapter, git, config, TTY, and provider-aware environment-variable readiness for OpenAI, Anthropic, Gemini, and OpenRouter without printing secret values.
+
+`af sessions replay` and `af sessions eval` provide local deterministic summaries and PASS/WARN/FAIL checks over persisted session events. `af approvals` exposes the persisted approval-decision foundation; `/tools <list>` and `/approve-tools` are available in the TUI for request/approval of current-session runtime tool policy, but full interactive approval prompts are still a future TUI/runtime loop.
 
 Command surface:
 

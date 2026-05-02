@@ -150,7 +150,7 @@ export function runPiJsonStream(args, options = {}) {
   const signal = options.signal;
 
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, buildConfiguredPiArgs([...args, "--mode", "json"]), {
+    const child = spawn(process.execPath, buildConfiguredPiArgs([...args, "--mode", "json"], options.runtimeConfig, { processEnv: options.env ?? process.env }), {
       stdio: ["ignore", "pipe", "pipe"],
       env: resolvePiProcessEnv(options.runtimeConfig, options.env ?? process.env),
     });
@@ -258,17 +258,22 @@ export function runPiJsonStream(args, options = {}) {
         );
       }
 
-      // Build output from accumulated assistant text
+      // Build output and terminal status from normalized events so provider-level
+      // assistant errors are reflected even when the adapter process exits 0.
       const assistantEvents = allEvents.filter((e) => e.type === "assistant" || e.type === "assistant_delta");
       const output = assistantEvents
         .map((e) => e.payload?.text ?? e.payload?.delta ?? "")
         .join("");
+      const errorEvents = allEvents.filter((e) => e.type === "error");
+      const lastRunEnd = allEvents.filter((e) => e.type === "run_end").at(-1);
+      const eventError = errorEvents.map((e) => e.payload?.text ?? e.payload?.message ?? "").filter(Boolean).join("\n");
+      const ok = status === 0 && !errorMessage && !stderrBuffer && errorEvents.length === 0 && lastRunEnd?.payload?.ok !== false;
 
       resolve({
-        ok: status === 0 && !errorMessage && !stderrBuffer,
-        status: status ?? 0,
+        ok,
+        status: ok ? 0 : (status && status !== 0 ? status : 1),
         output,
-        error: stderrBuffer.trim() || errorMessage || undefined,
+        error: stderrBuffer.trim() || errorMessage || eventError || undefined,
         events: allEvents,
         cappedBytes,
       });

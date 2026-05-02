@@ -16,7 +16,7 @@ Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. The curren
 
 AlphaFoundry-owned layers:
 
-- Native CLI command surface: `init`, `doctor`, `config`, `models`, `session`, `sessions`, `approvals`, and `tui`
+- Native CLI command surface: `init`, `onboard`, `doctor`, `config`, `models`, `session`, `sessions`, `approvals`, and `tui`
 - Product docs and onboarding
 - Config schema that stores provider/model/env var names only
 - Doctor/diagnostic reporting
@@ -33,7 +33,7 @@ Runtime adapter layer:
 
 ## Config and secrets
 
-Never store raw secrets in AlphaFoundry config. Store environment variable names such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `ALPHAFOUNDRY_API_KEY`.
+Never store raw secrets in AlphaFoundry config. Store environment variable names such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or `ALPHAFOUNDRY_API_KEY`. `af doctor` should validate whether the configured names resolve in the current shell and recommend provider-standard names without printing values.
 
 Allowed config keys are intentionally narrow:
 

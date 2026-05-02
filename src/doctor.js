@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { configExists, defaultConfigPath, readConfig } from "./config.js";
 import { resolvePiPackageJsonPath } from "./dependencies.js";
+import { providerDefaults, knownProviderNames } from "./provider-defaults.js";
 import { redactConfig, redactText } from "./redaction.js";
 
 function packageRoot() {
@@ -35,23 +36,41 @@ function gitInfo(cwd) {
 }
 
 function envResolutionInfo(config, env) {
+  const provider = String(config.provider ?? "default").toLowerCase();
+  const defaults = providerDefaults(provider);
+  const knownProvider = knownProviderNames().includes(provider);
   const required = [config.env?.apiKey, config.env?.baseUrl].filter(Boolean);
+  const recommendation = knownProvider
+    ? {
+      provider,
+      apiKey: defaults.apiKey,
+      ...(defaults.baseUrl ? { baseUrl: defaults.baseUrl } : {}),
+    }
+    : { provider, apiKey: defaults.apiKey };
+
   if (required.length === 0) {
-    return check("pass", "env", "No provider environment variables configured", { required: [], missing: [] });
+    const message = knownProvider
+      ? `No provider environment variables configured; ${provider} normally uses ${defaults.apiKey}`
+      : "No provider environment variables configured";
+    return check(knownProvider ? "warn" : "pass", "env", message, { required: [], missing: [], recommendation });
   }
 
   const missing = required.filter((name) => !env[name]);
   if (missing.length > 0) {
-    return check("warn", "env", `Missing configured environment variables: ${missing.join(", ")}; export them before runtime use`, {
+    const recommendedText = knownProvider ? ` Provider ${provider} normally uses ${defaults.apiKey}.` : "";
+    return check("warn", "env", `Missing configured environment variables: ${missing.join(", ")}; export them before runtime use.${recommendedText}`, {
       required,
       missing,
+      recommendation,
       recovery: "export the listed environment variables before running AlphaFoundry",
     });
   }
 
-  return check("pass", "env", "Configured environment variables are present", {
+  const configuredText = knownProvider ? `; provider ${provider} recommended API key env is ${defaults.apiKey}` : "";
+  return check("pass", "env", `Configured environment variables are present${configuredText}`, {
     required,
     missing: [],
+    recommendation,
   });
 }
 

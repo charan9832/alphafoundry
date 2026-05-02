@@ -235,6 +235,35 @@ test("doctor reports configured env var names as warn when unresolved and pass w
   }
 });
 
+test("doctor recommends provider-specific env var names", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("provider", "openrouter", { path: temp.path });
+    setConfigValue("model", "openai/gpt-4o-mini", { path: temp.path });
+    setConfigValue("env.apiKey", "CUSTOM_ROUTER_KEY", { path: temp.path });
+
+    const missingReport = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const missingEnv = missingReport.checks.find((check) => check.name === "env");
+    assert.equal(missingEnv.status, "warn");
+    assert.equal(missingEnv.details.recommendation.provider, "openrouter");
+    assert.equal(missingEnv.details.recommendation.apiKey, "OPENROUTER_API_KEY");
+    assert.match(missingEnv.message, /OPENROUTER_API_KEY/);
+
+    const presentReport = runDoctor({
+      configPath: temp.path,
+      cwd: process.cwd(),
+      env: { ALPHAFOUNDRY_CONFIG_PATH: temp.path, CUSTOM_ROUTER_KEY: "secret-value" },
+    });
+    const presentEnv = presentReport.checks.find((check) => check.name === "env");
+    assert.equal(presentEnv.status, "pass");
+    assert.equal(presentEnv.details.recommendation.apiKey, "OPENROUTER_API_KEY");
+    assert.doesNotMatch(JSON.stringify(presentEnv), /secret-value/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("af init --non-interactive creates config at ALPHAFOUNDRY_CONFIG_PATH", () => {
   const temp = tempConfigPath();
   try {
@@ -252,11 +281,13 @@ test("af init --non-interactive creates config at ALPHAFOUNDRY_CONFIG_PATH", () 
 test("af onboard interactively writes provider model and env var names", () => {
   const temp = tempConfigPath();
   try {
-    const input = ["openai", "gpt-4o-mini", "OPENAI_API_KEY", "", ""].join("\n");
+    const input = ["openai", "gpt-4o-mini", "OPENAI_API_KEY", "", "N", ""].join("\n");
     const result = runCliWithInput(["onboard"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /AlphaFoundry onboarding/i);
     assert.match(result.stdout, /Config written/);
+    assert.match(result.stdout, /Run doctor now\? \[Y\/n\]/);
+    assert.doesNotMatch(result.stdout, /AlphaFoundry doctor:/);
     assert.match(result.stdout, /export/);
     assert.match(result.stdout, /Run af to open AlphaFoundry/i);
 
@@ -272,17 +303,31 @@ test("af onboard interactively writes provider model and env var names", () => {
   }
 });
 
+test("af onboard can run doctor after writing config", () => {
+  const temp = tempConfigPath();
+  try {
+    const input = ["openrouter", "openai/gpt-4o-mini", "OPENROUTER_API_KEY", "", "Y", "N"].join("\n");
+    const result = runCliWithInput(["onboard"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Config written/);
+    assert.match(result.stdout, /AlphaFoundry doctor:/);
+    assert.match(result.stdout, /OPENROUTER_API_KEY/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("af onboard rejects raw secrets and misspelled command is unsupported", () => {
   const temp = tempConfigPath();
   try {
-    const ok = runCliWithInput(["onboard"], ["anthropic", "claude-sonnet-4", "ANTHROPIC_API_KEY", "", ""].join("\n"), { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    const ok = runCliWithInput(["onboard"], ["anthropic", "claude-sonnet-4", "ANTHROPIC_API_KEY", "", "N", ""].join("\n"), { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
     assert.equal(ok.status, 0, ok.stderr);
     const config = JSON.parse(readFileSync(temp.path, "utf8"));
     assert.equal(config.provider, "anthropic");
     assert.equal(config.model, "claude-sonnet-4");
     assert.equal(config.env.apiKey, "ANTHROPIC_API_KEY");
 
-    const bad = runCliWithInput(["onboard", "--force"], ["openai", "gpt-4o-mini", "not-an-env-var", "", ""].join("\n"), { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    const bad = runCliWithInput(["onboard", "--force"], ["openai", "gpt-4o-mini", "not-an-env-var", "", "N", ""].join("\n"), { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
     assert.notEqual(bad.status, 0);
     assert.match(bad.stderr, /environment variable names only/i);
     assert.doesNotMatch(readFileSync(temp.path, "utf8"), /not-an-env-var/);

@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { piEventToAlphaFoundryEvents, runPiJsonStream } from "../src/runtime/adapters/pi-stream.js";
+
+const fixtureDir = dirname(fileURLToPath(import.meta.url));
 
 test("piEventToAlphaFoundryEvents maps agent_start to run_start + user", () => {
   const events = piEventToAlphaFoundryEvents({ type: "agent_start" }, { sessionId: "s1", runId: "r1", prompt: "hello" });
@@ -84,6 +88,24 @@ test("runPiJsonStream spawns Pi and returns result without crashing", async () =
   });
   assert.ok(result);
   assert.ok(typeof result.status === "number");
+});
+
+test("runPiJsonStream reports provider assistant errors as failed results", async () => {
+  const events = [];
+  const result = await runPiJsonStream(["-p", "hello"], {
+    runtimeConfig: { provider: "default", model: "default" },
+    env: { ...process.env, ALPHAFOUNDRY_PI_CLI_PATH: join(fixtureDir, "fixtures", "fixture-pi-error.mjs") },
+    sessionId: "s1",
+    runId: "r1",
+    prompt: "hello",
+    onEvent: (event) => events.push(event),
+  });
+
+  assert.equal(result.ok, false);
+  assert.notEqual(result.status, 0);
+  assert.match(result.error, /fixture provider error/);
+  assert.ok(events.some((event) => event.type === "error"));
+  assert.equal(events.filter((event) => event.type === "run_end").at(-1).payload.ok, false);
 });
 
 test("runPiJsonStream handles abort signal", async () => {
