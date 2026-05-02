@@ -57,7 +57,7 @@ Usage:
   af approvals show <id> [--json] Show one approval decision
   af approvals export [--json|--ndjson] Export approval decisions
   af approvals expire <id> [--json] Expire one approval decision
-  af run -p "message" [--json|--stream-json] Run a prompt with AlphaFoundry-owned session/events
+  af run -p "message" [--json|--stream-json] [--tools code-edit|read-only|shell|none] Run a prompt with AlphaFoundry-owned session/events
   af -p "message"             Run one prompt through the Pi Agent runtime adapter
   af --provider openai --model gpt-4o-mini -p "message"
 
@@ -359,11 +359,14 @@ async function handleRun(args) {
   const streamJson = args.includes("--stream-json");
   const prompt = parseFlagValue(args, ["-p", "--prompt"]);
   if (!prompt) {
-    console.error("Usage: af run -p <message> [--json|--stream-json]");
+    console.error("Usage: af run -p <message> [--json|--stream-json] [--tools <profile>|--allow-tools <list>] [--permission-mode <mode>]");
     return 1;
   }
   const providerOverride = parseFlagValue(args, ["--provider"]);
   const modelOverride = parseFlagValue(args, ["--model"]);
+  const toolProfile = parseFlagValue(args, ["--tools", "--tool-profile"]);
+  const toolAllow = parseFlagValue(args, ["--allow-tools"]);
+  const permissionMode = parseFlagValue(args, ["--permission-mode", "--mode"]);
 
   try {
     const runtimeConfig = resolveRuntimeConfig({ provider: providerOverride, model: modelOverride });
@@ -375,6 +378,9 @@ async function handleRun(args) {
       runtimeEnv: runtimeConfig.env,
       cwd: process.cwd(),
       env: process.env,
+      toolProfile,
+      toolAllow,
+      permissionMode,
     };
 
     if (streamJson) {

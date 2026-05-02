@@ -124,6 +124,10 @@ af session                 # explain session support
 af run -p "hello"          # one-shot prompt with AlphaFoundry-owned session/events
 af run -p "hello" --json
 af run -p "hello" --stream-json
+af run -p "fix typo" --tools code-edit --permission-mode ask
+af run -p "inspect repo" --tools read-only
+af run -p "run tests" --tools shell --permission-mode ask
+af run -p "answer only" --tools none
 af sessions list [--json]
 af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
@@ -135,6 +139,15 @@ af approvals export [--json|--ndjson]
 af approvals expire <id> [--json]
 af -p "hello"              # compatibility passthrough through the runtime adapter
 ```
+
+`af run` can expose Pi Agent's built-in tool profiles through AlphaFoundry while still recording sessions and events:
+
+- `--tools read-only` allows `read`, `grep`, `find`, and `ls`.
+- `--tools code-edit` allows `read`, `grep`, `find`, `ls`, `edit`, and `write`.
+- `--tools shell` allows read tools plus `bash`.
+- `--tools none` disables built-in tools.
+- `--allow-tools read,edit,write` passes an explicit Pi built-in allowlist.
+- `--permission-mode ask|act|auto|plan` applies AlphaFoundry's policy checks before Pi flags are emitted.
 
 Provider credentials stay in your shell environment:
 

@@ -54,7 +54,7 @@ Goal: make AlphaFoundry releasable and supportable.
 
 ## Current status
 
-The installed package path, config-controlled runtime execution, config validation/redaction, doctor diagnostics, RPC lifecycle hardening, TUI command honesty, durable `af run` session/event records, `af sessions` list/show/export/replay/eval, `af approvals` list/show/export/expire, Pi JSONL live streaming, Pi tool-policy flag mapping, generic permission/protected-path decisions, generic verification evidence summaries, and an opt-in tool-pack boundary with a safe in-process executor skeleton are in place.
+The installed package path, config-controlled runtime execution, config validation/redaction, doctor diagnostics, RPC lifecycle hardening, TUI command honesty, durable `af run` session/event records, `af run --tools/--allow-tools/--permission-mode` Pi built-in tool exposure, `af sessions` list/show/export/replay/eval, `af approvals` list/show/export/expire, Pi JSONL live streaming, Pi tool-policy flag mapping, generic permission/protected-path decisions, generic verification evidence summaries, and an opt-in tool-pack boundary with a safe in-process executor skeleton are in place.
 
 This is still foundation work. Remaining product work is concentrated in live TUI approval prompts, richer runtime tool panels, first built-in generic tool packs, adversarial redaction/prompt-injection fixtures, CI matrix confirmation, and production-grade autonomous workflows.
 

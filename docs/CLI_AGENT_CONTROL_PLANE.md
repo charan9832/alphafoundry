@@ -92,6 +92,11 @@ Implemented Phase 1 commands:
 ```sh
 af run -p "message" --json
 af run -p "message" --stream-json
+af run -p "fix typo" --tools code-edit --permission-mode ask
+af run -p "inspect" --tools read-only
+af run -p "run tests" --tools shell --permission-mode ask
+af run -p "answer only" --tools none
+af run -p "custom" --allow-tools read,edit,write
 af sessions list [--json]
 af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
@@ -120,7 +125,7 @@ ALPHAFOUNDRY_RUNTIME_ADAPTER=mock
 
 is reserved for deterministic local tests and examples. Normal user runs should use the default adapter path.
 
-Implemented adapter-facing policy mapping compiles AlphaFoundry tool profiles to Pi flags when a prompt is delegated through Pi:
+Implemented adapter-facing policy mapping compiles AlphaFoundry tool profiles to Pi flags when a prompt is delegated through Pi. The `af run` CLI exposes this through `--tools`, `--allow-tools`, and `--permission-mode` so AlphaFoundry can use Pi's normal read/edit/write/bash abilities while keeping AlphaFoundry-owned sessions, events, redaction, and policy checks:
 
 ```text
 default        -> no tool flag

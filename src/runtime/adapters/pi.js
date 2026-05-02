@@ -34,8 +34,9 @@ export function piResultToEvents({ sessionId, runId, prompt, provider = "default
   return events;
 }
 
-export async function runPiAdapterPrompt({ prompt, provider, model, env, processEnv, maxOutputBytes } = {}) {
-  return runPiPrompt(prompt, { provider, model, env, processEnv, maxOutputBytes });
+export async function runPiAdapterPrompt(options = {}) {
+  const { prompt, provider, model, env, processEnv, maxOutputBytes, toolProfile, toolAllow, permissionMode, path, workspace, alphaFoundryHome, home } = options;
+  return runPiPrompt(prompt, { provider, model, env, processEnv, maxOutputBytes, toolProfile, toolAllow, permissionMode, path, workspace, alphaFoundryHome, home });
 }
 
 export async function runPiAdapterPromptStreaming(options = {}) {

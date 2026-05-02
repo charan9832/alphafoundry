@@ -412,6 +412,23 @@ test("af run records resolved config provider and model in canonical run events"
   }
 });
 
+test("af run forwards Pi tool profile policy and fails closed on denied tools", () => {
+  const temp = tempConfigPath();
+  try {
+    const env = { ALPHAFOUNDRY_HOME: temp.dir };
+    const batch = runCli(["run", "-p", "hello", "--tools", "shell", "--permission-mode", "auto"], env);
+    assert.notEqual(batch.status, 0);
+    assert.match(batch.stderr, /Pi tool policy denied/);
+    assert.match(batch.stderr, /shell operations are denied in auto mode/);
+
+    const streaming = runCli(["run", "-p", "hello", "--stream-json", "--tools", "shell", "--permission-mode", "auto"], env);
+    assert.notEqual(streaming.status, 0);
+    assert.match(streaming.stderr, /Pi tool policy denied/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("af sessions replay and eval expose deterministic local summaries", () => {
   const temp = tempConfigPath();
   try {
@@ -528,6 +545,7 @@ test("help presents AlphaFoundry native command surface before passthrough", () 
   assert.match(result.stdout, /af sessions eval <id>/);
   assert.match(result.stdout, /af approvals list/);
   assert.match(result.stdout, /af run -p/);
+  assert.match(result.stdout, /--tools code-edit/);
 });
 
 test("af --version and af -v print the exact package version", () => {
@@ -547,6 +565,7 @@ test("af run without prompt exits non-zero with usage guidance", () => {
   const result = runCli(["run"]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Usage: af run -p <message>/);
+  assert.match(result.stderr, /--tools <profile>/);
 });
 
 test("af sessions show/export missing id exit non-zero with clear error", () => {

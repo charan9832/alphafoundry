@@ -19,6 +19,7 @@ All notable AlphaFoundry changes are recorded here.
 - Added a test suite for the streaming adapter covering sequential, pause/resume, error recovery, mid-line resumption, CR handling, and stream end.
 - Added `af sessions replay <id>` and `af sessions eval <id>` to expose deterministic local replay summaries and PASS/WARN/FAIL session checks.
 - Added `af approvals list|show|export|expire` to expose the persisted approval-decision foundation with human-readable and JSON/NDJSON output.
+- Added `af run --tools`, `--allow-tools`, and `--permission-mode` so AlphaFoundry exposes Pi Agent's normal read/edit/write/bash tool profiles while retaining AlphaFoundry-owned sessions and policy checks.
 
 ### Hardened
 

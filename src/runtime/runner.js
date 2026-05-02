@@ -48,6 +48,13 @@ export async function runPrompt(options = {}) {
       env: options.runtimeEnv,
       processEnv: options.env,
       maxOutputBytes: options.maxOutputBytes,
+      toolProfile: options.toolProfile,
+      toolAllow: options.toolAllow,
+      permissionMode: options.permissionMode,
+      path: options.path,
+      workspace: options.cwd ?? process.cwd(),
+      alphaFoundryHome: options.env?.ALPHAFOUNDRY_HOME,
+      home: options.env?.HOME,
       sessionId: session.id,
       runId,
       onEvent: (event) => {
@@ -68,6 +75,13 @@ export async function runPrompt(options = {}) {
       env: options.runtimeEnv,
       processEnv: options.env,
       maxOutputBytes: options.maxOutputBytes,
+      toolProfile: options.toolProfile,
+      toolAllow: options.toolAllow,
+      permissionMode: options.permissionMode,
+      path: options.path,
+      workspace: options.cwd ?? process.cwd(),
+      alphaFoundryHome: options.env?.ALPHAFOUNDRY_HOME,
+      home: options.env?.HOME,
     });
 
   const events = piResultToEvents({
