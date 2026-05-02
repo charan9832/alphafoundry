@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildConfiguredPiArgs, resolvePiProcessEnv } from "./pi-backend.js";
@@ -284,7 +285,8 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.includes("--version") || args.includes("-v")) {
-    console.log("AlphaFoundry 0.3.0");
+    const pkg = JSON.parse(readFileSync(join(packageRoot(), "package.json"), "utf8"));
+    console.log(pkg.version);
     return 0;
   }
 

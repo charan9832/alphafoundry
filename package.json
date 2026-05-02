@@ -1,6 +1,6 @@
 {
   "name": "alphafoundry",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "AlphaFoundry: a native terminal AI workspace with a React Ink TUI and Pi runtime adapter.",
   "type": "module",
   "bin": {
@@ -16,7 +16,7 @@
     "smoke:installed": "node scripts/smoke-installed.mjs"
   },
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "^0.70.6",
+    "@mariozechner/pi-coding-agent": "^0.72.0",
     "chalk": "^5.6.2",
     "ink": "^7.0.1",
     "ink-spinner": "^5.0.0",

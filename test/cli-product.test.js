@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, normalize } from "node:path";
 import {
@@ -195,6 +195,34 @@ test("doctor reports invalid config as a failure and redacts secret-looking valu
   }
 });
 
+test("doctor reports configured env var names as warn when unresolved and pass when present", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("env.apiKey", "AF_TEST_API_KEY", { path: temp.path });
+    setConfigValue("env.baseUrl", "AF_TEST_BASE_URL", { path: temp.path });
+
+    const missingReport = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const missingEnv = missingReport.checks.find((check) => check.name === "env");
+    assert.equal(missingEnv.status, "warn");
+    assert.deepEqual(missingEnv.details.missing, ["AF_TEST_API_KEY", "AF_TEST_BASE_URL"]);
+    assert.match(missingEnv.message, /AF_TEST_API_KEY/);
+    assert.doesNotMatch(JSON.stringify(missingEnv), /secret-value/);
+
+    const presentReport = runDoctor({
+      configPath: temp.path,
+      cwd: process.cwd(),
+      env: { ALPHAFOUNDRY_CONFIG_PATH: temp.path, AF_TEST_API_KEY: "secret-value", AF_TEST_BASE_URL: "https://example.invalid" },
+    });
+    const presentEnv = presentReport.checks.find((check) => check.name === "env");
+    assert.equal(presentEnv.status, "pass");
+    assert.deepEqual(presentEnv.details.missing, []);
+    assert.doesNotMatch(JSON.stringify(presentEnv), /secret-value|https:\/\/example\.invalid/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("af init --non-interactive creates config at ALPHAFOUNDRY_CONFIG_PATH", () => {
   const temp = tempConfigPath();
   try {
@@ -336,8 +364,15 @@ test("af run --json creates a durable AlphaFoundry session without leaking secre
 
     const exported = runCli(["sessions", "export", payload.session.id, "--ndjson"], env);
     assert.equal(exported.status, 0, exported.stderr);
-    assert.doesNotMatch(exported.stdout, /sk-testsecret/);
+    assert.doesNotMatch(exported.stdout, /sk-tes/);
     assert.ok(exported.stdout.trim().split("\n").length >= 3);
+
+    const exportedJson = runCli(["sessions", "export", payload.session.id, "--json"], env);
+    assert.equal(exportedJson.status, 0, exportedJson.stderr);
+    assert.doesNotMatch(exportedJson.stdout, /sk-tes/);
+    const exportPayload = JSON.parse(exportedJson.stdout);
+    assert.equal(exportPayload.manifest.id, payload.session.id);
+    assert.ok(exportPayload.events.length >= 3);
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
@@ -387,4 +422,39 @@ test("help presents AlphaFoundry native command surface before passthrough", () 
   assert.match(result.stdout, /af session/);
   assert.match(result.stdout, /af sessions list/);
   assert.match(result.stdout, /af run -p/);
+});
+
+test("af --version and af -v print the exact package version", () => {
+  const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8"));
+  const version = packageJson.version;
+
+  const resultLong = runCli(["--version"]);
+  assert.equal(resultLong.status, 0, resultLong.stderr);
+  assert.equal(resultLong.stdout.trim(), version);
+
+  const resultShort = runCli(["-v"]);
+  assert.equal(resultShort.status, 0, resultShort.stderr);
+  assert.equal(resultShort.stdout.trim(), version);
+});
+
+test("af run without prompt exits non-zero with usage guidance", () => {
+  const result = runCli(["run"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Usage: af run -p <message>/);
+});
+
+test("af sessions show/export missing id exit non-zero with clear error", () => {
+  const temp = tempConfigPath();
+  try {
+    const env = { ALPHAFOUNDRY_HOME: temp.dir };
+    const shown = runCli(["sessions", "show", "missing-session"], env);
+    assert.notEqual(shown.status, 0);
+    assert.match(shown.stderr, /Unknown AlphaFoundry session: missing-session/);
+
+    const exported = runCli(["sessions", "export", "missing-session", "--json"], env);
+    assert.notEqual(exported.status, 0);
+    assert.match(exported.stderr, /Unknown AlphaFoundry session: missing-session/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
 });

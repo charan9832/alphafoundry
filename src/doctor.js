@@ -34,6 +34,27 @@ function gitInfo(cwd) {
   });
 }
 
+function envResolutionInfo(config, env) {
+  const required = [config.env?.apiKey, config.env?.baseUrl].filter(Boolean);
+  if (required.length === 0) {
+    return check("pass", "env", "No provider environment variables configured", { required: [], missing: [] });
+  }
+
+  const missing = required.filter((name) => !env[name]);
+  if (missing.length > 0) {
+    return check("warn", "env", `Missing configured environment variables: ${missing.join(", ")}; export them before runtime use`, {
+      required,
+      missing,
+      recovery: "export the listed environment variables before running AlphaFoundry",
+    });
+  }
+
+  return check("pass", "env", "Configured environment variables are present", {
+    required,
+    missing: [],
+  });
+}
+
 export function runDoctor(options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
@@ -72,6 +93,7 @@ export function runDoctor(options = {}) {
       checks.push(
         check("pass", "config", `Config file found at ${path}`, { path, provider: config.provider, model: config.model, config: redactConfig(config) }),
       );
+      checks.push(envResolutionInfo(config, env));
     } catch (error) {
       checks.push(
         check("fail", "config", `Invalid config at ${path}: ${redactText(error instanceof Error ? error.message : String(error))}`, { path }),

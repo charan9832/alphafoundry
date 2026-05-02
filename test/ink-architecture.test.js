@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { initialState, reducer, createInitialState } from "../src/tui/state.js";
 import { paneWidths } from "../src/tui/layout.js";
 import { formatDiffLines, wrapPlain } from "../src/tui/formatters.js";
@@ -69,4 +70,12 @@ test("wrapPlain wraps text without dropping content", () => {
   const lines = wrapPlain("alpha beta gamma delta", 10);
   assert.ok(lines.length > 1);
   assert.equal(lines.join(" ").replace(/\s+/g, " ").trim(), "alpha beta gamma delta");
+});
+
+test("loadRuntimeRunner clears rejected cached runner promise before retry", () => {
+  const source = readFileSync(new URL("../src/tui/app.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /createRuntimeRunner\(\)\.catch\(\(error\) => \{/);
+  assert.match(source, /cachedRuntimeRunnerPromise = undefined;/);
+  assert.match(source, /throw error;/);
 });

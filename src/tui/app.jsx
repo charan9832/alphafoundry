@@ -11,7 +11,10 @@ let cachedRuntimeRunnerPromise;
 
 async function loadRuntimeRunner() {
   if (cachedRuntimeRunnerPromise) return cachedRuntimeRunnerPromise;
-  cachedRuntimeRunnerPromise = createRuntimeRunner();
+  cachedRuntimeRunnerPromise = createRuntimeRunner().catch((error) => {
+    cachedRuntimeRunnerPromise = undefined;
+    throw error;
+  });
   return cachedRuntimeRunnerPromise;
 }
 
