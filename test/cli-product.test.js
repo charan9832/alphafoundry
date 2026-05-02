@@ -27,6 +27,15 @@ function runCli(args, env = {}) {
   });
 }
 
+function runCliWithInput(args, input, env = {}) {
+  return spawnSync(process.execPath, [cliPath, ...args], {
+    cwd: process.cwd(),
+    env: { ...process.env, ...env },
+    encoding: "utf8",
+    input,
+  });
+}
+
 function tempConfigPath() {
   const dir = mkdtempSync(join(tmpdir(), "af-config-"));
   return { dir, path: join(dir, "config.json") };
@@ -234,6 +243,49 @@ test("af init --non-interactive creates config at ALPHAFOUNDRY_CONFIG_PATH", () 
     assert.match(result.stdout, /AlphaFoundry config/);
     const config = readConfig({ path: temp.path });
     assert.equal(config.product, "AlphaFoundry");
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+
+test("af onborad interactively writes provider model and env var names", () => {
+  const temp = tempConfigPath();
+  try {
+    const input = ["openai", "gpt-4o-mini", "OPENAI_API_KEY", "", ""].join("\n");
+    const result = runCliWithInput(["onborad"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /AlphaFoundry onboarding/i);
+    assert.match(result.stdout, /Config written/);
+    assert.ok(result.stdout.includes("export OPENAI_API_KEY="));
+    assert.match(result.stdout, /Run af to open AlphaFoundry/i);
+
+    const config = JSON.parse(readFileSync(temp.path, "utf8"));
+    assert.equal(config.product, "AlphaFoundry");
+    assert.equal(config.provider, "openai");
+    assert.equal(config.model, "gpt-4o-mini");
+    assert.equal(config.env.apiKey, "OPENAI_API_KEY");
+    assert.equal(config.env.baseUrl, undefined);
+    assert.doesNotMatch(JSON.stringify(config), /sk-|secret|token/i);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("af onboard is an alias and rejects raw secrets", () => {
+  const temp = tempConfigPath();
+  try {
+    const ok = runCliWithInput(["onboard"], ["anthropic", "claude-sonnet-4", "ANTHROPIC_API_KEY", "", ""].join("\n"), { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.equal(ok.status, 0, ok.stderr);
+    const config = JSON.parse(readFileSync(temp.path, "utf8"));
+    assert.equal(config.provider, "anthropic");
+    assert.equal(config.model, "claude-sonnet-4");
+    assert.equal(config.env.apiKey, "ANTHROPIC_API_KEY");
+
+    const bad = runCliWithInput(["onboard", "--force"], ["openai", "gpt-4o-mini", "not-an-env-var", "", ""].join("\n"), { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.notEqual(bad.status, 0);
+    assert.match(bad.stderr, /environment variable names only/i);
+    assert.doesNotMatch(readFileSync(temp.path, "utf8"), /not-an-env-var/);
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }

@@ -109,6 +109,8 @@ Example:
 af                         # open the AlphaFoundry TUI
 af tui                     # same
 af init --non-interactive  # create AlphaFoundry config
+af onborad                # interactive setup wizard
+af onboard                # alias for af onborad
 af doctor                  # human-readable health report
 af doctor --json           # machine-readable health report
 af config path             # print active config path

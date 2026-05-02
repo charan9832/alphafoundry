@@ -12,6 +12,7 @@ import { createApprovalStore } from "./runtime/approval-store.js";
 import { replaySession } from "./runtime/replay.js";
 import { evaluateSession } from "./runtime/evals.js";
 import { summarizeToolPackStatus } from "./runtime/tool-packs.js";
+import { runOnboarding } from "./onboarding.js";
 
 function packageRoot() {
   return dirname(dirname(fileURLToPath(import.meta.url)));
@@ -38,6 +39,8 @@ Usage:
   af                         Start AlphaFoundry Ink TUI
   af tui                     Start AlphaFoundry Ink TUI
   af init [--non-interactive] Create ~/.alphafoundry/config.json
+  af onborad [--force]       Interactive setup wizard
+  af onboard [--force]       Alias for af onborad
   af doctor [--json]         Check local AlphaFoundry health
   af config path             Print active config path
   af config get <key>        Read config key (provider, model, env.apiKey, env.baseUrl)
@@ -69,6 +72,18 @@ function handleInit(args) {
   const result = initConfig({ nonInteractive });
   console.log(`AlphaFoundry config ${result.created ? "created" : "already exists"}: ${result.path}`);
   return 0;
+}
+
+
+async function handleOnboarding(args) {
+  try {
+    const result = await runOnboarding({ force: args.includes("--force") });
+    if (result.openNow) return runInkTui();
+    return 0;
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
 }
 
 function handleConfig(args) {
@@ -339,6 +354,7 @@ async function main() {
 
   const [command, ...rest] = args;
   if (command === "init") return handleInit(rest);
+  if (command === "onborad" || command === "onboard") return handleOnboarding(rest);
   if (command === "doctor") return handleDoctor(rest);
   if (command === "config") return handleConfig(rest);
   if (command === "models") return handleModels(rest);
