@@ -39,10 +39,14 @@ for (const file of requiredFiles) {
   if (!existsSync(join(root, file))) fail(`required release file missing: ${file}`);
 }
 
+function portableRelative(path) {
+  return relative(root, path).replaceAll("\\", "/");
+}
+
 const scanTargets = ["src", "scripts", "docs", "README.md", "CHANGELOG.md", "AGENTS.md", "package.json"];
 const files = scanTargets.flatMap((target) => walk(join(root, target)))
-  .filter((path) => !relative(root, path).startsWith("test/"))
-  .filter((path) => !relative(root, path).startsWith(".hermes/"))
+  .filter((path) => !portableRelative(path).startsWith("test/"))
+  .filter((path) => !portableRelative(path).startsWith(".hermes/"))
   .filter((path) => /\.(js|mjs|json|md|yml|yaml)$/.test(path));
 
 const secretPattern = new RegExp("(sk-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,}|ghp_[A-Za-z0-9_]{20,})");
@@ -58,7 +62,7 @@ const financeImplementationTerms = [
 ];
 
 for (const path of files) {
-  const rel = relative(root, path);
+  const rel = portableRelative(path);
   const text = readFileSync(path, "utf8");
   const isPolicyScript = rel === "scripts/release-static-audit.mjs" || rel === "scripts/validate-claude-setup.mjs";
   if (secretPattern.test(text)) fail(`secret-like token found outside test fixtures: ${rel}`);
@@ -77,7 +81,7 @@ if (!packageJson.files?.includes("docs")) fail("package.json files should includ
 
 const result = {
   ok: failures.length === 0,
-  scannedFiles: files.map((path) => relative(root, path)).length,
+  scannedFiles: files.map((path) => portableRelative(path)).length,
   failures,
 };
 console.log(JSON.stringify(result, null, 2));

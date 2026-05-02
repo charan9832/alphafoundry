@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalize } from "node:path";
+import { join, normalize } from "node:path";
 
 import {
   RUNTIME_TOOL_POLICY_SCHEMA_VERSION,
@@ -8,8 +8,8 @@ import {
   mapRuntimeToolPolicy,
 } from "../src/runtime/tool-policy.js";
 
-const workspace = normalize("/workspace/project");
-const alphaFoundryHome = normalize("/home/example/.alphafoundry");
+const workspace = normalize(join(process.cwd(), ".tmp-policy-workspace"));
+const alphaFoundryHome = normalize(join(process.cwd(), ".tmp-policy-home", ".alphafoundry"));
 
 const context = {
   workspace,

@@ -382,8 +382,13 @@ test("doctor secrets check passes when local env file is secure", () => {
     const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
     const secretsCheck = report.checks.find((check) => check.name === "secrets");
     assert.equal(secretsCheck.status, "pass");
-    assert.match(secretsCheck.message, /secure/);
-    if (process.platform !== "win32") assert.equal(secretsCheck.details.mode, 0o600);
+    if (process.platform === "win32") {
+      assert.match(secretsCheck.message, /POSIX mode checks are not enforced on Windows/);
+      assert.equal(secretsCheck.details.platform, "win32");
+    } else {
+      assert.match(secretsCheck.message, /secure/);
+      assert.equal(secretsCheck.details.mode, 0o600);
+    }
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
@@ -401,9 +406,14 @@ test("doctor secrets check warns when local env file is accessible by group or o
 
     const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
     const secretsCheck = report.checks.find((check) => check.name === "secrets");
-    assert.equal(secretsCheck.status, "warn");
-    assert.match(secretsCheck.message, /accessible by group\/other/);
-    assert.ok((secretsCheck.details.mode & 0o077) !== 0);
+    if (process.platform === "win32") {
+      assert.equal(secretsCheck.status, "pass");
+      assert.match(secretsCheck.message, /POSIX mode checks are not enforced on Windows/);
+    } else {
+      assert.equal(secretsCheck.status, "warn");
+      assert.match(secretsCheck.message, /accessible by group\/other/);
+      assert.ok((secretsCheck.details.mode & 0o077) !== 0);
+    }
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
@@ -433,7 +443,11 @@ test("doctor secrets check runs even when config file is missing", () => {
     const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
     const secretsCheck = report.checks.find((check) => check.name === "secrets");
     assert.equal(secretsCheck.status, "pass");
-    assert.match(secretsCheck.message, /secure/);
+    if (process.platform === "win32") {
+      assert.match(secretsCheck.message, /POSIX mode checks are not enforced on Windows/);
+    } else {
+      assert.match(secretsCheck.message, /secure/);
+    }
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }

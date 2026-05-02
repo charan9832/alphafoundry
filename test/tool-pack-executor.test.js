@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalize } from "node:path";
+import { join, normalize } from "node:path";
 
 import {
   TOOL_PACK_EXECUTOR_SCHEMA_VERSION,
@@ -8,14 +8,15 @@ import {
 } from "../src/runtime/tool-pack-executor.js";
 import { createToolPackRegistry } from "../src/runtime/tool-packs.js";
 
-const workspace = normalize("/workspace/project");
-const alphaFoundryHome = normalize("/home/example/.alphafoundry");
+const workspace = normalize(join(process.cwd(), ".tmp-tool-pack-workspace"));
+const alphaFoundryHome = normalize(join(process.cwd(), ".tmp-tool-pack-home", ".alphafoundry"));
+const home = normalize(join(process.cwd(), ".tmp-tool-pack-home"));
 
 const baseContext = {
   workspace,
   alphaFoundryHome,
   env: {},
-  home: normalize("/home/example"),
+  home,
 };
 
 function makeRegistry() {

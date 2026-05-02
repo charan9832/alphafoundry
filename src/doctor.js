@@ -82,6 +82,9 @@ function secretsCheck(configPath, env) {
   try {
     const stats = statSync(secretsPath);
     const mode = stats.mode & 0o777;
+    if (process.platform === "win32") {
+      return check("pass", "secrets", `Local env file ${secretsPath} exists; POSIX mode checks are not enforced on Windows`, { path: secretsPath, mode, platform: process.platform });
+    }
     const accessibleByOthers = (mode & 0o077) !== 0;
     if (accessibleByOthers) {
       return check("warn", "secrets", `Local env file ${secretsPath} is accessible by group/other users (mode ${mode.toString(8)}); run chmod 600 ${secretsPath}`, { path: secretsPath, mode, expected: 0o600 });
