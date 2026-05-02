@@ -35,9 +35,9 @@ AlphaFoundry addresses this by making agentic coding sessions more structured: c
 
 - Public open-source repository
 - Node.js CLI package named `alphafoundry`
-- CLI commands for init, config, doctor, model/runtime explanation, one-shot runs, sessions, exports, and TUI launch
+- CLI commands for init, config, doctor, model/runtime explanation, sessions, exports, approvals, and TUI launch
 - React Ink TUI foundation
-- Durable one-shot session/event records under the AlphaFoundry config directory
+- Durable session/event records under the AlphaFoundry config directory
 - Generic permission/protected-path decisions and redacted evidence summaries
 - Empty opt-in tool-pack boundary with deterministic tests
 - Release/static audit gates and package dry-run smoke checks

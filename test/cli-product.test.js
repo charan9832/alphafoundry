@@ -5,6 +5,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, normalize } from "node:path";
 import { createApprovalStore } from "../src/runtime/approval-store.js";
+import { createSessionStore } from "../src/runtime/session-store.js";
+import { createRuntimeEvent } from "../src/runtime/events.js";
 import {
   defaultConfigPath,
   initConfig,
@@ -338,126 +340,54 @@ test("af sessions list is real and machine-readable for an empty session store",
   }
 });
 
-test("af -p --json creates a durable AlphaFoundry session without leaking secrets", () => {
-  const temp = tempConfigPath();
-  try {
-    const env = { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" };
-    const result = runCli(["-p", "token=sk-tes...7890", "--json", "--provider", "default", "--model", "default"], env);
-    assert.equal(result.status, 0, result.stderr);
-    const payload = JSON.parse(result.stdout);
-    assert.match(payload.session.id, /^ses_/);
-    assert.equal(payload.session.adapter, "mock");
-    assert.equal(payload.result.ok, true);
-    assert.doesNotMatch(result.stdout, /sk-tes/);
-    assert.match(result.stdout, /\[REDACTED_SECRET\]/);
+test("one-shot prompt CLI flags are not public commands", () => {
+  const prompt = runCli(["-p", "hello"]);
+  assert.notEqual(prompt.status, 0);
+  assert.match(prompt.stderr, /Unknown AlphaFoundry command: -p/);
+  assert.match(prompt.stderr, /Use af to open the app/);
 
-    const listed = runCli(["sessions", "list", "--json"], env);
-    assert.equal(listed.status, 0, listed.stderr);
-    const listPayload = JSON.parse(listed.stdout);
-    assert.equal(listPayload.sessions.length, 1);
+  const promptLong = runCli(["--prompt", "hello"]);
+  assert.notEqual(promptLong.status, 0);
+  assert.match(promptLong.stderr, /Unknown AlphaFoundry command: --prompt/);
 
-    const shown = runCli(["sessions", "show", payload.session.id, "--json"], env);
-    assert.equal(shown.status, 0, shown.stderr);
-    assert.doesNotMatch(shown.stdout, /sk-tes/);
-    const showPayload = JSON.parse(shown.stdout);
-    assert.equal(showPayload.manifest.id, payload.session.id);
-    assert.ok(showPayload.events.length >= 3);
-
-    const exported = runCli(["sessions", "export", payload.session.id, "--ndjson"], env);
-    assert.equal(exported.status, 0, exported.stderr);
-    assert.doesNotMatch(exported.stdout, /sk-tes/);
-    assert.ok(exported.stdout.trim().split("\n").length >= 3);
-
-    const exportedJson = runCli(["sessions", "export", payload.session.id, "--json"], env);
-    assert.equal(exportedJson.status, 0, exportedJson.stderr);
-    assert.doesNotMatch(exportedJson.stdout, /sk-tes/);
-    const exportPayload = JSON.parse(exportedJson.stdout);
-    assert.equal(exportPayload.manifest.id, payload.session.id);
-    assert.ok(exportPayload.events.length >= 3);
-  } finally {
-    rmSync(temp.dir, { recursive: true, force: true });
-  }
-});
-
-test("af -p --stream-json emits parseable NDJSON events", () => {
-  const temp = tempConfigPath();
-  try {
-    const result = runCli(["-p", "hello", "--stream-json"], { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" });
-    assert.equal(result.status, 0, result.stderr);
-    const lines = result.stdout.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
-    assert.ok(lines.length >= 3);
-    assert.equal(lines[0].type, "run_start");
-    assert.equal(lines.at(-1).type, "run_end");
-  } finally {
-    rmSync(temp.dir, { recursive: true, force: true });
-  }
-});
-
-test("af -p records resolved config provider and model in canonical run events", () => {
-  const temp = tempConfigPath();
-  try {
-    const env = { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_CONFIG_PATH: temp.path, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" };
-    assert.equal(runCli(["init", "--non-interactive"], env).status, 0);
-    assert.equal(runCli(["config", "set", "provider", "anthropic"], env).status, 0);
-    assert.equal(runCli(["config", "set", "model", "claude-test"], env).status, 0);
-
-    const result = runCli(["-p", "hello", "--stream-json"], env);
-    assert.equal(result.status, 0, result.stderr);
-    const first = JSON.parse(result.stdout.trim().split("\n")[0]);
-    assert.equal(first.type, "run_start");
-    assert.equal(first.payload.provider, "anthropic");
-    assert.equal(first.payload.model, "claude-test");
-  } finally {
-    rmSync(temp.dir, { recursive: true, force: true });
-  }
-});
-
-test("af -p forwards Pi tool profile policy and fails closed on denied tools", () => {
-  const temp = tempConfigPath();
-  try {
-    const env = { ALPHAFOUNDRY_HOME: temp.dir };
-    const batch = runCli(["-p", "hello", "--tools", "shell", "--permission-mode", "auto"], env);
-    assert.notEqual(batch.status, 0);
-    assert.match(batch.stderr, /Pi tool policy denied/);
-    assert.match(batch.stderr, /shell operations are denied in auto mode/);
-
-    const streaming = runCli(["-p", "hello", "--stream-json", "--tools", "shell", "--permission-mode", "auto"], env);
-    assert.notEqual(streaming.status, 0);
-    assert.match(streaming.stderr, /Pi tool policy denied/);
-  } finally {
-    rmSync(temp.dir, { recursive: true, force: true });
-  }
+  const providerPrompt = runCli(["--provider", "openai", "--model", "gpt-4o-mini", "-p", "hello"]);
+  assert.notEqual(providerPrompt.status, 0);
+  assert.match(providerPrompt.stderr, /Unknown AlphaFoundry command: --provider/);
 });
 
 test("af sessions replay and eval expose deterministic local summaries", () => {
   const temp = tempConfigPath();
   try {
-    const env = { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" };
-    const run = runCli(["-p", "hello replay", "--json"], env);
-    assert.equal(run.status, 0, run.stderr);
-    const runPayload = JSON.parse(run.stdout);
+    const env = { ALPHAFOUNDRY_HOME: temp.dir };
+    const store = createSessionStore({ env });
+    const manifest = store.createSession({ adapter: "test", title: "Replay fixture", cwd: process.cwd() });
+    const runId = "run_cli_fixture";
+    store.appendEvent(manifest.id, createRuntimeEvent("run_start", { sessionId: manifest.id, runId, payload: { provider: "test", model: "test" } }));
+    store.appendEvent(manifest.id, createRuntimeEvent("user", { sessionId: manifest.id, runId, payload: { text: "hello replay" } }));
+    store.appendEvent(manifest.id, createRuntimeEvent("assistant", { sessionId: manifest.id, runId, payload: { text: "hello back" } }));
+    store.appendEvent(manifest.id, createRuntimeEvent("run_end", { sessionId: manifest.id, runId, payload: { ok: true } }));
 
-    const replay = runCli(["sessions", "replay", runPayload.session.id, "--json"], env);
+    const replay = runCli(["sessions", "replay", manifest.id, "--json"], env);
     assert.equal(replay.status, 0, replay.stderr);
     const replayPayload = JSON.parse(replay.stdout);
-    assert.equal(replayPayload.sessionId, runPayload.session.id);
-    assert.ok(replayPayload.eventTotal >= 3);
+    assert.equal(replayPayload.sessionId, manifest.id);
+    assert.ok(replayPayload.eventTotal >= 4);
     assert.ok(replayPayload.assistant.textDigest.startsWith("sha256:"));
     assert.doesNotMatch(replay.stdout, /sk-tes/);
 
-    const replayText = runCli(["sessions", "replay", runPayload.session.id], env);
+    const replayText = runCli(["sessions", "replay", manifest.id], env);
     assert.equal(replayText.status, 0, replayText.stderr);
     assert.match(replayText.stdout, /Replay ses_/);
     assert.match(replayText.stdout, /Events:/);
 
-    const evaluation = runCli(["sessions", "eval", runPayload.session.id, "--json"], env);
+    const evaluation = runCli(["sessions", "eval", manifest.id, "--json"], env);
     assert.equal(evaluation.status, 0, evaluation.stderr);
     const evalPayload = JSON.parse(evaluation.stdout);
-    assert.equal(evalPayload.sessionId, runPayload.session.id);
+    assert.equal(evalPayload.sessionId, manifest.id);
     assert.ok(["PASS", "WARN", "FAIL"].includes(evalPayload.overall));
     assert.ok(evalPayload.checks.some((check) => check.name === "hasEvents"));
 
-    const evalText = runCli(["sessions", "eval", runPayload.session.id], env);
+    const evalText = runCli(["sessions", "eval", manifest.id], env);
     assert.equal(evalText.status, 0, evalText.stderr);
     assert.match(evalText.stdout, /Eval ses_/);
   } finally {
@@ -531,7 +461,7 @@ test("af approvals and replay commands provide recovery guidance for missing ids
   }
 });
 
-test("help presents AlphaFoundry native command surface before passthrough", () => {
+test("help presents AlphaFoundry app command surface without one-shot prompt flags", () => {
   const result = runCli(["--help"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /af init/);
@@ -545,8 +475,9 @@ test("help presents AlphaFoundry native command surface before passthrough", () 
   assert.match(result.stdout, /af sessions eval <id>/);
   assert.match(result.stdout, /af approvals list/);
   assert.doesNotMatch(result.stdout, /af run/);
-  assert.match(result.stdout, /af -p/);
-  assert.match(result.stdout, /--tools code-edit/);
+  assert.doesNotMatch(result.stdout, /af -p/);
+  assert.doesNotMatch(result.stdout, /--prompt/);
+  assert.doesNotMatch(result.stdout, /--tools code-edit/);
 });
 
 test("af --version and af -v print the exact package version", () => {
@@ -566,7 +497,7 @@ test("af run is not a public command", () => {
   const result = runCli(["run"]);
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unknown AlphaFoundry command: run/);
-  assert.match(result.stderr, /Use af -p <message>/);
+  assert.match(result.stderr, /Use af to open the app/);
 });
 
 test("af sessions show/export missing id exit non-zero with clear error", () => {

@@ -121,13 +121,6 @@ af models                  # explain runtime-adapter model listing
 af tool-packs              # show optional pack boundary; no packs enabled by default
 af tool-packs --json       # machine-readable pack registry/enablement status
 af session                 # explain session support
-af -p "hello"          # one-shot prompt with AlphaFoundry-owned session/events
-af -p "hello" --json
-af -p "hello" --stream-json
-af -p "fix typo" --tools code-edit --permission-mode ask
-af -p "inspect repo" --tools read-only
-af -p "run tests" --tools shell --permission-mode ask
-af -p "answer only" --tools none
 af sessions list [--json]
 af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
@@ -197,7 +190,7 @@ af doctor --json
 
 ## Runtime control plane
 
-AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, durable run/session records, approval-decision records, and local replay/eval summaries. `af -p ...` records schema-versioned events under `~/.alphafoundry/sessions/`; `--stream-json` emits canonical NDJSON events in real time where the runtime adapter exposes a stream. Sessions can be listed, shown, exported, replayed, and evaluated through `af sessions`.
+AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, durable session records, approval-decision records, and local replay/eval summaries. Session records live under `~/.alphafoundry/sessions/` and can be listed, shown, exported, replayed, and evaluated through `af sessions`.
 
 Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, Pi built-in tool profile mapping, persisted approval decisions, local replay/eval checks, and a safe in-process tool-pack executor skeleton. It does not yet implement full interactive approval UI, MCP/server loading, external tool marketplaces, finance, or domain tool execution.
 

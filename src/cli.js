@@ -3,8 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildConfiguredPiArgs, resolvePiProcessEnv } from "./pi-backend.js";
-import { defaultConfigPath, getConfigValue, initConfig, repairConfig, resolveRuntimeConfig, setConfigValue } from "./config.js";
+import { defaultConfigPath, getConfigValue, initConfig, repairConfig, setConfigValue } from "./config.js";
 import { formatDoctor, runDoctor } from "./doctor.js";
 import { resolveTsxLoaderUrl } from "./dependencies.js";
 import { redactConfigValue } from "./redaction.js";
@@ -12,7 +11,6 @@ import { createSessionStore } from "./runtime/session-store.js";
 import { createApprovalStore } from "./runtime/approval-store.js";
 import { replaySession } from "./runtime/replay.js";
 import { evaluateSession } from "./runtime/evals.js";
-import { runPrompt } from "./runtime/runner.js";
 import { summarizeToolPackStatus } from "./runtime/tool-packs.js";
 
 function packageRoot() {
@@ -57,8 +55,6 @@ Usage:
   af approvals show <id> [--json] Show one approval decision
   af approvals export [--json|--ndjson] Export approval decisions
   af approvals expire <id> [--json] Expire one approval decision
-  af -p "message" [--json|--stream-json] [--tools code-edit|read-only|shell|none] Run one prompt with AlphaFoundry-owned session/events
-  af --provider openai --model gpt-4o-mini -p "message"
 
 AlphaFoundry owns the product identity and command surface. Pi Agent is the runtime adapter for model/tool execution.
 `);
@@ -135,7 +131,6 @@ Model discovery is delegated to the configured runtime adapter. The current adap
 Use:
   af config set provider <name>
   af config set model <model>
-  af --provider <name> --model <model> -p "hello"
 `);
   return 0;
 }
@@ -178,31 +173,6 @@ Session-aware workflows are part of the AlphaFoundry product surface. Durable se
 
 function printJson(value) {
   console.log(JSON.stringify(value, null, 2));
-}
-
-function parseFlagValue(args, names) {
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    for (const name of names) {
-      if (arg === name) return args[i + 1];
-      if (arg.startsWith(`${name}=`)) return arg.slice(name.length + 1);
-    }
-  }
-  return undefined;
-}
-
-function removeOptionPairs(args, names) {
-  const output = [];
-  for (let i = 0; i < args.length; i += 1) {
-    const arg = args[i];
-    if (names.includes(arg)) {
-      i += 1;
-      continue;
-    }
-    if (names.some((name) => arg.startsWith(`${name}=`))) continue;
-    output.push(arg);
-  }
-  return output;
 }
 
 function formatCheckLine(check) {
@@ -353,59 +323,6 @@ function handleApprovals(args) {
   return 1;
 }
 
-async function handleRun(args) {
-  const json = args.includes("--json");
-  const streamJson = args.includes("--stream-json");
-  const prompt = parseFlagValue(args, ["-p", "--prompt"]);
-  if (!prompt) {
-    console.error("Usage: af -p <message> [--json|--stream-json] [--tools <profile>|--allow-tools <list>] [--permission-mode <mode>]");
-    return 1;
-  }
-  const providerOverride = parseFlagValue(args, ["--provider"]);
-  const modelOverride = parseFlagValue(args, ["--model"]);
-  const toolProfile = parseFlagValue(args, ["--tools", "--tool-profile"]);
-  const toolAllow = parseFlagValue(args, ["--allow-tools"]);
-  const permissionMode = parseFlagValue(args, ["--permission-mode", "--mode"]);
-
-  try {
-    const runtimeConfig = resolveRuntimeConfig({ provider: providerOverride, model: modelOverride });
-
-    const runOptions = {
-      prompt,
-      provider: runtimeConfig.provider,
-      model: runtimeConfig.model,
-      runtimeEnv: runtimeConfig.env,
-      cwd: process.cwd(),
-      env: process.env,
-      toolProfile,
-      toolAllow,
-      permissionMode,
-    };
-
-    if (streamJson) {
-      runOptions.onEvent = (event) => {
-        process.stdout.write(`${JSON.stringify(event)}\n`);
-      };
-    }
-
-    const result = await runPrompt(runOptions);
-
-    if (streamJson) {
-      // Events already streamed in real-time; no extra footer needed
-    } else if (json) {
-      printJson(result);
-    } else {
-      const text = result.events?.find((event) => event.type === "assistant")?.payload?.text ?? "";
-      if (text) process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
-    }
-    return result.result?.ok === false ? 1 : 0;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(message);
-    return 1;
-  }
-}
-
 async function main() {
   const args = process.argv.slice(2);
 
@@ -429,27 +346,13 @@ async function main() {
   if (command === "session") return handleSession(rest);
   if (command === "sessions") return handleSessions(rest);
   if (command === "approvals") return handleApprovals(rest);
-  if (command === "run") {
-    console.error("Unknown AlphaFoundry command: run. Use af -p <message> for one-shot prompts or af to open the app.");
-    return 1;
-  }
-  if (parseFlagValue(args, ["-p", "--prompt"])) return handleRun(args);
 
   if (args.length === 0 || args[0] === "tui") {
     return runInkTui();
   }
 
-  const runtimeConfig = resolveRuntimeConfig();
-  const result = spawnSync(process.execPath, buildConfiguredPiArgs(args, runtimeConfig), {
-    stdio: "inherit",
-    env: resolvePiProcessEnv(runtimeConfig),
-  });
-
-  if (result.error) {
-    console.error(result.error.message);
-    return 1;
-  }
-  return result.status ?? 0;
+  console.error(`Unknown AlphaFoundry command: ${command}. Use af to open the app or af --help for supported commands.`);
+  return 1;
 }
 
 main()

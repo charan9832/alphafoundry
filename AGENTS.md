@@ -16,7 +16,7 @@ Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. The curren
 
 AlphaFoundry-owned layers:
 
-- Native CLI command surface: `init`, `doctor`, `config`, `models`, `session`, `sessions`, `tui`, and `af -p` one-shot prompts
+- Native CLI command surface: `init`, `doctor`, `config`, `models`, `session`, `sessions`, `approvals`, and `tui`
 - Product docs and onboarding
 - Config schema that stores provider/model/env var names only
 - Doctor/diagnostic reporting
@@ -56,7 +56,7 @@ Respect ownership boundaries. Do not modify `src/tui/**`, `src/pi-runtime/**`, o
 
 ## Documentation tone
 
-Docs should present AlphaFoundry as the product users install and operate. Keep runtime adapter details in diagnostics, troubleshooting, or architecture notes. Prefer Windows-friendly npm and PowerShell examples when showing install/update/config commands. Do not overclaim production readiness: current control-plane docs should distinguish implemented durable one-shot session/event recording from future live streaming, richer tool events, approval persistence, replay/evals, MCP, native AlphaFoundry tools, and autonomous workflows.
+Docs should present AlphaFoundry as the product users install and operate. Keep runtime adapter details in diagnostics, troubleshooting, or architecture notes. Prefer Windows-friendly npm and PowerShell examples when showing install/update/config commands. Do not overclaim production readiness: current control-plane docs should distinguish implemented durable session/event recording from future richer tool events, approval persistence, replay/evals, MCP, native AlphaFoundry tools, and autonomous workflows.
 
 ## No-finance boundary
 
