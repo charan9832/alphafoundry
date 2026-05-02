@@ -110,7 +110,7 @@ Example:
   "provider": "openai",
   "model": "gpt-4o-mini",
   "env": {
-    "apiKey": "***",
+    "apiKey": "OPENAI_API_KEY",
     "baseUrl": "OPENAI_BASE_URL"
   }
 }
@@ -190,6 +190,7 @@ af config set env.apiKey OPENAI_API_KEY
 - Runtime adapter package installation
 - Git branch/dirty state when available
 - Config file path and existence
+- Local AlphaFoundry env-file permission status when `~/.alphafoundry/.env` or the config-adjacent `.env` exists
 - TTY capability for interactive terminal use
 - Provider-specific environment-variable guidance for `openai`, `anthropic`, `gemini`, and `openrouter` without exposing secret values
 

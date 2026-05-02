@@ -22,7 +22,7 @@ All notable AlphaFoundry changes are recorded here.
 - Added internal tool policy mapping so AlphaFoundry can retain product-owned sessions and policy checks around runtime tool profiles.
 - Added `af onboard` as the first-run setup wizard; it stores env var names only, can run `af doctor` after writing config, and can open the TUI.
 - Added provider-aware doctor guidance for OpenAI, Anthropic, Gemini, and OpenRouter API-key/base-url environment variables without printing secret values.
-- Added optional pasted-key onboarding: `af onboard` can save a pasted API key into a restricted local `.env` file while keeping `config.json` secret-free; doctor and runtime config load that file automatically.
+- Added optional pasted-key onboarding: `af onboard` can save a pasted API key into a restricted local `.env` file while keeping `config.json` secret-free; doctor, runtime config, and the spawned TUI process load that file automatically.
 
 ### Hardened
 
@@ -35,6 +35,8 @@ All notable AlphaFoundry changes are recorded here.
 - Runtime streaming now uses real-time event streaming through the runner rather than post-hoc event replay.
 - Mock adapter in tests now also respects `onEvent` callbacks so streaming smoke tests work end-to-end.
 - CLI session and approval commands now provide clearer empty states, redacted exports, and recovery guidance for missing identifiers.
+- Local env file reads are cached by mtime+size for faster repeated doctor/runtime/TUI startup checks, while writes tighten existing file permissions before writing and invalidate the cache.
+- `af doctor` now checks local env file permissions and warns when the secrets file is accessible by group/other users.
 
 ### Verification
 

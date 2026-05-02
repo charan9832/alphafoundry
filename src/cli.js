@@ -7,6 +7,7 @@ import { defaultConfigPath, getConfigValue, initConfig, repairConfig, setConfigV
 import { formatDoctor, runDoctor } from "./doctor.js";
 import { resolveTsxLoaderUrl } from "./dependencies.js";
 import { redactConfigValue } from "./redaction.js";
+import { buildTuiEnv } from "./tui-env.js";
 import { createSessionStore } from "./runtime/session-store.js";
 import { createApprovalStore } from "./runtime/approval-store.js";
 import { replaySession } from "./runtime/replay.js";
@@ -21,9 +22,10 @@ function packageRoot() {
 function runInkTui() {
   const root = packageRoot();
   const runFile = join(root, "src", "tui", "run-cli.jsx");
+  const env = buildTuiEnv(process.env);
   const result = spawnSync(process.execPath, ["--import", resolveTsxLoaderUrl(), runFile], {
     stdio: "inherit",
-    env: { ...process.env },
+    env,
   });
   if (result.error) {
     console.error(result.error.message);

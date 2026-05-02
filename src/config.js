@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
@@ -6,6 +6,7 @@ const SUPPORTED_KEYS = new Set(["provider", "model", "env.apiKey", "env.baseUrl"
 const INTERNAL_KEYS = new Set(["product", "version", ...SUPPORTED_KEYS]);
 const DEFAULT_RUNTIME_PROVIDER = "default";
 const DEFAULT_RUNTIME_MODEL = "default";
+const envFileCache = new Map();
 
 export function defaultConfigPath(env = process.env) {
   if (env.ALPHAFOUNDRY_CONFIG_PATH) return env.ALPHAFOUNDRY_CONFIG_PATH;
@@ -53,8 +54,18 @@ function quoteEnvValue(value) {
 
 export function readLocalEnv(options = {}) {
   const path = options.path ?? defaultSecretsPath(options.env ?? process.env, { configPath: options.configPath });
-  if (!existsSync(path)) return { path, env: {} };
-  return { path, env: parseEnvFile(readFileSync(path, "utf8")) };
+  try {
+    const stats = statSync(path);
+    const cached = envFileCache.get(path);
+    if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size) {
+      return { path, env: { ...cached.env } };
+    }
+    const env = parseEnvFile(readFileSync(path, "utf8"));
+    envFileCache.set(path, { mtimeMs: stats.mtimeMs, size: stats.size, env });
+    return { path, env: { ...env } };
+  } catch {
+    return { path, env: {} };
+  }
 }
 
 export function writeLocalEnv(values, options = {}) {
@@ -72,8 +83,10 @@ export function writeLocalEnv(values, options = {}) {
     ...Object.entries(next).map(([key, value]) => `${key}=${quoteEnvValue(value)}`),
     "",
   ];
+  if (existsSync(path)) chmodSync(path, 0o600);
   writeFileSync(path, lines.join("\n"), { encoding: "utf8", mode: 0o600 });
   chmodSync(path, 0o600);
+  envFileCache.delete(path);
   return { path, env: next };
 }
 

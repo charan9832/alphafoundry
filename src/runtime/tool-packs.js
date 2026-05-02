@@ -156,6 +156,6 @@ export function summarizeToolPackStatus(options = {}) {
       mcpLoadingAvailable: false,
       nativeToolExecutionAvailable: false,
     },
-    nextGate: "In-process generic execution skeleton is wired with permission, protected-path, redaction, and verification gates. Next: durable approval persistence and runner event integration.",
+    nextGate: "In-process generic execution skeleton is wired with permission, protected-path, redaction, and verification gates. Next: live approval integration, runner event integration, and first safe generic pack enablement UX.",
   });
 }

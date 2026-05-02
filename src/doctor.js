@@ -1,8 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
-import { configExists, defaultConfigPath, mergeLocalEnv, readConfig } from "./config.js";
+import { configExists, defaultConfigPath, defaultSecretsPath, mergeLocalEnv, readConfig } from "./config.js";
 import { resolvePiPackageJsonPath } from "./dependencies.js";
 import { providerDefaults, knownProviderNames } from "./provider-defaults.js";
 import { redactConfig, redactText } from "./redaction.js";
@@ -74,6 +74,24 @@ function envResolutionInfo(config, env) {
   });
 }
 
+function secretsCheck(configPath, env) {
+  const secretsPath = defaultSecretsPath(env, { configPath });
+  if (!existsSync(secretsPath)) {
+    return check("pass", "secrets", "No local env file; using shell environment variables only", { path: secretsPath });
+  }
+  try {
+    const stats = statSync(secretsPath);
+    const mode = stats.mode & 0o777;
+    const accessibleByOthers = (mode & 0o077) !== 0;
+    if (accessibleByOthers) {
+      return check("warn", "secrets", `Local env file ${secretsPath} is accessible by group/other users (mode ${mode.toString(8)}); run chmod 600 ${secretsPath}`, { path: secretsPath, mode, expected: 0o600 });
+    }
+    return check("pass", "secrets", `Local env file ${secretsPath} is secure (mode ${mode.toString(8)})`, { path: secretsPath, mode });
+  } catch (error) {
+    return check("warn", "secrets", `Could not read local env file ${secretsPath}: ${error.message}`, { path: secretsPath });
+  }
+}
+
 export function runDoctor(options = {}) {
   const cwd = options.cwd ?? process.cwd();
   const rawEnv = options.env ?? process.env;
@@ -127,6 +145,8 @@ export function runDoctor(options = {}) {
       }),
     );
   }
+
+  checks.push(secretsCheck(path, rawEnv));
 
   checks.push(
     check(process.stdout.isTTY ? "pass" : "warn", "tty", process.stdout.isTTY ? "TTY output available" : "TTY output not detected", {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, normalize } from "node:path";
 import { createApprovalStore } from "../src/runtime/approval-store.js";
@@ -12,12 +12,14 @@ import {
   defaultSecretsPath,
   initConfig,
   readConfig,
+  readLocalEnv,
   resolveRuntimeConfig,
   setConfigValue,
   getConfigValue,
   writeLocalEnv,
 } from "../src/config.js";
 import { runDoctor } from "../src/doctor.js";
+import { buildTuiEnv } from "../src/tui-env.js";
 
 const cliPath = join(process.cwd(), "src", "cli.js");
 
@@ -288,6 +290,59 @@ test("resolveRuntimeConfig loads local AlphaFoundry env file without persisting 
   }
 });
 
+test("writeLocalEnv tightens existing file permissions before preserving secrets", () => {
+  const temp = tempConfigPath();
+  try {
+    const envPath = join(temp.dir, ".env");
+    writeFileSync(envPath, 'OLD_KEY="old"\n', { mode: 0o644 });
+    chmodSync(envPath, 0o644);
+
+    const result = writeLocalEnv({ NEW_KEY: "new" }, { configPath: temp.path });
+    const envText = readFileSync(envPath, "utf8");
+    assert.equal(result.path, envPath);
+    assert.match(envText, /OLD_KEY=/);
+    assert.match(envText, /NEW_KEY=/);
+    assert.equal((statSync(envPath).mode & 0o777), 0o600);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("readLocalEnv returns copies and observes writeLocalEnv cache invalidation", () => {
+  const temp = tempConfigPath();
+  try {
+    writeLocalEnv({ AF_CACHE_KEY: "one" }, { configPath: temp.path });
+    const first = readLocalEnv({ configPath: temp.path });
+    first.env.AF_CACHE_KEY = "mutated";
+
+    const second = readLocalEnv({ configPath: temp.path });
+    assert.equal(second.env.AF_CACHE_KEY, "one");
+
+    writeLocalEnv({ AF_CACHE_KEY: "two" }, { configPath: temp.path });
+    const third = readLocalEnv({ configPath: temp.path });
+    assert.equal(third.env.AF_CACHE_KEY, "two");
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("TUI process env preloads local AlphaFoundry env file and lets shell override it", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("env.apiKey", "OPENROUTER_API_KEY", { path: temp.path });
+    writeLocalEnv({ OPENROUTER_API_KEY: "local-secret" }, { configPath: temp.path });
+
+    const loaded = buildTuiEnv({ ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.equal(loaded.OPENROUTER_API_KEY, "local-secret");
+
+    const shellWins = buildTuiEnv({ ALPHAFOUNDRY_CONFIG_PATH: temp.path, OPENROUTER_API_KEY: "shell-secret" });
+    assert.equal(shellWins.OPENROUTER_API_KEY, "shell-secret");
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
 test("doctor reads local AlphaFoundry env file and redacts secret values", () => {
   const temp = tempConfigPath();
   try {
@@ -300,6 +355,73 @@ test("doctor reads local AlphaFoundry env file and redacts secret values", () =>
     const envCheck = report.checks.find((check) => check.name === "env");
     assert.equal(envCheck.status, "pass");
     assert.doesNotMatch(JSON.stringify(report), /sk-or-test-local-secret/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("doctor secrets check passes when local env file is secure", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("env.apiKey", "AF_TEST_KEY", { path: temp.path });
+    writeLocalEnv({ AF_TEST_KEY: "secret" }, { configPath: temp.path });
+
+    const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const secretsCheck = report.checks.find((check) => check.name === "secrets");
+    assert.equal(secretsCheck.status, "pass");
+    assert.match(secretsCheck.message, /secure/);
+    assert.equal(secretsCheck.details.mode, 0o600);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("doctor secrets check warns when local env file is accessible by group or others", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("env.apiKey", "AF_TEST_KEY", { path: temp.path });
+    writeLocalEnv({ AF_TEST_KEY: "secret" }, { configPath: temp.path });
+
+    const envPath = join(temp.dir, ".env");
+    chmodSync(envPath, 0o644);
+
+    const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const secretsCheck = report.checks.find((check) => check.name === "secrets");
+    assert.equal(secretsCheck.status, "warn");
+    assert.match(secretsCheck.message, /accessible by group\/other/);
+    assert.equal(secretsCheck.details.mode, 0o644);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("doctor secrets check passes when no local env file exists", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("env.apiKey", "AF_TEST_KEY", { path: temp.path });
+
+    const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const secretsCheck = report.checks.find((check) => check.name === "secrets");
+    assert.equal(secretsCheck.status, "pass");
+    assert.match(secretsCheck.message, /No local env file/);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("doctor secrets check runs even when config file is missing", () => {
+  const temp = tempConfigPath();
+  try {
+    const envPath = join(temp.dir, ".env");
+    writeFileSync(envPath, 'SECRET_KEY="value"\n', { mode: 0o600 });
+
+    const report = runDoctor({ configPath: temp.path, cwd: process.cwd(), env: { ...process.env, ALPHAFOUNDRY_CONFIG_PATH: temp.path } });
+    const secretsCheck = report.checks.find((check) => check.name === "secrets");
+    assert.equal(secretsCheck.status, "pass");
+    assert.match(secretsCheck.message, /secure/);
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
