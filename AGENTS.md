@@ -16,7 +16,7 @@ Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. The curren
 
 AlphaFoundry-owned layers:
 
-- Native CLI command surface: `init`, `doctor`, `config`, `models`, `session`, `sessions`, `run`, `tui`
+- Native CLI command surface: `init`, `doctor`, `config`, `models`, `session`, `sessions`, `tui`, and `af -p` one-shot prompts
 - Product docs and onboarding
 - Config schema that stores provider/model/env var names only
 - Doctor/diagnostic reporting

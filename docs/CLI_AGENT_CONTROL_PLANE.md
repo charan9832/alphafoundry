@@ -12,13 +12,13 @@ AlphaFoundry CLI/TUI
   -> runtime adapter (Pi today, native/OpenAI-compatible later)
 ```
 
-The generic control-plane slice is implemented: `af run -p ...` creates AlphaFoundry session/run records, persists schema-versioned events, and `af sessions` can list, show, export, replay, and evaluate those records. The Pi JSONL path supports real-time canonical event streaming through `--stream-json`; legacy non-streaming one-shot paths still normalize adapter output after completion. This is control-plane foundation work, not a production-grade autonomous agent stack.
+The generic control-plane slice is implemented: `af -p ...` creates AlphaFoundry session/run records, persists schema-versioned events, and `af sessions` can list, show, export, replay, and evaluate those records. The Pi JSONL path supports real-time canonical event streaming through `--stream-json`; legacy non-streaming one-shot paths still normalize adapter output after completion. This is control-plane foundation work, not a production-grade autonomous agent stack.
 
 The goal is not to add finance, MCP, subagents, or shell autonomy yet. The goal is to stop treating execution as an opaque passthrough and keep expanding AlphaFoundry-owned, schema-versioned runs before adding more agency.
 
 ## Product principles
 
-1. **AlphaFoundry owns the user-facing run.** Every `af run` has an AlphaFoundry session ID, run ID, event log, and export path.
+1. **AlphaFoundry owns the user-facing run.** Every `af -p` one-shot has an AlphaFoundry session ID, run ID, event log, and export path.
 2. **Adapters are implementation details.** Pi Agent is currently the default adapter, but Pi event shapes must not become AlphaFoundry's permanent public API.
 3. **Redaction happens before persistence/export.** Secret-looking values must not be written into durable transcripts.
 4. **Machine-readable output is first-class.** `--json` and `--stream-json` are product APIs, not debug output.
@@ -90,13 +90,13 @@ Not every adapter can emit every event today. The Pi adapter currently normalize
 Implemented Phase 1 commands:
 
 ```sh
-af run -p "message" --json
-af run -p "message" --stream-json
-af run -p "fix typo" --tools code-edit --permission-mode ask
-af run -p "inspect" --tools read-only
-af run -p "run tests" --tools shell --permission-mode ask
-af run -p "answer only" --tools none
-af run -p "custom" --allow-tools read,edit,write
+af -p "message" --json
+af -p "message" --stream-json
+af -p "fix typo" --tools code-edit --permission-mode ask
+af -p "inspect" --tools read-only
+af -p "run tests" --tools shell --permission-mode ask
+af -p "answer only" --tools none
+af -p "custom" --allow-tools read,edit,write
 af sessions list [--json]
 af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
@@ -108,12 +108,11 @@ af approvals export [--json|--ndjson]
 af approvals expire <id> [--json]
 ```
 
-`af run` creates a durable session when no existing session is supplied internally. `--json` returns the run result, session manifest, run ID, and persisted events. `--stream-json` emits newline-delimited canonical events in real time where the adapter supports streaming. `af sessions replay` and `af sessions eval` provide local deterministic summaries and PASS/WARN/FAIL checks over persisted session events. `af approvals` exposes the persisted approval-decision foundation; full interactive approval prompts are still a future TUI/runtime loop.
+`af -p` creates a durable session when no existing session is supplied internally. `--json` returns the run result, session manifest, run ID, and persisted events. `--stream-json` emits newline-delimited canonical events in real time where the adapter supports streaming. `af sessions replay` and `af sessions eval` provide local deterministic summaries and PASS/WARN/FAIL checks over persisted session events. `af approvals` exposes the persisted approval-decision foundation; full interactive approval prompts are still a future TUI/runtime loop.
 
-Compatibility:
+Command surface:
 
-- Existing `af -p ...` passthrough remains available for now.
-- New work should prefer `af run -p ...` so AlphaFoundry owns sessions/events.
+- `af -p ...` is the single public one-shot prompt command so AlphaFoundry owns sessions/events without an extra `run` verb.
 
 ## Adapter boundary
 
@@ -125,7 +124,7 @@ ALPHAFOUNDRY_RUNTIME_ADAPTER=mock
 
 is reserved for deterministic local tests and examples. Normal user runs should use the default adapter path.
 
-Implemented adapter-facing policy mapping compiles AlphaFoundry tool profiles to Pi flags when a prompt is delegated through Pi. The `af run` CLI exposes this through `--tools`, `--allow-tools`, and `--permission-mode` so AlphaFoundry can use Pi's normal read/edit/write/bash abilities while keeping AlphaFoundry-owned sessions, events, redaction, and policy checks:
+Implemented adapter-facing policy mapping compiles AlphaFoundry tool profiles to Pi flags when a prompt is delegated through Pi. The `af -p` CLI exposes this through `--tools`, `--allow-tools`, and `--permission-mode` so AlphaFoundry can use Pi's normal read/edit/write/bash abilities while keeping AlphaFoundry-owned sessions, events, redaction, and policy checks:
 
 ```text
 default        -> no tool flag

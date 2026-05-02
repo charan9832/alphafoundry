@@ -57,8 +57,7 @@ Usage:
   af approvals show <id> [--json] Show one approval decision
   af approvals export [--json|--ndjson] Export approval decisions
   af approvals expire <id> [--json] Expire one approval decision
-  af run -p "message" [--json|--stream-json] [--tools code-edit|read-only|shell|none] Run a prompt with AlphaFoundry-owned session/events
-  af -p "message"             Run one prompt through the Pi Agent runtime adapter
+  af -p "message" [--json|--stream-json] [--tools code-edit|read-only|shell|none] Run one prompt with AlphaFoundry-owned session/events
   af --provider openai --model gpt-4o-mini -p "message"
 
 AlphaFoundry owns the product identity and command surface. Pi Agent is the runtime adapter for model/tool execution.
@@ -359,7 +358,7 @@ async function handleRun(args) {
   const streamJson = args.includes("--stream-json");
   const prompt = parseFlagValue(args, ["-p", "--prompt"]);
   if (!prompt) {
-    console.error("Usage: af run -p <message> [--json|--stream-json] [--tools <profile>|--allow-tools <list>] [--permission-mode <mode>]");
+    console.error("Usage: af -p <message> [--json|--stream-json] [--tools <profile>|--allow-tools <list>] [--permission-mode <mode>]");
     return 1;
   }
   const providerOverride = parseFlagValue(args, ["--provider"]);
@@ -430,7 +429,11 @@ async function main() {
   if (command === "session") return handleSession(rest);
   if (command === "sessions") return handleSessions(rest);
   if (command === "approvals") return handleApprovals(rest);
-  if (command === "run") return handleRun(rest);
+  if (command === "run") {
+    console.error("Unknown AlphaFoundry command: run. Use af -p <message> for one-shot prompts or af to open the app.");
+    return 1;
+  }
+  if (parseFlagValue(args, ["-p", "--prompt"])) return handleRun(args);
 
   if (args.length === 0 || args[0] === "tui") {
     return runInkTui();

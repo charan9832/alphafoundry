@@ -97,7 +97,7 @@ Example:
   "provider": "openai",
   "model": "gpt-4o-mini",
   "env": {
-    "apiKey": "OPENAI_KEY_ENV",
+    "apiKey": "***",
     "baseUrl": "OPENAI_BASE_URL"
   }
 }
@@ -121,13 +121,13 @@ af models                  # explain runtime-adapter model listing
 af tool-packs              # show optional pack boundary; no packs enabled by default
 af tool-packs --json       # machine-readable pack registry/enablement status
 af session                 # explain session support
-af run -p "hello"          # one-shot prompt with AlphaFoundry-owned session/events
-af run -p "hello" --json
-af run -p "hello" --stream-json
-af run -p "fix typo" --tools code-edit --permission-mode ask
-af run -p "inspect repo" --tools read-only
-af run -p "run tests" --tools shell --permission-mode ask
-af run -p "answer only" --tools none
+af -p "hello"          # one-shot prompt with AlphaFoundry-owned session/events
+af -p "hello" --json
+af -p "hello" --stream-json
+af -p "fix typo" --tools code-edit --permission-mode ask
+af -p "inspect repo" --tools read-only
+af -p "run tests" --tools shell --permission-mode ask
+af -p "answer only" --tools none
 af sessions list [--json]
 af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
@@ -137,10 +137,10 @@ af approvals list [--json]
 af approvals show <id> [--json]
 af approvals export [--json|--ndjson]
 af approvals expire <id> [--json]
-af -p "hello"              # compatibility passthrough through the runtime adapter
+af -p "hello"              # one-shot prompt through AlphaFoundry runtime control plane
 ```
 
-`af run` can expose Pi Agent's built-in tool profiles through AlphaFoundry while still recording sessions and events:
+`af -p` can expose Pi Agent's built-in tool profiles through AlphaFoundry while still recording sessions and events:
 
 - `--tools read-only` allows `read`, `grep`, `find`, and `ls`.
 - `--tools code-edit` allows `read`, `grep`, `find`, `ls`, `edit`, and `write`.
@@ -152,14 +152,14 @@ af -p "hello"              # compatibility passthrough through the runtime adapt
 Provider credentials stay in your shell environment:
 
 ```sh
-export OPENAI_API_KEY="..."
+export OPENAI_API_KEY="***"
 af config set env.apiKey OPENAI_API_KEY
 ```
 
 PowerShell:
 
 ```powershell
-$env:OPENAI_API_KEY = "..."
+$env:OPENAI_API_KEY="***"
 af config set env.apiKey OPENAI_API_KEY
 ```
 
@@ -197,7 +197,7 @@ af doctor --json
 
 ## Runtime control plane
 
-AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, durable run/session records, approval-decision records, and local replay/eval summaries. `af run -p ...` records schema-versioned events under `~/.alphafoundry/sessions/`; `--stream-json` emits canonical NDJSON events in real time where the runtime adapter exposes a stream. Sessions can be listed, shown, exported, replayed, and evaluated through `af sessions`.
+AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, durable run/session records, approval-decision records, and local replay/eval summaries. `af -p ...` records schema-versioned events under `~/.alphafoundry/sessions/`; `--stream-json` emits canonical NDJSON events in real time where the runtime adapter exposes a stream. Sessions can be listed, shown, exported, replayed, and evaluated through `af sessions`.
 
 Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, Pi built-in tool profile mapping, persisted approval decisions, local replay/eval checks, and a safe in-process tool-pack executor skeleton. It does not yet implement full interactive approval UI, MCP/server loading, external tool marketplaces, finance, or domain tool execution.
 

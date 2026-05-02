@@ -338,17 +338,17 @@ test("af sessions list is real and machine-readable for an empty session store",
   }
 });
 
-test("af run --json creates a durable AlphaFoundry session without leaking secrets", () => {
+test("af -p --json creates a durable AlphaFoundry session without leaking secrets", () => {
   const temp = tempConfigPath();
   try {
     const env = { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" };
-    const result = runCli(["run", "-p", "token=sk-testsecret1234567890", "--json", "--provider", "default", "--model", "default"], env);
+    const result = runCli(["-p", "token=sk-tes...7890", "--json", "--provider", "default", "--model", "default"], env);
     assert.equal(result.status, 0, result.stderr);
     const payload = JSON.parse(result.stdout);
     assert.match(payload.session.id, /^ses_/);
     assert.equal(payload.session.adapter, "mock");
     assert.equal(payload.result.ok, true);
-    assert.doesNotMatch(result.stdout, /sk-testsecret/);
+    assert.doesNotMatch(result.stdout, /sk-tes/);
     assert.match(result.stdout, /\[REDACTED_SECRET\]/);
 
     const listed = runCli(["sessions", "list", "--json"], env);
@@ -358,7 +358,7 @@ test("af run --json creates a durable AlphaFoundry session without leaking secre
 
     const shown = runCli(["sessions", "show", payload.session.id, "--json"], env);
     assert.equal(shown.status, 0, shown.stderr);
-    assert.doesNotMatch(shown.stdout, /sk-testsecret/);
+    assert.doesNotMatch(shown.stdout, /sk-tes/);
     const showPayload = JSON.parse(shown.stdout);
     assert.equal(showPayload.manifest.id, payload.session.id);
     assert.ok(showPayload.events.length >= 3);
@@ -379,10 +379,10 @@ test("af run --json creates a durable AlphaFoundry session without leaking secre
   }
 });
 
-test("af run --stream-json emits parseable NDJSON events", () => {
+test("af -p --stream-json emits parseable NDJSON events", () => {
   const temp = tempConfigPath();
   try {
-    const result = runCli(["run", "-p", "hello", "--stream-json"], { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" });
+    const result = runCli(["-p", "hello", "--stream-json"], { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" });
     assert.equal(result.status, 0, result.stderr);
     const lines = result.stdout.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
     assert.ok(lines.length >= 3);
@@ -393,7 +393,7 @@ test("af run --stream-json emits parseable NDJSON events", () => {
   }
 });
 
-test("af run records resolved config provider and model in canonical run events", () => {
+test("af -p records resolved config provider and model in canonical run events", () => {
   const temp = tempConfigPath();
   try {
     const env = { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_CONFIG_PATH: temp.path, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" };
@@ -401,7 +401,7 @@ test("af run records resolved config provider and model in canonical run events"
     assert.equal(runCli(["config", "set", "provider", "anthropic"], env).status, 0);
     assert.equal(runCli(["config", "set", "model", "claude-test"], env).status, 0);
 
-    const result = runCli(["run", "-p", "hello", "--stream-json"], env);
+    const result = runCli(["-p", "hello", "--stream-json"], env);
     assert.equal(result.status, 0, result.stderr);
     const first = JSON.parse(result.stdout.trim().split("\n")[0]);
     assert.equal(first.type, "run_start");
@@ -412,16 +412,16 @@ test("af run records resolved config provider and model in canonical run events"
   }
 });
 
-test("af run forwards Pi tool profile policy and fails closed on denied tools", () => {
+test("af -p forwards Pi tool profile policy and fails closed on denied tools", () => {
   const temp = tempConfigPath();
   try {
     const env = { ALPHAFOUNDRY_HOME: temp.dir };
-    const batch = runCli(["run", "-p", "hello", "--tools", "shell", "--permission-mode", "auto"], env);
+    const batch = runCli(["-p", "hello", "--tools", "shell", "--permission-mode", "auto"], env);
     assert.notEqual(batch.status, 0);
     assert.match(batch.stderr, /Pi tool policy denied/);
     assert.match(batch.stderr, /shell operations are denied in auto mode/);
 
-    const streaming = runCli(["run", "-p", "hello", "--stream-json", "--tools", "shell", "--permission-mode", "auto"], env);
+    const streaming = runCli(["-p", "hello", "--stream-json", "--tools", "shell", "--permission-mode", "auto"], env);
     assert.notEqual(streaming.status, 0);
     assert.match(streaming.stderr, /Pi tool policy denied/);
   } finally {
@@ -433,7 +433,7 @@ test("af sessions replay and eval expose deterministic local summaries", () => {
   const temp = tempConfigPath();
   try {
     const env = { ALPHAFOUNDRY_HOME: temp.dir, ALPHAFOUNDRY_RUNTIME_ADAPTER: "mock" };
-    const run = runCli(["run", "-p", "hello replay", "--json"], env);
+    const run = runCli(["-p", "hello replay", "--json"], env);
     assert.equal(run.status, 0, run.stderr);
     const runPayload = JSON.parse(run.stdout);
 
@@ -544,7 +544,8 @@ test("help presents AlphaFoundry native command surface before passthrough", () 
   assert.match(result.stdout, /af sessions replay <id>/);
   assert.match(result.stdout, /af sessions eval <id>/);
   assert.match(result.stdout, /af approvals list/);
-  assert.match(result.stdout, /af run -p/);
+  assert.doesNotMatch(result.stdout, /af run/);
+  assert.match(result.stdout, /af -p/);
   assert.match(result.stdout, /--tools code-edit/);
 });
 
@@ -561,11 +562,11 @@ test("af --version and af -v print the exact package version", () => {
   assert.equal(resultShort.stdout.trim(), version);
 });
 
-test("af run without prompt exits non-zero with usage guidance", () => {
+test("af run is not a public command", () => {
   const result = runCli(["run"]);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Usage: af run -p <message>/);
-  assert.match(result.stderr, /--tools <profile>/);
+  assert.match(result.stderr, /Unknown AlphaFoundry command: run/);
+  assert.match(result.stderr, /Use af -p <message>/);
 });
 
 test("af sessions show/export missing id exit non-zero with clear error", () => {

@@ -8,18 +8,18 @@ All notable AlphaFoundry changes are recorded here.
 
 - Documented the manual release runbook, required local gates, CI matrix expectations, npm publish dry-run, tagging, rollback guidance, and Pi package integration boundary.
 - Added the CLI agent control-plane architecture note covering AlphaFoundry-owned sessions, canonical runtime events, adapter boundaries, and safety gates before native tools/MCP/domain work.
-- Added durable AlphaFoundry session storage with schema-versioned event logs, `af sessions list|show|export`, and `af run -p` JSON/NDJSON output over the current runtime adapter.
+- Added durable AlphaFoundry session storage with schema-versioned event logs, `af sessions list|show|export`, and `af -p` JSON/NDJSON output over the current runtime adapter.
 - Added an empty opt-in tool-pack boundary with generic pack id validation, fail-closed enablement, domain-gated pack id rejection, redacted JSON-serializable decisions, and native `af tool-packs [--json]` status reporting.
 - Added a release static-audit gate that checks required release files, secret-like tokens outside test fixtures, external Claude-upgrade/runtime references in AlphaFoundry files, and obvious finance/trading implementation symbols.
 - Added an AlphaFoundry benefits application kit for reusable open-source, student, startup, and cloud-credit application language.
 - Added CLI coverage for version output, missing prompt usage errors, missing session errors, and JSON session export consistency.
 - Added a doctor `env` check that reports whether configured environment variable names resolve in the current shell without exposing values.
 - Added a live-streaming Pi JSONL adapter (`src/runtime/adapters/pi-stream.js`) that spawns Pi with `--mode json`, parses structured events in real time, and maps them to AlphaFoundry canonical events.
-- Wired the streaming adapter into the runner so that `af run --stream-json` emits NDJSON events live instead of batching after completion.
+- Wired the streaming adapter into the runner so that `af -p --stream-json` emits NDJSON events live instead of batching after completion.
 - Added a test suite for the streaming adapter covering sequential, pause/resume, error recovery, mid-line resumption, CR handling, and stream end.
 - Added `af sessions replay <id>` and `af sessions eval <id>` to expose deterministic local replay summaries and PASS/WARN/FAIL session checks.
 - Added `af approvals list|show|export|expire` to expose the persisted approval-decision foundation with human-readable and JSON/NDJSON output.
-- Added `af run --tools`, `--allow-tools`, and `--permission-mode` so AlphaFoundry exposes Pi Agent's normal read/edit/write/bash tool profiles while retaining AlphaFoundry-owned sessions and policy checks.
+- Added `af -p --tools`, `--allow-tools`, and `--permission-mode` so AlphaFoundry exposes Pi Agent's normal read/edit/write/bash tool profiles while retaining AlphaFoundry-owned sessions and policy checks.
 
 ### Hardened
 
