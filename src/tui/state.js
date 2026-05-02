@@ -43,6 +43,7 @@ function eventText(event) {
     return `${evidence.kind ?? "artifact"}${evidence.title ? ` · ${evidence.title}` : ""}${evidence.uri ? ` · ${evidence.uri}` : ""}`;
   }
   if (event.type === "run_start") return `run started${payload.prompt ? ` · ${payload.prompt}` : ""}`;
+  if (event.type === "assistant_delta") return payload.delta ?? event.delta ?? "";
   if (event.type === "run_end") {
     const aborted = Boolean(firstDefined(event.aborted, payload.aborted, false));
     const ok = firstDefined(event.ok, payload.ok, !aborted);
@@ -276,6 +277,26 @@ export function applyRuntimeEvent(state, rawEvent = {}) {
       },
       runtimeStats: stats ?? next.runtimeStats,
     };
+  }
+
+  if (event.type === "assistant_delta") {
+    const delta = event.payload?.delta ?? event.delta ?? "";
+    const lastIndex = next.events.length - 1;
+    const last = lastIndex >= 0 ? next.events[lastIndex] : null;
+    if (last && (last.type === "assistant" || last.type === "assistant_delta")) {
+      const mergedText = (last.text ?? last.payload?.text ?? "") + delta;
+      const merged = { ...last, text: mergedText, payload: { ...(last.payload ?? {}), text: mergedText } };
+      next = { ...next, events: [...next.events.slice(0, lastIndex), merged] };
+    } else {
+      next = appendEvent(next, { ...event, type: "assistant", text: delta, payload: { ...(event.payload ?? {}), text: delta } });
+    }
+    const runtimeSession = sessionFromRuntimeEvent(next.session, event);
+    if (runtimeSession) {
+      next = { ...next, session: runtimeSession, sessions: upsertSession(next.sessions, runtimeSession) };
+    }
+    const evidence = evidenceFromRuntimeEvent(event);
+    if (evidence.length) next = { ...next, evidence: [...next.evidence, ...evidence] };
+    return next;
   }
 
   const runtimeSession = sessionFromRuntimeEvent(next.session, event);

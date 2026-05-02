@@ -257,26 +257,36 @@ async function handleRun(args) {
 
   try {
     const runtimeConfig = resolveRuntimeConfig({ provider: providerOverride, model: modelOverride });
-    const result = await runPrompt({
+
+    const runOptions = {
       prompt,
       provider: runtimeConfig.provider,
       model: runtimeConfig.model,
       runtimeEnv: runtimeConfig.env,
       cwd: process.cwd(),
       env: process.env,
-    });
+    };
+
     if (streamJson) {
-      for (const event of result.events) process.stdout.write(`${JSON.stringify(event)}\n`);
+      runOptions.onEvent = (event) => {
+        process.stdout.write(`${JSON.stringify(event)}\n`);
+      };
+    }
+
+    const result = await runPrompt(runOptions);
+
+    if (streamJson) {
+      // Events already streamed in real-time; no extra footer needed
     } else if (json) {
       printJson(result);
     } else {
-      const text = result.events.find((event) => event.type === "assistant")?.payload?.text ?? "";
+      const text = result.events?.find((event) => event.type === "assistant")?.payload?.text ?? "";
       if (text) process.stdout.write(text.endsWith("\n") ? text : `${text}\n`);
-      console.error(`AlphaFoundry session: ${result.session.id}`);
     }
-    return result.result.ok ? 0 : 1;
+    return result.result?.ok === false ? 1 : 0;
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
     return 1;
   }
 }

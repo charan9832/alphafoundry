@@ -1,5 +1,6 @@
 import { runPiPrompt } from "../../pi-backend.js";
 import { createRuntimeEvent } from "../events.js";
+import { runPiPromptJsonStream } from "./pi-stream.js";
 
 export function piResultToEvents({ sessionId, runId, prompt, provider = "default", model = "default", result, timestamp } = {}) {
   const common = { sessionId, runId, timestamp };
@@ -35,4 +36,8 @@ export function piResultToEvents({ sessionId, runId, prompt, provider = "default
 
 export async function runPiAdapterPrompt({ prompt, provider, model, env, processEnv, maxOutputBytes } = {}) {
   return runPiPrompt(prompt, { provider, model, env, processEnv, maxOutputBytes });
+}
+
+export async function runPiAdapterPromptStreaming(options = {}) {
+  return runPiPromptJsonStream(options.prompt, options);
 }

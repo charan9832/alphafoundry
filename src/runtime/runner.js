@@ -1,6 +1,6 @@
 import { createRuntimeId } from "./events.js";
 import { createSessionStore } from "./session-store.js";
-import { piResultToEvents, runPiAdapterPrompt } from "./adapters/pi.js";
+import { piResultToEvents, runPiAdapterPrompt, runPiAdapterPromptStreaming } from "./adapters/pi.js";
 import { redactUnknown } from "../redaction.js";
 
 function mockPromptResult(prompt) {
@@ -21,6 +21,43 @@ export async function runPrompt(options = {}) {
     adapter,
   });
   const runId = options.runId ?? createRuntimeId("run");
+  const onEvent = options.onEvent;
+
+  if (adapter === "mock") {
+    const result = mockPromptResult(prompt);
+    const events = piResultToEvents({
+      sessionId: session.id,
+      runId,
+      prompt,
+      provider: options.provider ?? "default",
+      model: options.model ?? "default",
+      result,
+    });
+    for (const event of events) {
+      store.appendEvent(session.id, event);
+      onEvent?.(event);
+    }
+    return redactUnknown({ session: store.readSession(session.id).manifest, runId, result, events });
+  }
+
+  if (onEvent) {
+    const result = await runPiAdapterPromptStreaming({
+      prompt,
+      provider: options.provider,
+      model: options.model,
+      env: options.runtimeEnv,
+      processEnv: options.env,
+      maxOutputBytes: options.maxOutputBytes,
+      sessionId: session.id,
+      runId,
+      onEvent: (event) => {
+        store.appendEvent(session.id, event);
+        onEvent(event);
+      },
+      signal: options.signal,
+    });
+    return redactUnknown({ session: store.readSession(session.id).manifest, runId, result });
+  }
 
   const result = adapter === "mock"
     ? mockPromptResult(prompt)
