@@ -130,18 +130,6 @@ af approvals list [--json]
 af approvals show <id> [--json]
 af approvals export [--json|--ndjson]
 af approvals expire <id> [--json]
-af -p "hello"              # one-shot prompt through AlphaFoundry runtime control plane
-```
-
-`af -p` can expose Pi Agent's built-in tool profiles through AlphaFoundry while still recording sessions and events:
-
-- `--tools read-only` allows `read`, `grep`, `find`, and `ls`.
-- `--tools code-edit` allows `read`, `grep`, `find`, `ls`, `edit`, and `write`.
-- `--tools shell` allows read tools plus `bash`.
-- `--tools none` disables built-in tools.
-- `--allow-tools read,edit,write` passes an explicit Pi built-in allowlist.
-- `--permission-mode ask|act|auto|plan` applies AlphaFoundry's policy checks before Pi flags are emitted.
-
 Provider credentials stay in your shell environment:
 
 ```sh
@@ -163,10 +151,12 @@ af config set env.apiKey OPENAI_API_KEY
 /model <provider/model> set local model preference for the next runtime prompt
 /provider <name>      set local provider preference for the next runtime prompt
 /stats                show local TUI counters; runtime stats appear after runs
-/tools <list>         set local tool preference; enforcement depends on adapter support
-/session              show local TUI session metadata
-/new                  start a fresh local TUI session; backend session is not changed
-/export               print the local transcript in the conversation
+/tools <list>         request runtime tools; write/shell tools require approval
+/approve-tools        approve pending tool request for this session
+/mode <mode>          set tool permission mode: plan, ask, act, auto
+/session              show durable session metadata
+/new                  start a fresh durable session
+/export               print the visible transcript in the conversation
 /clear                clear visible conversation
 /exit                 quit when idle; cancel first when running
 ```

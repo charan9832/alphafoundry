@@ -1,6 +1,7 @@
 import { detectRuntime } from "./runtime.js";
 import { commandHelp, sessionId } from "./commands.js";
 import { redactText } from "../redaction.js";
+import { mapPiToolPolicy } from "../runtime/pi-tool-policy.js";
 
 const MAX_EVENTS = 200;
 
@@ -19,7 +20,7 @@ function firstDefined(...values) {
 function eventText(event) {
   const payload = payloadOf(event);
   const directText = firstDefined(event.text, event.output, event.error, payload.text, payload.output, payload.error, payload.message, payload.prompt);
-  if (directText !== undefined) return String(directText);
+  if (directText !== undefined) return redactText(String(directText));
 
   if (event.type === "stats") {
     const stats = event.stats ?? payload.stats ?? {};
@@ -49,7 +50,7 @@ function eventText(event) {
     const ok = firstDefined(event.ok, payload.ok, !aborted);
     return `run ended · ${aborted ? "cancelled" : ok ? "success" : "error"}`;
   }
-  return JSON.stringify(event);
+  return redactText(JSON.stringify(event));
 }
 
 function normalizeRuntimeEvent(event = {}) {
@@ -123,6 +124,8 @@ export function createInitialState(overrides = {}) {
     session,
     sessions: overrides.sessions ?? [session],
     tools: overrides.tools ?? [],
+    pendingToolApproval: overrides.pendingToolApproval ?? null,
+    permissionMode: overrides.permissionMode ?? "ask",
     tokenUsage: { tokens: 0, percent: 0, cost: "$0.00", ...overrides.tokenUsage },
     runtimeStats: overrides.runtimeStats ?? null,
     evidence: overrides.evidence ?? [],
@@ -137,6 +140,37 @@ export function createInitialState(overrides = {}) {
 }
 
 export const initialState = createInitialState();
+
+
+function classifyErrorMessage(error, state = {}) {
+  const raw = error instanceof Error ? error.message : String(error ?? "Unknown error");
+  const message = redactText(raw);
+  const lower = message.toLowerCase();
+  const missingKey = lower.includes("api_key") || lower.includes("api key") || lower.includes("apikey") || (lower.includes("missing") && lower.includes("key"));
+  if (!missingKey) return message;
+  return [
+    message,
+    "",
+    "Recovery:",
+    `  af config set provider ${state.provider && state.provider !== "default" ? state.provider : "<provider>"}`,
+    `  af config set model ${state.model && state.model !== "default" ? state.model : "<model>"}`,
+    "  af config set env.apiKey <PROVIDER_API_KEY_ENV>",
+    "  export <PROVIDER_API_KEY_ENV>=...",
+    "  af doctor",
+  ].join("\n");
+}
+
+function applyToolRequest(state, tools = []) {
+  const requested = Array.isArray(tools) ? tools : [];
+  const policy = mapPiToolPolicy({ allow: requested, mode: state.permissionMode, workspace: state.cwd, approved: true });
+  if (!policy.ok) {
+    return appendEvent({ ...state, pendingToolApproval: null }, { type: "error", text: `Tool request denied: ${policy.reason}` });
+  }
+  if (policy.requiresApproval) {
+    return appendEvent({ ...state, pendingToolApproval: { tools: requested, policy } }, { type: "permission_request", text: `Tool request requires approval: ${requested.join(", ") || "none"}. Run /approve-tools to allow for this session.` });
+  }
+  return appendEvent({ ...state, tools: requested, pendingToolApproval: null }, { type: "tool", text: `runtime tools enabled: ${requested.join(", ") || "none"}` });
+}
 
 export function reducer(state, action) {
   switch (action.type) {
@@ -211,7 +245,7 @@ export function reducer(state, action) {
       };
     }
     case "RUN_ERROR": {
-      const message = action.error instanceof Error ? action.error.message : String(action.error ?? "Unknown error");
+      const message = classifyErrorMessage(action.error, state);
       return appendEvent({ ...state, status: "error", terminalState: "error", action: "error", activeRun: null, cancelling: false, error: message }, { type: "error", text: message });
     }
     case "RUNTIME_EVENT":
@@ -346,18 +380,28 @@ export function applyCommand(state, command = {}) {
       return appendEvent(state, { type: "stats", text: `local TUI counters: tokens ${state.tokenUsage.tokens} · ${state.tokenUsage.percent}% · ${state.tokenUsage.cost}; no runtime stats observed yet` });
     }
     case "tools":
-      return appendEvent({ ...state, tools: command.tools ?? [] }, { type: "tool", text: `local tool preference set: ${(command.tools ?? []).join(", ") || "none"}; runtime enforcement depends on adapter support` });
+      return applyToolRequest(state, command.tools ?? []);
+    case "approve-tools": {
+      if (!state.pendingToolApproval) return appendEvent(state, { type: "assistant", text: "No pending tool request to approve." });
+      const tools = state.pendingToolApproval.tools ?? [];
+      return appendEvent({ ...state, tools, pendingToolApproval: null }, { type: "permission_decision", text: `approved runtime tools for this session: ${tools.join(", ") || "none"}` });
+    }
+    case "mode": {
+      const mode = String(command.mode ?? "").toLowerCase();
+      if (!["plan", "ask", "act", "auto"].includes(mode)) return appendEvent(state, { type: "error", text: "Unsupported mode. Use one of: plan, ask, act, auto." });
+      return appendEvent({ ...state, permissionMode: mode, tools: [], pendingToolApproval: null }, { type: "assistant", text: `tool permission mode set to ${mode}; runtime tools reset until requested again` });
+    }
     case "session": {
       const knownCount = state.sessions.length;
-      const source = state.session.runtimeObserved ? "runtime-observed" : "local TUI";
-      return appendEvent(state, { type: "session", text: `${source} session ${state.session.id} · ${state.events.length} events · ${knownCount} known sessions` });
+      const source = state.session.runtimeObserved ? "runtime-observed" : "durable";
+      return appendEvent(state, { type: "session", text: `${source} session ${state.session.id} · ${state.events.length} visible events · ${knownCount} known sessions` });
     }
     case "new": {
       const session = createSession();
-      return appendEvent({ ...state, view: "workspace", goal: "", intent: null, session, sessions: upsertSession(state.sessions, session), events: [], status: "idle", terminalState: "idle", action: "new session", activeRun: null, evidence: [] }, { type: "session", text: `started local TUI session ${session.id}; backend session not changed` });
+      return appendEvent({ ...state, view: "workspace", goal: "", intent: null, session, sessions: upsertSession(state.sessions, session), events: [], status: "idle", terminalState: "idle", action: "new session", activeRun: null, evidence: [], tools: [], pendingToolApproval: null }, { type: "session", text: `started durable session ${session.id}` });
     }
     case "export":
-      return appendEvent(state, { type: "assistant", text: `Local transcript:\n${state.events.map((event) => `[${event.type}] ${exportedEventText(event)}`).join("\n") || "Nothing to print."}` });
+      return appendEvent(state, { type: "assistant", text: `Visible transcript:\n${state.events.map((event) => `[${event.type}] ${exportedEventText(event)}`).join("\n") || "Nothing to print."}` });
     case "unknown":
       return appendEvent(state, { type: "error", text: `Unknown command /${command.command}. Try /help.` });
     default:

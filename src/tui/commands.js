@@ -6,6 +6,8 @@ export const COMMAND_NAMES = [
   "exit",
   "stats",
   "tools",
+  "approve-tools",
+  "mode",
   "session",
   "new",
   "export",
@@ -29,6 +31,8 @@ export function parseSlashCommand(raw) {
 
   if (command === "quit") return { type: "exit" };
   if (["help", "clear", "exit", "stats", "session", "new", "export"].includes(command)) return { type: command };
+  if (command === "approve-tools") return { type: "approve-tools" };
+  if (command === "mode") return { type: "mode", mode: rest };
   if (command === "provider") return { type: "provider", provider: rest };
   if (command === "tools") return { type: "tools", tools: splitArgs(rest) };
   if (command === "model") {
@@ -52,10 +56,12 @@ export function commandHelp() {
     "  /provider <name>     set local provider preference; applied on next runtime prompt",
     "  /exit                quit when idle; cancel first when running",
     "  /stats               show local TUI counters; runtime stats appear after runs",
-    "  /tools <list>        set local tool preference, separated by spaces or commas",
-    "  /session             show local TUI session metadata",
-    "  /new                 start a fresh local TUI session",
-    "  /export              print local transcript in the conversation",
+    "  /tools <list>        request runtime tools, separated by spaces or commas",
+    "  /approve-tools       approve pending tool request for this session",
+    "  /mode <mode>         set tool permission mode: plan, ask, act, auto",
+    "  /session             show durable session metadata",
+    "  /new                 start a fresh durable session",
+    "  /export              print visible transcript in the conversation",
   ].join("\n");
 }
 

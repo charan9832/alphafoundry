@@ -21,7 +21,7 @@ test("Pi tool profiles map to stable runtime adapter flags", () => {
   assert.deepEqual(PI_BUILTIN_TOOLS, Object.freeze(["read", "bash", "edit", "write", "grep", "find", "ls"]));
 
   for (const [profile, flags] of profileCases) {
-    const result = mapPiToolPolicy({ profile, mode: "ask" });
+    const result = mapPiToolPolicy({ profile, mode: "ask", approved: true });
     assert.equal(result.ok, true, profile);
     assert.equal(result.profile, profile);
     assert.deepEqual(result.flags, flags, profile);
@@ -33,7 +33,7 @@ test("explicit Pi allowlists validate built-ins and preserve requested order", (
   assert.deepEqual(normalizePiToolAllowlist(["read", "bash", "read", "ls"]), ["read", "bash", "ls"]);
   assert.deepEqual(normalizePiToolAllowlist("read,grep,find"), ["read", "grep", "find"]);
 
-  const result = mapPiToolPolicy({ allow: ["write", "read"], mode: "ask" });
+  const result = mapPiToolPolicy({ allow: ["write", "read"], mode: "ask", approved: true });
   assert.equal(result.ok, true);
   assert.equal(result.profile, "explicit");
   assert.deepEqual(result.tools, ["write", "read"]);
@@ -73,9 +73,15 @@ test("policy decisions are derived from AlphaFoundry permission mode", () => {
   assert.ok(planShell.decisions.some((decision) => decision.toolName === "bash" && decision.decision === "deny"));
 
   const askShell = mapPiToolPolicy({ profile: "shell", mode: "ask" });
-  assert.equal(askShell.ok, true);
-  assert.equal(askShell.requiresApproval, true);
-  assert.deepEqual(askShell.flags, ["--tools", "read,grep,find,ls,bash"]);
+  assert.equal(askShell.ok, false);
+  assert.equal(askShell.decision, "deny");
+  assert.match(askShell.reason, /requires approval/i);
+  assert.deepEqual(askShell.flags, []);
+
+  const approvedShell = mapPiToolPolicy({ profile: "shell", mode: "ask", approved: true });
+  assert.equal(approvedShell.ok, true);
+  assert.equal(approvedShell.requiresApproval, true);
+  assert.deepEqual(approvedShell.flags, ["--tools", "read,grep,find,ls,bash"]);
 });
 
 test("configured Pi prompt args include mapped tool policy flags", () => {

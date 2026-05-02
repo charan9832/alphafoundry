@@ -120,6 +120,13 @@ export function mapPiToolPolicy(options = {}) {
   }
 
   const decision = summarizeDecisions(decisions);
+  if (decision === "ask" && !options.approved) {
+    return deny("Tool use requires approval. In the TUI, request tools with /tools and then run /approve-tools before retrying.", {
+      profile,
+      decisions,
+      deniedTool: decisions.find((item) => item.decision === "ask")?.toolName,
+    });
+  }
   return {
     ok: true,
     profile,

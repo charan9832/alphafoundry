@@ -3,6 +3,7 @@ import { useApp, useInput } from "ink";
 import { initialState, reducer } from "./state.js";
 import { parseSlashCommand } from "./commands.js";
 import { runPromptWithEvents } from "./prompt-flow.js";
+import { createRuntimeRunner, classifyRuntimeError } from "./runtime-runner.js";
 import { useTerminalSize, paneWidths } from "./layout.js";
 import { Home } from "./components/Home.jsx";
 import { Workspace } from "./components/Workspace.jsx";
@@ -16,60 +17,6 @@ async function loadRuntimeRunner() {
     throw error;
   });
   return cachedRuntimeRunnerPromise;
-}
-
-async function createRuntimeRunner() {
-  try {
-    const { resolveRuntimeConfig } = await import("../config.js");
-    const runtimeConfig = resolveRuntimeConfig();
-    const runtime = await import("../pi-runtime/client.js");
-    if (typeof runtime.createPiRpcRuntime === "function") {
-      const client = runtime.createPiRpcRuntime(runtimeConfig);
-      await client.start();
-      return async (prompt, options = {}) => {
-        const unsubscribe = typeof options.onEvent === "function" ? client.onEvent(options.onEvent) : undefined;
-        try {
-          const result = await client.sendPrompt(prompt, options);
-          return {
-            ok: result.ok,
-            output: "",
-            error: result.error || result.stderr,
-            events: result.error || result.stderr ? [{ type: "stderr", text: result.error || result.stderr }] : [],
-          };
-        } finally {
-          unsubscribe?.();
-        }
-      };
-    }
-    if (typeof runtime.createPiRuntime === "function") {
-      const client = runtime.createPiRuntime(runtimeConfig).start();
-      return async (prompt, options = {}) => {
-        const unsubscribe = typeof options.onEvent === "function" ? client.onEvent(options.onEvent) : undefined;
-        try {
-          const result = await client.sendPrompt(prompt, options);
-          return {
-            ok: result.ok,
-            output: "",
-            error: result.error || result.stderr,
-            events: result.error || result.stderr ? [{ type: "stderr", text: result.error || result.stderr }] : [],
-          };
-        } finally {
-          unsubscribe?.();
-        }
-      };
-    }
-    if (typeof runtime.runPrompt === "function") return runtime.runPrompt;
-    if (typeof runtime.runPiPrompt === "function") return runtime.runPiPrompt;
-    if (typeof runtime.createRuntimeClient === "function") {
-      const client = runtime.createRuntimeClient();
-      if (typeof client.runPrompt === "function") return client.runPrompt.bind(client);
-    }
-  } catch (error) {
-    if (error?.code !== "ERR_MODULE_NOT_FOUND") throw error;
-  }
-
-  const backend = await import("../pi-backend.js");
-  return backend.runPiPrompt;
 }
 
 export function App() {
@@ -118,7 +65,7 @@ export function App() {
       const result = await runPromptWithEvents(
         runner,
         command.value,
-        { provider: current.provider, model: current.model, tools: current.tools, session: current.session, signal: controller.signal },
+        { provider: current.provider, model: current.model, toolAllow: current.tools, permissionMode: current.permissionMode, toolsApproved: current.tools.length > 0 && !current.pendingToolApproval, session: current.session, signal: controller.signal },
         (event) => dispatch({ type: "RUNTIME_EVENT", event }),
       );
       if (controller.signal.aborted) return;
@@ -127,7 +74,7 @@ export function App() {
       if (controller.signal.aborted) {
         dispatch({ type: "RUN_CANCELLED", reason: controller.signal.reason ?? "aborted" });
       } else {
-        dispatch({ type: "RUN_ERROR", error });
+        dispatch({ type: "RUN_ERROR", error: new Error(classifyRuntimeError(error, current)) });
       }
     }
   }, [cancelActiveRun, exit]);

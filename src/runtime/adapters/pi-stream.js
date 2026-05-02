@@ -312,6 +312,7 @@ export function runPiPromptJsonStream(prompt, options = {}) {
     profile: options.toolProfile,
     allow: options.toolAllow,
     mode: options.permissionMode,
+    approved: options.toolsApproved,
     path: options.path,
     workspace: options.workspace,
     alphaFoundryHome: options.alphaFoundryHome,
