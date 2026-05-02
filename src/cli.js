@@ -39,8 +39,7 @@ Usage:
   af                         Start AlphaFoundry Ink TUI
   af tui                     Start AlphaFoundry Ink TUI
   af init [--non-interactive] Create ~/.alphafoundry/config.json
-  af onborad [--force]       Interactive setup wizard
-  af onboard [--force]       Alias for af onborad
+  af onboard [--force]       Interactive setup wizard
   af doctor [--json]         Check local AlphaFoundry health
   af config path             Print active config path
   af config get <key>        Read config key (provider, model, env.apiKey, env.baseUrl)
@@ -354,7 +353,7 @@ async function main() {
 
   const [command, ...rest] = args;
   if (command === "init") return handleInit(rest);
-  if (command === "onborad" || command === "onboard") return handleOnboarding(rest);
+  if (command === "onboard") return handleOnboarding(rest);
   if (command === "doctor") return handleDoctor(rest);
   if (command === "config") return handleConfig(rest);
   if (command === "models") return handleModels(rest);

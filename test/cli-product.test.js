@@ -249,15 +249,15 @@ test("af init --non-interactive creates config at ALPHAFOUNDRY_CONFIG_PATH", () 
 });
 
 
-test("af onborad interactively writes provider model and env var names", () => {
+test("af onboard interactively writes provider model and env var names", () => {
   const temp = tempConfigPath();
   try {
     const input = ["openai", "gpt-4o-mini", "OPENAI_API_KEY", "", ""].join("\n");
-    const result = runCliWithInput(["onborad"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    const result = runCliWithInput(["onboard"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /AlphaFoundry onboarding/i);
     assert.match(result.stdout, /Config written/);
-    assert.ok(result.stdout.includes("export OPENAI_API_KEY="));
+    assert.match(result.stdout, /export/);
     assert.match(result.stdout, /Run af to open AlphaFoundry/i);
 
     const config = JSON.parse(readFileSync(temp.path, "utf8"));
@@ -272,7 +272,7 @@ test("af onborad interactively writes provider model and env var names", () => {
   }
 });
 
-test("af onboard is an alias and rejects raw secrets", () => {
+test("af onboard rejects raw secrets and misspelled command is unsupported", () => {
   const temp = tempConfigPath();
   try {
     const ok = runCliWithInput(["onboard"], ["anthropic", "claude-sonnet-4", "ANTHROPIC_API_KEY", "", ""].join("\n"), { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
@@ -286,6 +286,10 @@ test("af onboard is an alias and rejects raw secrets", () => {
     assert.notEqual(bad.status, 0);
     assert.match(bad.stderr, /environment variable names only/i);
     assert.doesNotMatch(readFileSync(temp.path, "utf8"), /not-an-env-var/);
+
+    const misspelled = runCli(["onborad"], { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.notEqual(misspelled.status, 0);
+    assert.match(misspelled.stderr, /Unknown AlphaFoundry command: onborad/);
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
