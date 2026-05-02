@@ -7,6 +7,8 @@ import { join } from "node:path";
 import {
   APPROVAL_DECISION_SCHEMA_VERSION,
   APPROVAL_STATUSES,
+  DEFAULT_APPROVAL_TTL_SECONDS,
+  MAX_APPROVAL_TTL_SECONDS,
   createApprovalStore,
 } from "../src/runtime/approval-store.js";
 
@@ -47,6 +49,59 @@ test("create persists a schema-versioned redacted decision", () => {
     assert.equal(decision.timestamp, "2026-01-01T00:00:00.000Z");
     assert.ok(decision.createdAt);
     assert.equal(decision.expired, false);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("approval decisions get default ttl expiresAt and stable scope metadata", () => {
+  const home = tempHome();
+  try {
+    const store = createApprovalStore({ env: { ALPHAFOUNDRY_HOME: home } });
+    const decision = store.create({
+      status: "allow",
+      tools: ["write", "bash"],
+      source: "tui-slash-command",
+      approvedBy: "local-user",
+      scope: "session",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    });
+
+    assert.equal(decision.ttlSeconds, DEFAULT_APPROVAL_TTL_SECONDS);
+    assert.equal(decision.expiresAt, "2026-01-01T00:15:00.000Z");
+    assert.equal(decision.source, "tui-slash-command");
+    assert.equal(decision.approvedBy, "local-user");
+    assert.equal(decision.scope, "session");
+    assert.deepEqual(decision.tools, ["write", "bash"]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("deny and ask decisions do not receive default ttl", () => {
+  const home = tempHome();
+  try {
+    const store = createApprovalStore({ env: { ALPHAFOUNDRY_HOME: home } });
+    const deny = store.create({ status: "deny", toolName: "rm" });
+    const ask = store.create({ status: "ask", toolName: "write" });
+    assert.equal(deny.ttlSeconds, undefined);
+    assert.equal(deny.expiresAt, undefined);
+    assert.equal(ask.ttlSeconds, undefined);
+    assert.equal(ask.expiresAt, undefined);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("approval ttl scope and grantable tool metadata validate fail closed", () => {
+  const home = tempHome();
+  try {
+    const store = createApprovalStore({ env: { ALPHAFOUNDRY_HOME: home } });
+    assert.throws(() => store.create({ status: "allow" }), /require a toolName or tools list/);
+    assert.throws(() => store.create({ status: "pending" }), /require a toolName or tools list/);
+    assert.throws(() => store.create({ status: "allow", toolName: "write", scope: "forever" }), /Unsupported approval scope/);
+    assert.throws(() => store.create({ status: "allow", toolName: "write", ttlSeconds: -1 }), /Invalid approval ttlSeconds/);
+    assert.throws(() => store.create({ status: "allow", toolName: "write", ttlSeconds: MAX_APPROVAL_TTL_SECONDS + 1 }), /Invalid approval ttlSeconds/);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -127,7 +182,7 @@ test("list filters by sessionId and runId", () => {
   const home = tempHome();
   try {
     const store = createApprovalStore({ env: { ALPHAFOUNDRY_HOME: home } });
-    store.create({ status: "allow", sessionId: "ses_a", runId: "run_1" });
+    store.create({ status: "allow", toolName: "read_file", sessionId: "ses_a", runId: "run_1" });
     store.create({ status: "deny", sessionId: "ses_a", runId: "run_2" });
     store.create({ status: "ask", sessionId: "ses_b", runId: "run_1" });
 
@@ -180,7 +235,7 @@ test("ttl causes auto-expiration on read and list", () => {
   const home = tempHome();
   try {
     const store = createApprovalStore({ env: { ALPHAFOUNDRY_HOME: home } });
-    const created = store.create({ status: "allow", toolName: "read_file", ttlSeconds: -1 });
+    const created = store.create({ status: "allow", toolName: "read_file", ttlSeconds: 0 });
 
     const readBack = store.read(created.decisionId);
     assert.equal(readBack.status, "expired");
@@ -234,7 +289,7 @@ test("export filters by runId and status", () => {
   const home = tempHome();
   try {
     const store = createApprovalStore({ env: { ALPHAFOUNDRY_HOME: home } });
-    store.create({ status: "allow", sessionId: "ses_1", runId: "run_1" });
+    store.create({ status: "allow", toolName: "read_file", sessionId: "ses_1", runId: "run_1" });
     store.create({ status: "deny", sessionId: "ses_1", runId: "run_1" });
     store.create({ status: "ask", sessionId: "ses_1", runId: "run_2" });
 

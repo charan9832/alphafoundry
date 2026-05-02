@@ -68,6 +68,25 @@ function writeEventsAtomic(path, events) {
   writeTextAtomic(path, text ? `${text}\n` : "");
 }
 
+function lockPath(root, sessionId) {
+  return join(root, validateSessionId(sessionId), ".lock");
+}
+
+function withSessionLock(root, sessionId, fn) {
+  const path = lockPath(root, sessionId);
+  try {
+    mkdirSync(path, { mode: 0o700 });
+  } catch (error) {
+    if (error?.code === "EEXIST") throw new Error(`AlphaFoundry session is locked: ${sessionId}`);
+    throw error;
+  }
+  try {
+    return fn();
+  } finally {
+    rmSync(path, { recursive: true, force: true });
+  }
+}
+
 export function createSessionStore(options = {}) {
   const root = normalize(options.root ?? sessionsDir(options.env ?? process.env));
   const maxEventsPerSession = Number.isInteger(options.maxEventsPerSession) && options.maxEventsPerSession > 0 ? options.maxEventsPerSession : null;
@@ -86,7 +105,7 @@ export function createSessionStore(options = {}) {
     writeJson(manifestPath(root, manifest.id), manifest);
   }
 
-  function compactSession(sessionId, options = {}) {
+  function compactSessionUnlocked(sessionId, options = {}) {
     ensureRoot();
     const manifest = readManifest(sessionId);
     let events = readEvents(eventPath(root, sessionId));
@@ -104,6 +123,10 @@ export function createSessionStore(options = {}) {
     manifest.updatedAt = events.at(-1)?.timestamp ?? manifest.updatedAt ?? new Date().toISOString();
     writeManifest(manifest);
     return { manifest, events, compactedEventCount: events.length };
+  }
+
+  function compactSession(sessionId, options = {}) {
+    return withSessionLock(root, sessionId, () => compactSessionUnlocked(sessionId, options));
   }
 
   return {
@@ -133,18 +156,20 @@ export function createSessionStore(options = {}) {
     },
 
     appendEvent(sessionId, event) {
-      ensureRoot();
-      const manifest = readManifest(sessionId);
-      const sequence = manifest.eventCount + 1;
-      const next = redactUnknown({ ...event, sessionId: event.sessionId ?? sessionId, sequence });
-      appendFileSync(eventPath(root, sessionId), `${JSON.stringify(next)}\n`, { encoding: "utf8", mode: 0o600 });
-      manifest.eventCount = sequence;
-      manifest.updatedAt = next.timestamp ?? new Date().toISOString();
-      if (event.type === "run_end") manifest.status = event.payload?.ok ? "success" : "error";
-      else if (event.type === "run_start") manifest.status = "running";
-      writeManifest(manifest);
-      if (maxEventsPerSession !== null && manifest.eventCount > maxEventsPerSession) compactSession(sessionId, { keepLast: maxEventsPerSession });
-      return next;
+      return withSessionLock(root, sessionId, () => {
+        ensureRoot();
+        const manifest = readManifest(sessionId);
+        const sequence = manifest.eventCount + 1;
+        const next = redactUnknown({ ...event, sessionId: event.sessionId ?? sessionId, sequence });
+        appendFileSync(eventPath(root, sessionId), `${JSON.stringify(next)}\n`, { encoding: "utf8", mode: 0o600 });
+        manifest.eventCount = sequence;
+        manifest.updatedAt = next.timestamp ?? new Date().toISOString();
+        if (event.type === "run_end") manifest.status = event.payload?.ok ? "success" : "error";
+        else if (event.type === "run_start") manifest.status = "running";
+        writeManifest(manifest);
+        if (maxEventsPerSession !== null && manifest.eventCount > maxEventsPerSession) compactSessionUnlocked(sessionId, { keepLast: maxEventsPerSession });
+        return next;
+      });
     },
 
     compactSession,

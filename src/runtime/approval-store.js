@@ -6,8 +6,12 @@ import { redactUnknown } from "../redaction.js";
 
 export const APPROVAL_DECISION_SCHEMA_VERSION = 1;
 export const APPROVAL_STATUSES = Object.freeze(["allow", "deny", "ask", "pending", "expired"]);
+export const APPROVAL_SCOPES = Object.freeze(["single-run", "session", "workspace"]);
+export const DEFAULT_APPROVAL_TTL_SECONDS = 15 * 60;
+export const MAX_APPROVAL_TTL_SECONDS = 24 * 60 * 60;
 
 const STATUS_SET = new Set(APPROVAL_STATUSES);
+const SCOPE_SET = new Set(APPROVAL_SCOPES);
 
 function createDecisionId() {
   return `apr_${randomUUID().replaceAll("-", "").slice(0, 20)}`;
@@ -17,6 +21,30 @@ function normalizeStatus(status) {
   const normalized = String(status ?? "").toLowerCase();
   if (!STATUS_SET.has(normalized)) throw new TypeError(`Unsupported approval status: ${status ?? "<missing>"}`);
   return normalized;
+}
+
+function normalizeScope(scope = "single-run") {
+  const normalized = String(scope ?? "single-run").toLowerCase();
+  if (!SCOPE_SET.has(normalized)) throw new TypeError(`Unsupported approval scope: ${scope ?? "<missing>"}`);
+  return normalized;
+}
+
+function normalizeTtlSeconds(value, status) {
+  if (value === undefined || value === null) {
+    return ["allow", "pending"].includes(status) ? DEFAULT_APPROVAL_TTL_SECONDS : undefined;
+  }
+  const ttl = Number(value);
+  if (!Number.isInteger(ttl) || ttl < 0 || ttl > MAX_APPROVAL_TTL_SECONDS) {
+    throw new TypeError(`Invalid approval ttlSeconds: ${value}`);
+  }
+  return ttl;
+}
+
+function expiresAtFrom(createdAt, ttlSeconds) {
+  if (ttlSeconds === undefined || ttlSeconds === null) return undefined;
+  const created = new Date(createdAt).getTime();
+  if (!Number.isFinite(created)) return undefined;
+  return new Date(created + ttlSeconds * 1000).toISOString();
 }
 
 function decisionPath(root, decisionId) {
@@ -36,6 +64,10 @@ function writeJson(path, value) {
 
 function isExpired(decision, now = Date.now()) {
   if (decision.expired) return true;
+  if (decision.expiresAt) {
+    const expiresAt = new Date(decision.expiresAt).getTime();
+    if (Number.isFinite(expiresAt) && now >= expiresAt) return true;
+  }
   if (decision.ttlSeconds !== undefined && decision.ttlSeconds !== null) {
     const created = new Date(decision.createdAt).getTime();
     if (Number.isFinite(created) && now > created + decision.ttlSeconds * 1000) {
@@ -90,8 +122,15 @@ export function createApprovalStore(options = {}) {
     create(input = {}) {
       ensureRoot();
       const status = normalizeStatus(input.status);
+      const scope = normalizeScope(input.scope);
       if (input.path) validatePath(input.path);
       const now = input.timestamp ?? new Date().toISOString();
+      const ttlSeconds = normalizeTtlSeconds(input.ttlSeconds, status);
+      const expiresAt = expiresAtFrom(now, ttlSeconds);
+      const tools = Array.isArray(input.tools) ? input.tools.map((tool) => String(tool)).filter(Boolean) : undefined;
+      if (["allow", "pending"].includes(status) && !input.toolName && (!tools || tools.length === 0)) {
+        throw new TypeError(`${status} approval decisions require a toolName or tools list`);
+      }
       const decision = redactUnknown({
         schemaVersion: APPROVAL_DECISION_SCHEMA_VERSION,
         decisionId: input.id ?? createDecisionId(),
@@ -99,12 +138,17 @@ export function createApprovalStore(options = {}) {
         toolName: input.toolName ?? null,
         risk: input.risk ?? null,
         path: input.path ?? null,
+        tools,
         sessionId: input.sessionId ?? null,
         runId: input.runId ?? null,
         workspace: input.workspace ?? null,
+        source: input.source ?? "unknown",
+        approvedBy: input.approvedBy ?? null,
+        scope,
         reason: input.reason ?? "",
         ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
-        ...(input.ttlSeconds !== undefined ? { ttlSeconds: input.ttlSeconds } : {}),
+        ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
+        ...(expiresAt ? { expiresAt } : {}),
         timestamp: now,
         createdAt: now,
         expired: false,

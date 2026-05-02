@@ -118,11 +118,18 @@ test("reducer applies slash command effects to TUI state", () => {
   const withWriteTools = reducer(withProvider, { type: "COMMAND", command: parseSlashCommand("/tools write") });
   assert.deepEqual(withWriteTools.tools, []);
   assert.deepEqual(withWriteTools.pendingToolApproval.tools, ["write"]);
+  assert.equal(withWriteTools.pendingToolApproval.source, "tui-slash-command");
+  assert.equal(withWriteTools.pendingToolApproval.scope, "session");
+  assert.equal(withWriteTools.pendingToolApproval.ttlSeconds, 300);
+  assert.match(withWriteTools.pendingToolApproval.decisionId, /^apr_tui_/);
+  assert.ok(withWriteTools.pendingToolApproval.expiresAt);
   assert.match(withWriteTools.events.at(-1).text, /requires approval/i);
 
   const approvedTools = reducer(withWriteTools, { type: "COMMAND", command: parseSlashCommand("/approve-tools") });
   assert.deepEqual(approvedTools.tools, ["write"]);
   assert.equal(approvedTools.pendingToolApproval, null);
+  assert.equal(approvedTools.events.at(-1).payload.status, "allow");
+  assert.deepEqual(approvedTools.events.at(-1).payload.tools, ["write"]);
   assert.match(approvedTools.events.at(-1).text, /approved runtime tools/i);
 
   const withMode = reducer(approvedTools, { type: "COMMAND", command: parseSlashCommand("/mode plan") });
@@ -130,6 +137,47 @@ test("reducer applies slash command effects to TUI state", () => {
 
   const cleared = reducer(withTools, { type: "COMMAND", command: parseSlashCommand("/clear") });
   assert.deepEqual(cleared.events, []);
+});
+
+test("expired pending tool approvals are refused", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const pending = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/tools write") });
+  const expired = {
+    ...pending,
+    pendingToolApproval: {
+      ...pending.pendingToolApproval,
+      expiresAt: "2000-01-01T00:00:00.000Z",
+    },
+  };
+
+  const result = reducer(expired, { type: "COMMAND", command: parseSlashCommand("/approve-tools") });
+  assert.deepEqual(result.tools, []);
+  assert.equal(result.pendingToolApproval, null);
+  assert.match(result.events.at(-1).text, /approval expired/i);
+});
+
+test("prompt history preserves multiline prompts and restores drafts", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const multiline = "first line\nsecond line";
+  const afterRun = reducer(initial, { type: "RUN_STARTED", prompt: multiline, run: { id: "run_1" } });
+  assert.deepEqual(afterRun.promptHistory, [multiline]);
+  assert.equal(afterRun.input, "");
+
+  const withDraft = reducer(afterRun, { type: "SET_INPUT", value: "draft prompt" });
+  const previous = reducer(withDraft, { type: "PROMPT_HISTORY_PREV" });
+  assert.equal(previous.input, multiline);
+  assert.equal(previous.promptDraft, "draft prompt");
+
+  const restored = reducer(previous, { type: "PROMPT_HISTORY_NEXT" });
+  assert.equal(restored.input, "draft prompt");
+  assert.equal(restored.promptHistoryIndex, null);
+});
+
+test("prompt history does not duplicate consecutive prompts", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const first = reducer(initial, { type: "RUN_STARTED", prompt: "inspect", run: { id: "run_1" } });
+  const second = reducer(first, { type: "RUN_STARTED", prompt: "inspect", run: { id: "run_2" } });
+  assert.deepEqual(second.promptHistory, ["inspect"]);
 });
 
 test("runtime-sensitive slash commands do not overclaim backend effects", () => {

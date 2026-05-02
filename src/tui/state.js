@@ -4,6 +4,8 @@ import { redactText } from "../redaction.js";
 import { mapPiToolPolicy } from "../runtime/pi-tool-policy.js";
 
 const MAX_EVENTS = 200;
+const MAX_PROMPT_HISTORY = 50;
+const TOOL_APPROVAL_TTL_SECONDS = 5 * 60;
 
 function appendEvent(state, event) {
   return { ...state, events: [...state.events, event].slice(-MAX_EVENTS) };
@@ -105,6 +107,9 @@ export function createInitialState(overrides = {}) {
     product: "AlphaFoundry",
     view: "home",
     input: "",
+    promptHistory: overrides.promptHistory ?? [],
+    promptHistoryIndex: null,
+    promptDraft: "",
     mode: "Build",
     model: runtime.model,
     provider: runtime.provider,
@@ -160,6 +165,53 @@ function classifyErrorMessage(error, state = {}) {
   ].join("\n");
 }
 
+function createPendingToolApproval(tools, policy, now = new Date()) {
+  const createdAt = now.toISOString();
+  return {
+    decisionId: `apr_tui_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    tools,
+    policy,
+    source: "tui-slash-command",
+    scope: "session",
+    createdAt,
+    ttlSeconds: TOOL_APPROVAL_TTL_SECONDS,
+    expiresAt: new Date(now.getTime() + TOOL_APPROVAL_TTL_SECONDS * 1000).toISOString(),
+  };
+}
+
+function isPendingApprovalExpired(pending, now = Date.now()) {
+  const expiresAt = Date.parse(pending?.expiresAt ?? "");
+  return Number.isFinite(expiresAt) && now >= expiresAt;
+}
+
+function rememberPrompt(state, prompt) {
+  const clean = String(prompt ?? "").trim();
+  if (!clean) return { ...state, input: "", promptHistoryIndex: null, promptDraft: "" };
+  const previous = state.promptHistory ?? [];
+  const promptHistory = previous.at(-1) === clean ? previous : [...previous, clean].slice(-MAX_PROMPT_HISTORY);
+  return { ...state, promptHistory, promptHistoryIndex: null, promptDraft: "", input: "" };
+}
+
+function recallPromptHistory(state, direction) {
+  const history = state.promptHistory ?? [];
+  if (!history.length) return state;
+  if (direction === "prev") {
+    const current = state.promptHistoryIndex;
+    const nextIndex = current === null || current === undefined ? history.length - 1 : Math.max(0, current - 1);
+    return {
+      ...state,
+      promptDraft: current === null || current === undefined ? state.input ?? "" : state.promptDraft,
+      promptHistoryIndex: nextIndex,
+      input: history[nextIndex],
+    };
+  }
+  const current = state.promptHistoryIndex;
+  if (current === null || current === undefined) return state;
+  const nextIndex = current + 1;
+  if (nextIndex >= history.length) return { ...state, promptHistoryIndex: null, input: state.promptDraft ?? "", promptDraft: "" };
+  return { ...state, promptHistoryIndex: nextIndex, input: history[nextIndex] };
+}
+
 function applyToolRequest(state, tools = []) {
   const requested = Array.isArray(tools) ? tools : [];
   const policy = mapPiToolPolicy({ allow: requested, mode: state.permissionMode, workspace: state.cwd, approved: true });
@@ -167,7 +219,7 @@ function applyToolRequest(state, tools = []) {
     return appendEvent({ ...state, pendingToolApproval: null }, { type: "error", text: `Tool request denied: ${policy.reason}` });
   }
   if (policy.requiresApproval) {
-    return appendEvent({ ...state, pendingToolApproval: { tools: requested, policy } }, { type: "permission_request", text: `Tool request requires approval: ${requested.join(", ") || "none"}. Run /approve-tools to allow for this session.` });
+    return appendEvent({ ...state, pendingToolApproval: createPendingToolApproval(requested, policy) }, { type: "permission_request", text: `Tool request requires approval: ${requested.join(", ") || "none"}. Run /approve-tools to allow for this session.` });
   }
   return appendEvent({ ...state, tools: requested, pendingToolApproval: null }, { type: "tool", text: `runtime tools enabled: ${requested.join(", ") || "none"}` });
 }
@@ -175,10 +227,14 @@ function applyToolRequest(state, tools = []) {
 export function reducer(state, action) {
   switch (action.type) {
     case "SET_INPUT":
-      return { ...state, input: action.value };
+      return { ...state, input: action.value, ...(action.fromHistory ? {} : { promptHistoryIndex: null }) };
+    case "PROMPT_HISTORY_PREV":
+      return recallPromptHistory(state, "prev");
+    case "PROMPT_HISTORY_NEXT":
+      return recallPromptHistory(state, "next");
     case "SUBMIT_HOME":
       return {
-        ...state,
+        ...rememberPrompt(state, action.value),
         view: "workspace",
         goal: action.value,
         intent: { prompt: action.value },
@@ -210,7 +266,7 @@ export function reducer(state, action) {
       return applyCommand(state, action.command);
     case "RUN_STARTED":
       return {
-        ...state,
+        ...rememberPrompt(state, action.prompt),
         view: "workspace",
         goal: action.prompt ?? state.goal,
         intent: action.prompt ? { prompt: action.prompt } : state.intent,
@@ -383,8 +439,20 @@ export function applyCommand(state, command = {}) {
       return applyToolRequest(state, command.tools ?? []);
     case "approve-tools": {
       if (!state.pendingToolApproval) return appendEvent(state, { type: "assistant", text: "No pending tool request to approve." });
+      if (isPendingApprovalExpired(state.pendingToolApproval)) {
+        return appendEvent({ ...state, pendingToolApproval: null }, { type: "permission_decision", text: "Pending tool approval expired. Run /tools again to request a fresh approval." });
+      }
       const tools = state.pendingToolApproval.tools ?? [];
-      return appendEvent({ ...state, tools, pendingToolApproval: null }, { type: "permission_decision", text: `approved runtime tools for this session: ${tools.join(", ") || "none"}` });
+      const payload = {
+        decisionId: state.pendingToolApproval.decisionId,
+        status: "allow",
+        tools,
+        source: state.pendingToolApproval.source,
+        scope: state.pendingToolApproval.scope,
+        createdAt: state.pendingToolApproval.createdAt,
+        expiresAt: state.pendingToolApproval.expiresAt,
+      };
+      return appendEvent({ ...state, tools, pendingToolApproval: null }, { type: "permission_decision", payload, text: `approved runtime tools for this session: ${tools.join(", ") || "none"}` });
     }
     case "mode": {
       const mode = String(command.mode ?? "").toLowerCase();

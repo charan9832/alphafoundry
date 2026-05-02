@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, normalize } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -158,6 +158,21 @@ test("session store optionally retains only the latest events per session", () =
     assert.deepEqual(read.events.map((event) => event.sequence), [1, 2]);
     assert.deepEqual(read.events.map((event) => event.type), ["assistant", "run_end"]);
     assert.equal(read.manifest.eventCount, 2);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("session store refuses concurrent writes while a session lock exists", () => {
+  const home = tempHome();
+  try {
+    const store = createSessionStore({ env: { ALPHAFOUNDRY_HOME: home } });
+    const session = store.createSession({ cwd: "/repo", title: "locked", adapter: "mock" });
+    mkdirSync(join(home, "sessions", session.id, ".lock"));
+    assert.throws(
+      () => store.appendEvent(session.id, createRuntimeEvent("assistant", { sessionId: session.id, runId: "run_1", payload: { text: "blocked" } })),
+      /session is locked/,
+    );
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
