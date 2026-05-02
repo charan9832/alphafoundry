@@ -1,6 +1,6 @@
 # AlphaFoundry CLI Agent Control Plane
 
-AlphaFoundry is the terminal AI product. Runtime adapters such as Pi Agent may execute model calls, but AlphaFoundry owns the product control plane: run identity, durable events, sessions, redaction, export, permissions, and future replay/evals.
+AlphaFoundry is the terminal AI product. Runtime adapters such as Pi Agent may execute model calls, but AlphaFoundry owns the product control plane: run identity, durable events, sessions, redaction, export, permissions, approval decisions, replay/evals, and tool-pack boundaries.
 
 ## Current milestone
 
@@ -12,7 +12,7 @@ AlphaFoundry CLI/TUI
   -> runtime adapter (Pi today, native/OpenAI-compatible later)
 ```
 
-The initial generic control-plane slice is implemented: `af run -p ...` creates AlphaFoundry session/run records, persists schema-versioned events, and `af sessions` can list, show, and export those records. The Pi adapter still handles model/tool execution, and the current one-shot path normalizes adapter output after the process returns. This is control-plane foundation work, not a production-grade autonomous agent stack.
+The generic control-plane slice is implemented: `af run -p ...` creates AlphaFoundry session/run records, persists schema-versioned events, and `af sessions` can list, show, export, replay, and evaluate those records. The Pi JSONL path supports real-time canonical event streaming through `--stream-json`; legacy non-streaming one-shot paths still normalize adapter output after completion. This is control-plane foundation work, not a production-grade autonomous agent stack.
 
 The goal is not to add finance, MCP, subagents, or shell autonomy yet. The goal is to stop treating execution as an opaque passthrough and keep expanding AlphaFoundry-owned, schema-versioned runs before adding more agency.
 
@@ -95,9 +95,15 @@ af run -p "message" --stream-json
 af sessions list [--json]
 af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
+af sessions replay <id> [--json]
+af sessions eval <id> [--json]
+af approvals list [--json]
+af approvals show <id> [--json]
+af approvals export [--json|--ndjson]
+af approvals expire <id> [--json]
 ```
 
-`af run` creates a durable session when no existing session is supplied internally. `--json` returns the run result, session manifest, run ID, and persisted events. `--stream-json` emits newline-delimited canonical events. In the current one-shot Pi adapter path these events are flushed after the adapter returns; future native tool/runner phases should make this a live incremental event stream.
+`af run` creates a durable session when no existing session is supplied internally. `--json` returns the run result, session manifest, run ID, and persisted events. `--stream-json` emits newline-delimited canonical events in real time where the adapter supports streaming. `af sessions replay` and `af sessions eval` provide local deterministic summaries and PASS/WARN/FAIL checks over persisted session events. `af approvals` exposes the persisted approval-decision foundation; full interactive approval prompts are still a future TUI/runtime loop.
 
 Compatibility:
 
@@ -167,9 +173,20 @@ AlphaFoundry now has generic verification evidence primitives for future run sum
 
 This is generic evidence plumbing only. It is not a finance council, trading verifier, or production eval harness.
 
+## Implemented approval, replay, and eval slices
+
+AlphaFoundry now exposes the non-interactive foundations needed before higher-agency runtime work:
+
+1. Persisted approval decisions under AlphaFoundry data state, exposed through `af approvals list|show|export|expire`
+2. Deterministic session replay summaries through `af sessions replay <id>`
+3. Local PASS/WARN/FAIL session evaluations through `af sessions eval <id>`
+4. Redacted JSON/NDJSON output for scripting and diagnostics
+
+These are foundations only. The TUI does not yet pause a live tool call for an interactive approve/deny prompt, and approval decisions are not yet wired into native file/shell/MCP execution.
+
 ## Implemented generic tool-pack boundary
 
-AlphaFoundry now has a neutral opt-in tool-pack boundary for future extension work. This is registry and enablement plumbing only; it does not execute tools, load MCP servers, or ship any domain packs.
+AlphaFoundry now has a neutral opt-in tool-pack boundary for future extension work. The default registry is empty, and the safe executor skeleton only supports explicitly provided in-process generic handlers; it does not dynamically import packages, shell out, load MCP servers, or ship any domain packs.
 
 Implemented primitives:
 
@@ -180,6 +197,7 @@ Implemented primitives:
 5. Fail-closed decisions for unknown or invalid packs
 6. Redacted JSON-serializable pack metadata and decisions
 7. Native `af tool-packs` and `af tool-packs --json` status reporting for the current registry and enablement boundary
+8. Safe in-process generic handler execution skeleton that fails closed unless the pack is registered, explicitly enabled, policy-allowed, and the action exists
 
 Default AlphaFoundry behavior still enables no optional packs. Future packs must be registered explicitly, enabled explicitly, and wired through the existing permission/protected-path and verification gates before any runtime execution exists. The `af tool-packs` command reports this state honestly instead of implying executable packs are available.
 
@@ -193,12 +211,12 @@ Future finance research may only appear as a gated, opt-in, read-only council/re
 
 Before native writes/shell/MCP/domain work, still implement and test:
 
-1. tool registry metadata and risk classifier integration beyond pack metadata
-2. approval events and durable decisions
-3. workspace boundary checks wired into actual tool calls
-4. transcript redaction fixtures
-5. prompt-injection/malicious repo fixtures
-6. replay/eval harness
+1. live TUI approval prompts that pause/resume actual tool calls
+2. workspace boundary checks wired into actual native tool calls
+3. transcript redaction fixtures for adversarial output
+4. prompt-injection/malicious repo fixtures
+5. first safe built-in generic tool pack and enablement UX
+6. CI/release confirmation across supported platforms
 
 ## Non-goals for this milestone
 

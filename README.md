@@ -127,6 +127,12 @@ af run -p "hello" --stream-json
 af sessions list [--json]
 af sessions show <id> [--json]
 af sessions export <id> [--json|--ndjson]
+af sessions replay <id> [--json]
+af sessions eval <id> [--json]
+af approvals list [--json]
+af approvals show <id> [--json]
+af approvals export [--json|--ndjson]
+af approvals expire <id> [--json]
 af -p "hello"              # compatibility passthrough through the runtime adapter
 ```
 
@@ -178,9 +184,9 @@ af doctor --json
 
 ## Runtime control plane
 
-AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, and durable run/session records. `af run -p ...` records schema-versioned events under `~/.alphafoundry/sessions/` and supports JSON or NDJSON export through `af sessions`. The current Pi adapter path normalizes one-shot output into canonical events; `--stream-json` currently emits those events after the adapter returns, not as a live token stream.
+AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, durable run/session records, approval-decision records, and local replay/eval summaries. `af run -p ...` records schema-versioned events under `~/.alphafoundry/sessions/`; `--stream-json` emits canonical NDJSON events in real time where the runtime adapter exposes a stream. Sessions can be listed, shown, exported, replayed, and evaluated through `af sessions`.
 
-Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, Pi built-in tool profile mapping, and an empty opt-in tool-pack boundary. It does not implement native AlphaFoundry file, shell, MCP, finance, or domain tool execution.
+Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, Pi built-in tool profile mapping, persisted approval decisions, local replay/eval checks, and a safe in-process tool-pack executor skeleton. It does not yet implement full interactive approval UI, MCP/server loading, external tool marketplaces, finance, or domain tool execution.
 
 ## Runtime adapter
 

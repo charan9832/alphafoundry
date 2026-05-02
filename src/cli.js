@@ -9,6 +9,9 @@ import { formatDoctor, runDoctor } from "./doctor.js";
 import { resolveTsxLoaderUrl } from "./dependencies.js";
 import { redactConfigValue } from "./redaction.js";
 import { createSessionStore } from "./runtime/session-store.js";
+import { createApprovalStore } from "./runtime/approval-store.js";
+import { replaySession } from "./runtime/replay.js";
+import { evaluateSession } from "./runtime/evals.js";
 import { runPrompt } from "./runtime/runner.js";
 import { summarizeToolPackStatus } from "./runtime/tool-packs.js";
 
@@ -48,6 +51,12 @@ Usage:
   af sessions list [--json]  List durable AlphaFoundry sessions
   af sessions show <id> [--json] Show a durable session transcript
   af sessions export <id> [--json|--ndjson] Export a session transcript
+  af sessions replay <id> [--json] Replay a session into a deterministic summary
+  af sessions eval <id> [--json] Evaluate a session with local PASS/WARN/FAIL checks
+  af approvals list [--json] List persisted approval decisions
+  af approvals show <id> [--json] Show one approval decision
+  af approvals export [--json|--ndjson] Export approval decisions
+  af approvals expire <id> [--json] Expire one approval decision
   af run -p "message" [--json|--stream-json] Run a prompt with AlphaFoundry-owned session/events
   af -p "message"             Run one prompt through the Pi Agent runtime adapter
   af --provider openai --model gpt-4o-mini -p "message"
@@ -157,11 +166,13 @@ Next gate: ${status.nextGate}
 function handleSession() {
   console.log(`AlphaFoundry sessions
 
-Session-aware workflows are part of the AlphaFoundry product surface. Current one-shot and TUI execution are available; native durable session listing/export is available through:
+Session-aware workflows are part of the AlphaFoundry product surface. Durable session listing/export plus local replay/eval summaries are available through:
 
   af sessions list
   af sessions show <id>
   af sessions export <id>
+  af sessions replay <id>
+  af sessions eval <id>
 `);
   return 0;
 }
@@ -193,6 +204,14 @@ function removeOptionPairs(args, names) {
     output.push(arg);
   }
   return output;
+}
+
+function formatCheckLine(check) {
+  const details = Object.entries(check)
+    .filter(([key]) => !["name", "status"].includes(key))
+    .map(([key, value]) => `${key}=${typeof value === "object" ? JSON.stringify(value) : String(value)}`)
+    .join(" ");
+  return `${check.status}\t${check.name}${details ? `\t${details}` : ""}`;
 }
 
 function handleSessions(args) {
@@ -235,12 +254,103 @@ function handleSessions(args) {
       else printJson(exported);
       return 0;
     }
+    if (subcommand === "replay") {
+      if (!maybeId) {
+        console.error("Usage: af sessions replay <id> [--json]");
+        return 1;
+      }
+      const summary = replaySession(store, maybeId);
+      if (json) printJson(summary);
+      else {
+        console.log(`Replay ${summary.sessionId}`);
+        console.log(`Status: ${summary.status}`);
+        console.log(`Events: ${summary.eventTotal}`);
+        console.log(`Assistant text: ${summary.assistant.textLength} chars (${summary.assistant.textDigest})`);
+        console.log(`Tools: ${summary.toolCallCount} calls, ${summary.toolResultCount} results`);
+        console.log(`Errors: ${summary.errorCount}`);
+        console.log(`Duration: ${summary.durationMs ?? "unknown"} ms`);
+      }
+      return 0;
+    }
+    if (subcommand === "eval") {
+      if (!maybeId) {
+        console.error("Usage: af sessions eval <id> [--json]");
+        return 1;
+      }
+      const result = evaluateSession(store, maybeId);
+      if (json) printJson(result);
+      else {
+        console.log(`Eval ${result.sessionId}: ${result.overall}`);
+        for (const check of result.checks) console.log(formatCheckLine(check));
+      }
+      return 0;
+    }
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     return 1;
   }
 
-  console.error("Usage: af sessions list|show|export");
+  console.error("Usage: af sessions list|show|export|replay|eval");
+  return 1;
+}
+
+function handleApprovals(args) {
+  const [subcommand, maybeId] = args;
+  const store = createApprovalStore();
+  const json = args.includes("--json");
+  const ndjson = args.includes("--ndjson");
+
+  try {
+    if (subcommand === "list") {
+      const decisions = store.list();
+      if (json) printJson({ decisions });
+      else if (decisions.length === 0) console.log("No AlphaFoundry approval decisions found. Approvals are recorded when a future interactive tool flow asks for allow/deny decisions.");
+      else for (const decision of decisions) console.log(`${decision.decisionId}\t${decision.status}\t${decision.createdAt}\t${decision.toolName ?? "unknown"}\t${decision.reason ?? ""}`);
+      return 0;
+    }
+    if (subcommand === "show") {
+      if (!maybeId) {
+        console.error("Usage: af approvals show <id> [--json]");
+        return 1;
+      }
+      const decision = store.read(maybeId);
+      if (json) printJson(decision);
+      else {
+        console.log(`Approval ${decision.decisionId}`);
+        console.log(`Status: ${decision.status}`);
+        console.log(`Tool: ${decision.toolName ?? "unknown"}`);
+        console.log(`Risk: ${decision.risk ?? "unknown"}`);
+        console.log(`Session: ${decision.sessionId ?? "none"}`);
+        console.log(`Run: ${decision.runId ?? "none"}`);
+        console.log(`Reason: ${decision.reason ?? ""}`);
+        console.log(`Created: ${decision.createdAt}`);
+        if (decision.expired) console.log(`Expired: ${decision.expiredAt ?? "yes"}`);
+      }
+      return 0;
+    }
+    if (subcommand === "export") {
+      const exported = store.export({ format: ndjson ? "ndjson" : "json" });
+      if (typeof exported === "string") process.stdout.write(exported);
+      else printJson(exported);
+      return 0;
+    }
+    if (subcommand === "expire") {
+      if (!maybeId) {
+        console.error("Usage: af approvals expire <id> [--json]");
+        return 1;
+      }
+      const expired = store.expire(maybeId);
+      if (json) printJson(expired);
+      else console.log(`Approval ${expired.decisionId} expired.`);
+      return 0;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`${message}\nRecovery: run 'af approvals list' to inspect known approval decision ids.`);
+    return 1;
+  }
+
+  console.error("Usage: af approvals list|show|export|expire");
   return 1;
 }
 
@@ -313,6 +423,7 @@ async function main() {
   if (command === "tool-packs") return handleToolPacks(rest);
   if (command === "session") return handleSession(rest);
   if (command === "sessions") return handleSessions(rest);
+  if (command === "approvals") return handleApprovals(rest);
   if (command === "run") return handleRun(rest);
 
   if (args.length === 0 || args[0] === "tui") {

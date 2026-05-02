@@ -17,6 +17,8 @@ All notable AlphaFoundry changes are recorded here.
 - Added a live-streaming Pi JSONL adapter (`src/runtime/adapters/pi-stream.js`) that spawns Pi with `--mode json`, parses structured events in real time, and maps them to AlphaFoundry canonical events.
 - Wired the streaming adapter into the runner so that `af run --stream-json` emits NDJSON events live instead of batching after completion.
 - Added a test suite for the streaming adapter covering sequential, pause/resume, error recovery, mid-line resumption, CR handling, and stream end.
+- Added `af sessions replay <id>` and `af sessions eval <id>` to expose deterministic local replay summaries and PASS/WARN/FAIL session checks.
+- Added `af approvals list|show|export|expire` to expose the persisted approval-decision foundation with human-readable and JSON/NDJSON output.
 
 ### Hardened
 
@@ -28,6 +30,7 @@ All notable AlphaFoundry changes are recorded here.
 - Updated `@mariozechner/pi-coding-agent` to `^0.72.0`, resolving the moderate transitive audit findings while keeping runtime adapter tests green.
 - CLI `--stream-json` now uses real-time event streaming through the runner rather than post-hoc event replay.
 - Mock adapter in tests now also respects `onEvent` callbacks so streaming smoke tests work end-to-end.
+- CLI session and approval commands now provide clearer empty states, redacted exports, and recovery guidance for missing identifiers.
 
 ### Verification
 
@@ -40,7 +43,7 @@ All notable AlphaFoundry changes are recorded here.
 
 - Runtime execution still delegates through the Pi Agent adapter.
 - Live incremental streaming is now implemented for the Pi JSONL path; legacy batch mode remains for non-streaming one-shot runs.
-- Native file/shell/MCP execution, executable tool packs, approval persistence, replay/evals, and production-grade autonomous workflows remain gated future work.
+- Approval persistence, local replay/evals, and the safe tool-pack executor skeleton are implemented foundations; full interactive approval prompts, native file/shell/MCP execution, external tool-pack marketplaces, and production-grade autonomous workflows remain gated future work.
 - Finance remains intentionally out of scope: no finance tools, trading workflows, market-data connectors, broker/exchange APIs, portfolio logic, alpha models, finance-specific MCP servers, finance config keys, or finance examples are included.
 
 ## 0.3.0
