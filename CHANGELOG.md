@@ -37,6 +37,8 @@ All notable AlphaFoundry changes are recorded here.
 - CLI session and approval commands now provide clearer empty states, redacted exports, and recovery guidance for missing identifiers.
 - Local env file reads are cached by mtime+size for faster repeated doctor/runtime/TUI startup checks, while writes tighten existing file permissions before writing and invalidate the cache.
 - `af doctor` now checks local env file permissions and warns when the secrets file is accessible by group/other users.
+- Runtime adapter child processes can now be bounded by `ALPHAFOUNDRY_RUN_TIMEOUT_MS` or per-call `timeoutMs`; timed-out runs terminate the child process and return status `124`.
+- Added adversarial redaction coverage for common GitHub, npm, Slack, Google, bearer/basic auth, URL-credential, and multiline env-dump patterns across text, nested objects, session persistence, and exports.
 
 ### Verification
 

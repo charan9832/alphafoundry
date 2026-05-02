@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { buildConfiguredPiArgs, resolvePiProcessEnv } from "../../pi-backend.js";
+import { buildConfiguredPiArgs, resolvePiProcessEnv, resolveRunTimeoutMs } from "../../pi-backend.js";
 import { resolveRuntimeConfig } from "../../config.js";
 import { mapPiToolPolicy } from "../pi-tool-policy.js";
 import { createRuntimeEvent } from "../events.js";
@@ -148,11 +148,13 @@ export function runPiJsonStream(args, options = {}) {
   const maxOutputBytes = options.maxOutputBytes ?? 1024 * 1024;
   const onEvent = options.onEvent;
   const signal = options.signal;
+  const baseEnv = options.env ?? process.env;
+  const timeoutMs = resolveRunTimeoutMs({ ...options, processEnv: baseEnv });
 
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, buildConfiguredPiArgs([...args, "--mode", "json"], options.runtimeConfig, { processEnv: options.env ?? process.env }), {
+    const child = spawn(process.execPath, buildConfiguredPiArgs([...args, "--mode", "json"], options.runtimeConfig, { processEnv: baseEnv }), {
       stdio: ["ignore", "pipe", "pipe"],
-      env: resolvePiProcessEnv(options.runtimeConfig, options.env ?? process.env),
+      env: resolvePiProcessEnv(options.runtimeConfig, baseEnv),
     });
 
     let stdoutBuffer = "";
@@ -160,6 +162,9 @@ export function runPiJsonStream(args, options = {}) {
     let cappedBytes = 0;
     let totalBytes = 0;
     let agentEnded = false;
+    let timedOut = false;
+    let settled = false;
+    let timeoutHandle;
     const context = {
       sessionId: options.sessionId,
       runId: options.runId,
@@ -229,20 +234,35 @@ export function runPiJsonStream(args, options = {}) {
     });
 
     function finish(status, errorMessage) {
+      if (settled) return;
+      settled = true;
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      const timeoutError = timedOut ? `AlphaFoundry runtime timed out after ${timeoutMs} ms` : "";
+      const terminalError = [errorMessage, timeoutError].filter(Boolean).join("\n");
       // Process any remaining stdout
       if (stdoutBuffer.trim()) {
         processLine(stdoutBuffer.trim());
         stdoutBuffer = "";
       }
 
+      if (timeoutError) {
+        emit(
+          createRuntimeEvent("error", {
+            sessionId: context.sessionId,
+            runId: context.runId,
+            payload: { text: timeoutError },
+          }),
+        );
+      }
+
       // If agent_end never arrived, synthesize run_end
       if (!agentEnded) {
-        const ok = status === 0 && !errorMessage && !stderrBuffer;
+        const ok = !timedOut && status === 0 && !terminalError && !stderrBuffer;
         emit(
           createRuntimeEvent("run_end", {
             sessionId: context.sessionId,
             runId: context.runId,
-            payload: { ok, exitCode: status ?? 1, adapter: "pi" },
+            payload: { ok, exitCode: timedOut ? 124 : (status ?? 1), adapter: "pi" },
           }),
         );
       }
@@ -267,15 +287,16 @@ export function runPiJsonStream(args, options = {}) {
       const errorEvents = allEvents.filter((e) => e.type === "error");
       const lastRunEnd = allEvents.filter((e) => e.type === "run_end").at(-1);
       const eventError = errorEvents.map((e) => e.payload?.text ?? e.payload?.message ?? "").filter(Boolean).join("\n");
-      const ok = status === 0 && !errorMessage && !stderrBuffer && errorEvents.length === 0 && lastRunEnd?.payload?.ok !== false;
+      const ok = !timedOut && status === 0 && !terminalError && !stderrBuffer && errorEvents.length === 0 && lastRunEnd?.payload?.ok !== false;
 
       resolve({
         ok,
-        status: ok ? 0 : (status && status !== 0 ? status : 1),
+        status: timedOut ? 124 : (ok ? 0 : (status && status !== 0 ? status : 1)),
         output,
-        error: stderrBuffer.trim() || errorMessage || eventError || undefined,
+        error: stderrBuffer.trim() || terminalError || eventError || undefined,
         events: allEvents,
         cappedBytes,
+        timedOut,
       });
     }
 
@@ -286,6 +307,25 @@ export function runPiJsonStream(args, options = {}) {
     child.on("close", (status) => {
       finish(status ?? 0);
     });
+
+    if (timeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        try {
+          child.kill("SIGTERM");
+        } catch {
+          // ignore cleanup errors
+        }
+        setTimeout(() => {
+          try {
+            child.kill("SIGKILL");
+          } catch {
+            // ignore cleanup errors
+          }
+        }, 1000).unref?.();
+      }, timeoutMs);
+      timeoutHandle.unref?.();
+    }
 
     if (signal) {
       const onAbort = () => {

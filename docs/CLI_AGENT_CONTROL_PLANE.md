@@ -216,10 +216,9 @@ Before native writes/shell/MCP/domain work, still implement and test:
 
 1. live TUI approval prompts that pause/resume actual tool calls
 2. workspace boundary checks wired into actual native tool calls
-3. transcript redaction fixtures for adversarial output
-4. prompt-injection/malicious repo fixtures
-5. first safe built-in generic tool pack and enablement UX
-6. CI/release confirmation across supported platforms
+3. prompt-injection/malicious repo fixtures
+4. first safe built-in generic tool pack and enablement UX
+5. CI/release confirmation across supported platforms
 
 ## Non-goals for this milestone
 

@@ -45,6 +45,18 @@ function tempConfigPath() {
   return { dir, path: join(dir, "config.json") };
 }
 
+function fileMode(path) {
+  return statSync(path).mode & 0o777;
+}
+
+function assertRestrictedFileMode(path) {
+  if (process.platform === "win32") {
+    assert.ok(fileMode(path) > 0, "Windows should expose a file mode");
+    return;
+  }
+  assert.equal(fileMode(path), 0o600);
+}
+
 test("defaultConfigPath uses ~/.alphafoundry/config.json unless overridden", () => {
   assert.equal(defaultConfigPath({ HOME: "/home/example" }), normalize("/home/example/.alphafoundry/config.json"));
   assert.equal(defaultConfigPath({ ALPHAFOUNDRY_CONFIG_PATH: "/tmp/af.json" }), "/tmp/af.json");
@@ -281,7 +293,7 @@ test("resolveRuntimeConfig loads local AlphaFoundry env file without persisting 
     assert.equal(defaultSecretsPath({}, { configPath: temp.path }), secrets.path);
     assert.equal(runtime.env.OPENROUTER_API_KEY, "sk-or-test-local-secret");
     assert.doesNotMatch(readFileSync(temp.path, "utf8"), /sk-or-test-local-secret/);
-    assert.equal((statSync(secrets.path).mode & 0o777), 0o600);
+    assertRestrictedFileMode(secrets.path);
 
     const shellOverride = resolveRuntimeConfig({}, { path: temp.path, env: { OPENROUTER_API_KEY: "shell-wins" } });
     assert.equal(shellOverride.env.OPENROUTER_API_KEY, "shell-wins");
@@ -302,7 +314,7 @@ test("writeLocalEnv tightens existing file permissions before preserving secrets
     assert.equal(result.path, envPath);
     assert.match(envText, /OLD_KEY=/);
     assert.match(envText, /NEW_KEY=/);
-    assert.equal((statSync(envPath).mode & 0o777), 0o600);
+    assertRestrictedFileMode(envPath);
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
@@ -371,7 +383,7 @@ test("doctor secrets check passes when local env file is secure", () => {
     const secretsCheck = report.checks.find((check) => check.name === "secrets");
     assert.equal(secretsCheck.status, "pass");
     assert.match(secretsCheck.message, /secure/);
-    assert.equal(secretsCheck.details.mode, 0o600);
+    if (process.platform !== "win32") assert.equal(secretsCheck.details.mode, 0o600);
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
@@ -391,7 +403,7 @@ test("doctor secrets check warns when local env file is accessible by group or o
     const secretsCheck = report.checks.find((check) => check.name === "secrets");
     assert.equal(secretsCheck.status, "warn");
     assert.match(secretsCheck.message, /accessible by group\/other/);
-    assert.equal(secretsCheck.details.mode, 0o644);
+    assert.ok((secretsCheck.details.mode & 0o077) !== 0);
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
@@ -486,7 +498,7 @@ test("af onboard accepts a pasted API key and stores it in local env file, not c
     const envText = readFileSync(envPath, "utf8");
     assert.match(envText, /OPENROUTER_API_KEY=/);
     assert.match(envText, new RegExp(secret));
-    assert.equal((statSync(envPath).mode & 0o777), 0o600);
+    assertRestrictedFileMode(envPath);
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }

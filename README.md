@@ -208,7 +208,7 @@ Tool governance is generic foundation work. AlphaFoundry has deterministic permi
 
 ## Runtime adapter
 
-The current runtime adapter delegates model/tool execution to `@mariozechner/pi-coding-agent`. Future runtime work will deepen live streaming, backend session integration, cancellation, tool visibility, and provider/model discovery while preserving AlphaFoundry as the product identity.
+The current runtime adapter delegates model/tool execution to `@mariozechner/pi-coding-agent`. Runtime child processes can be bounded with `ALPHAFOUNDRY_RUN_TIMEOUT_MS` to prevent hung adapter runs; timed-out runs return status `124` and persist terminal error/run-end events where streaming events are available. Future runtime work will deepen live streaming, backend session integration, cancellation, tool visibility, and provider/model discovery while preserving AlphaFoundry as the product identity.
 
 ## Release, roadmap, and project support
 

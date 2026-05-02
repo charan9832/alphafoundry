@@ -155,7 +155,7 @@ test("/export redacts runtime and tool transcript text", () => {
   assert.doesNotMatch(exported.events.at(-1).text, new RegExp(apiSecret));
   assert.doesNotMatch(exported.events.at(-1).text, new RegExp(bearerSecret));
   assert.match(exported.events.at(-1).text, /token=/);
-  assert.match(exported.events.at(-1).text, /Authorization: Bearer/);
+  assert.match(exported.events.at(-1).text, /Authorization: \[REDACTED_SECRET\]/);
 });
 
 test("state supports runtime run lifecycle, cancellation, errors, stats, and sessions", () => {

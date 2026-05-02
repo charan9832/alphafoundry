@@ -121,3 +121,23 @@ test("runPiJsonStream handles abort signal", async () => {
   const result = await promise;
   assert.ok(typeof result.status === "number");
 });
+
+test("runPiJsonStream times out slow child processes with terminal events", async () => {
+  const events = [];
+  const result = await runPiJsonStream([], {
+    runtimeConfig: { provider: "default", model: "default" },
+    env: { ...process.env, ALPHAFOUNDRY_PI_CLI_PATH: join(fixtureDir, "fixtures", "fixture-pi-sleep.mjs") },
+    sessionId: "s1",
+    runId: "r1",
+    prompt: "test",
+    timeoutMs: 25,
+    onEvent: (event) => events.push(event),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 124);
+  assert.equal(result.timedOut, true);
+  assert.match(result.error, /timed out after 25 ms/);
+  assert.ok(events.some((event) => event.type === "error" && /timed out/.test(event.payload.text)));
+  assert.equal(events.filter((event) => event.type === "run_end").at(-1).payload.ok, false);
+  assert.equal(events.filter((event) => event.type === "run_end").at(-1).payload.exitCode, 124);
+});

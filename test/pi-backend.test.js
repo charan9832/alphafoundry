@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildConfiguredPiArgs, resolvePiProcessEnv, runPi } from "../src/pi-backend.js";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { buildConfiguredPiArgs, resolvePiProcessEnv, resolveRunTimeoutMs, runPi } from "../src/pi-backend.js";
+
+const fixtureDir = dirname(fileURLToPath(import.meta.url));
 
 test("buildConfiguredPiArgs injects configured provider/model for prompt runs only", () => {
   const args = buildConfiguredPiArgs(["-p", "hello"], { provider: "openai", model: "gpt-4o-mini" });
@@ -41,4 +45,24 @@ test("legacy Pi backend caps retained output", async () => {
   assert.equal(result.ok, true);
   assert.ok(result.output.length <= 2);
   assert.ok(result.cappedBytes > 0);
+});
+
+test("resolveRunTimeoutMs parses explicit and environment timeout values", () => {
+  assert.equal(resolveRunTimeoutMs({ timeoutMs: 50 }), 50);
+  assert.equal(resolveRunTimeoutMs({ timeoutMs: "25" }), 25);
+  assert.equal(resolveRunTimeoutMs({ processEnv: { ALPHAFOUNDRY_RUN_TIMEOUT_MS: "75" } }), 75);
+  assert.equal(resolveRunTimeoutMs({ timeoutMs: 0 }), 0);
+  assert.equal(resolveRunTimeoutMs({ timeoutMs: false }), 0);
+  assert.equal(resolveRunTimeoutMs({ timeoutMs: "invalid" }), 0);
+});
+
+test("legacy Pi backend times out and terminates slow child processes", async () => {
+  const result = await runPi([], {
+    processEnv: { ...process.env, ALPHAFOUNDRY_PI_CLI_PATH: join(fixtureDir, "fixtures", "fixture-pi-sleep.mjs") },
+    timeoutMs: 25,
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 124);
+  assert.equal(result.timedOut, true);
+  assert.match(result.error, /timed out after 25 ms/);
 });

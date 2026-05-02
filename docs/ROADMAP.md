@@ -50,13 +50,13 @@ Goal: make AlphaFoundry releasable and supportable.
 - Keep `package-lock.json` consistent.
 - Add package metadata: license, repository, bugs, homepage, and keywords.
 - Add Windows install/update/troubleshooting documentation.
-- Add process timeout, redaction, backend wrapper, and TTY regression tests.
+- Add redaction, backend wrapper, TTY, and runtime timeout regression tests.
 
 ## Current status
 
-The installed package path, `af onboard`, config-controlled runtime execution, config validation/redaction, provider-aware doctor diagnostics, RPC lifecycle hardening, TUI command honesty, durable session/event records, `af sessions` list/show/export/replay/eval, `af approvals` list/show/export/expire, Pi JSONL live streaming, Pi tool-policy flag mapping, generic permission/protected-path decisions, generic verification evidence summaries, and an opt-in tool-pack boundary with a safe in-process executor skeleton are in place.
+The installed package path, `af onboard`, config-controlled runtime execution, config validation/redaction, provider-aware doctor diagnostics, RPC lifecycle hardening, TUI command honesty, durable session/event records, `af sessions` list/show/export/replay/eval, `af approvals` list/show/export/expire, Pi JSONL live streaming, bounded runtime child-process timeouts, Pi tool-policy flag mapping, generic permission/protected-path decisions, generic verification evidence summaries, and an opt-in tool-pack boundary with a safe in-process executor skeleton are in place.
 
-This is still foundation work. Remaining product work is concentrated in live TUI approval prompts that pause/resume actual tool calls, richer runtime tool panels, first built-in generic tool packs, adversarial redaction/prompt-injection fixtures, CI matrix confirmation, and production-grade autonomous workflows.
+This is still foundation work. Remaining product work is concentrated in live TUI approval prompts that pause/resume actual tool calls, richer runtime tool panels, first built-in generic tool packs, prompt-injection/malicious-repo fixtures, CI matrix confirmation, and production-grade autonomous workflows.
 
 The next release-readiness focus is reproducible release discipline: follow `docs/RELEASE.md`, keep CI green across supported platforms, and update `CHANGELOG.md` before publishing. Curated Pi package integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the AlphaFoundry release path is stable.
 

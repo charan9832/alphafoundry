@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalize, join } from "node:path";
+import { dirname, normalize, join } from "node:path";
 
 import {
   PERMISSION_MODES,
@@ -15,8 +15,9 @@ import {
   normalizeWorkspacePath,
 } from "../src/runtime/protected-paths.js";
 
-const workspace = normalize("/workspace/project");
-const afHome = normalize("/home/example/.alphafoundry");
+const workspace = normalize(join(process.cwd(), "test-workspace"));
+const afHome = normalize(join(process.cwd(), ".alphafoundry-test"));
+const outsideWorkspace = normalize(join(dirname(workspace), "outside.txt"));
 
 function decision(input) {
   return decidePermission({ workspace, alphaFoundryHome: afHome, ...input });
@@ -39,7 +40,7 @@ test("workspace path normalization handles POSIX and Windows-like paths determin
   assert.equal(windows, normalize(join(workspace, "src", "nested", "file.js")));
 
   assert.equal(isPathInsideWorkspace(join(workspace, "src", "file.js"), workspace), true);
-  assert.equal(isPathInsideWorkspace("/workspace/other/file.js", workspace), false);
+  assert.equal(isPathInsideWorkspace(outsideWorkspace, workspace), false);
   assert.equal(isPathInsideWorkspace("../outside.txt", workspace), false);
 });
 

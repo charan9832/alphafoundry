@@ -6,14 +6,20 @@ function looksSensitiveKey(key = "") {
 }
 
 function looksSecretValue(value = "") {
-  return /sk-[A-Za-z0-9_-]+|bearer\s+\S+|\b[A-Za-z0-9+/]{32,}={0,2}\b/i.test(String(value));
+  return /sk-[A-Za-z0-9_-]+|github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9_]+|npm_[A-Za-z0-9]+|xox[baprs]-[A-Za-z0-9-]+|AIza[A-Za-z0-9_-]+|bearer\s+\S+|basic\s+\S+|\b[A-Za-z0-9+/]{32,}={0,2}\b/i.test(String(value));
 }
 
 export function redactText(value) {
   return String(value)
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s/@:]+):([^\s/@]+)@/gi, `$1${REDACTED_SECRET}:${REDACTED_SECRET}@`)
+    .replace(/github_pat_[A-Za-z0-9_]+/gi, REDACTED_SECRET)
+    .replace(/gh[pousr]_[A-Za-z0-9_]+/gi, REDACTED_SECRET)
+    .replace(/npm_[A-Za-z0-9]+/gi, REDACTED_SECRET)
+    .replace(/xox[baprs]-[A-Za-z0-9-]+/gi, REDACTED_SECRET)
+    .replace(/AIza[A-Za-z0-9_-]+/gi, REDACTED_SECRET)
     .replace(/sk-[A-Za-z0-9_-]+/gi, REDACTED_SECRET)
-    .replace(/bearer\s+\S+/gi, `Bearer ${REDACTED_SECRET}`)
-    .replace(/(api[_-]?key|token|secret|password)(["'\s:=]+)([^"'\s,}]+)/gi, `$1$2${REDACTED_SECRET}`);
+    .replace(/(bearer|basic)\s+\S+/gi, `$1 ${REDACTED_SECRET}`)
+    .replace(/(api[_-]?key|token|secret|password|authorization)(["'\s:=]+)([^"'\s,}]+)/gi, `$1$2${REDACTED_SECRET}`);
 }
 
 export function redactConfigValue(key, value) {

@@ -62,9 +62,26 @@ export function resolvePiProcessEnv(runtimeConfig = resolveRuntimeConfig(), base
   };
 }
 
+export function resolveRunTimeoutMs(options = {}) {
+  if (options.timeoutMs === null || options.timeoutMs === false) return 0;
+  const raw = options.timeoutMs ?? options.processEnv?.ALPHAFOUNDRY_RUN_TIMEOUT_MS ?? process.env.ALPHAFOUNDRY_RUN_TIMEOUT_MS;
+  if (raw === undefined || raw === "") return 0;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+function terminateChild(child, signal = "SIGTERM") {
+  try {
+    if (!child.killed) child.kill(signal);
+  } catch {
+    // ignore cleanup errors
+  }
+}
+
 export function runPi(args = [], options = {}) {
   const maxOutputBytes = options.maxOutputBytes ?? 1024 * 1024;
   const processEnv = options.processEnv ?? process.env;
+  const timeoutMs = resolveRunTimeoutMs({ ...options, processEnv });
   return new Promise((resolve) => {
     const child = spawn(process.execPath, buildPiArgs(args, { env: processEnv }), {
       stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
@@ -77,6 +94,9 @@ export function runPi(args = [], options = {}) {
     let stdout = "";
     let stderr = "";
     let cappedBytes = 0;
+    let timedOut = false;
+    let settled = false;
+    let timeoutHandle;
     const appendCapped = (current, chunk) => {
       const text = chunk.toString();
       const remaining = Math.max(0, maxOutputBytes - Buffer.byteLength(stdout) - Buffer.byteLength(stderr));
@@ -94,8 +114,26 @@ export function runPi(args = [], options = {}) {
     child.stderr?.on("data", (chunk) => {
       stderr = appendCapped(stderr, chunk);
     });
-    child.on("error", (error) => resolve({ ok: false, status: 1, output: stdout, error: error.message, cappedBytes }));
-    child.on("close", (status) => resolve({ ok: status === 0, status: status ?? 0, output: stdout, error: stderr, cappedBytes }));
+    function finish(status, errorMessage = "") {
+      if (settled) return;
+      settled = true;
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      const timeoutError = timedOut ? `AlphaFoundry runtime timed out after ${timeoutMs} ms` : "";
+      const error = [stderr, errorMessage, timeoutError].filter(Boolean).join("\n");
+      resolve({ ok: !timedOut && status === 0, status: timedOut ? 124 : (status ?? 0), output: stdout, error, cappedBytes, timedOut });
+    }
+
+    if (timeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        terminateChild(child, "SIGTERM");
+        setTimeout(() => terminateChild(child, "SIGKILL"), 1000).unref?.();
+      }, timeoutMs);
+      timeoutHandle.unref?.();
+    }
+
+    child.on("error", (error) => finish(1, error.message));
+    child.on("close", (status) => finish(status ?? 0));
   });
 }
 
