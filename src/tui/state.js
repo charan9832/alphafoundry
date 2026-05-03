@@ -118,7 +118,7 @@ export function createInitialState(overrides = {}) {
     promptHistory: overrides.promptHistory ?? [],
     promptHistoryIndex: null,
     promptDraft: "",
-    mode: "Build",
+    mode: overrides.mode ?? "ask",
     model: runtime.model,
     provider: runtime.provider,
     cwd: runtime.cwd,
