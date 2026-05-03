@@ -23,6 +23,8 @@ npm run check
 npm audit --omit=dev --audit-level=moderate
 npm pack --dry-run --json
 node scripts/smoke-installed.mjs
+script -q -c 'timeout 6s node src/cli.js' /tmp/alphafoundry-tui-smoke.raw
+# Run a short provider-backed dogfood prompt through src/runtime/runner.js with ALPHAFOUNDRY_RUN_TIMEOUT_MS set.
 git diff --check
 ```
 

@@ -257,5 +257,6 @@ Runtime child processes can be bounded with `ALPHAFOUNDRY_RUN_TIMEOUT_MS` to pre
 
 - See `docs/ROADMAP.md` for the council-derived implementation phases.
 - See `docs/RELEASE.md` for the release checklist, verification gates, and npm publish runbook.
+- See `docs/RELEASE_CANDIDATE_EVIDENCE.md` for the latest PTY TUI smoke, real runtime dogfood, local gate, and GitHub CI evidence.
 - See `docs/BENEFITS_APPLICATION_KIT.md` for reusable open-source, student, startup, and cloud-credit application language.
 - See `CHANGELOG.md` for notable changes and known limitations.
