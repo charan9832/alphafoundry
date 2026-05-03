@@ -10,7 +10,7 @@ AlphaFoundry is a standalone terminal AI product. Treat `af`, the docs, configur
 - Default config: `~/.alphafoundry/config.json`
 - Config override: `ALPHAFOUNDRY_CONFIG_PATH`
 
-Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. The current runtime adapter uses `@mariozechner/pi-coding-agent`, but Pi Agent is not the product identity. Mention Pi Agent only when discussing runtime internals, backend delegation, diagnostics, or adapter behavior.
+Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. Runtime adapter details are not product identity and should stay out of user-facing product copy unless a task explicitly concerns internal runtime diagnostics.
 
 ## Architecture boundaries
 
@@ -28,7 +28,7 @@ Runtime adapter layer:
 
 - Model/tool execution
 - Provider-specific behavior
-- Pi built-in tool execution when allowed through mapped adapter flags
+- Built-in runtime tool execution when allowed through mapped adapter flags
 - Backend session details beyond current AlphaFoundry session/event persistence
 
 ## Config and secrets

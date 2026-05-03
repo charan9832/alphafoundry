@@ -6,7 +6,7 @@ All notable AlphaFoundry changes are recorded here.
 
 ### Added
 
-- Documented the manual release runbook, required local gates, CI matrix expectations, npm publish dry-run, tagging, rollback guidance, and Pi package integration boundary.
+- Documented the manual release runbook, required local gates, CI matrix expectations, npm publish dry-run, tagging, rollback guidance, and runtime integration boundary.
 - Added the CLI agent control-plane architecture note covering AlphaFoundry-owned sessions, canonical runtime events, adapter boundaries, and safety gates before native tools/MCP/domain work.
 - Added durable AlphaFoundry session storage with schema-versioned event logs and `af sessions list|show|export` over the current runtime adapter.
 - Added an empty opt-in tool-pack boundary with generic pack id validation, fail-closed enablement, domain-gated pack id rejection, redacted JSON-serializable decisions, and native `af tool-packs [--json]` status reporting.
@@ -14,7 +14,7 @@ All notable AlphaFoundry changes are recorded here.
 - Added an AlphaFoundry benefits application kit for reusable open-source, student, startup, and cloud-credit application language.
 - Added CLI coverage for version output, missing prompt usage errors, missing session errors, and JSON session export consistency.
 - Added a doctor `env` check that reports whether configured environment variable names resolve in the current shell without exposing values.
-- Added a live-streaming Pi JSONL adapter (`src/runtime/adapters/pi-stream.js`) that spawns Pi with `--mode json`, parses structured events in real time, and maps them to AlphaFoundry canonical events.
+- Added a live-streaming runtime adapter that parses structured events in real time and maps them to AlphaFoundry canonical events.
 - Wired the streaming adapter into the runner so runtime events can be emitted live instead of batching after completion.
 - Added a test suite for the streaming adapter covering sequential, pause/resume, error recovery, mid-line resumption, CR handling, and stream end.
 - Added `af sessions replay <id>` and `af sessions eval <id>` to expose deterministic local replay summaries and PASS/WARN/FAIL session checks.
@@ -26,12 +26,12 @@ All notable AlphaFoundry changes are recorded here.
 
 ### Hardened
 
-- Replaced remaining primary TUI status/footer labels with AlphaFoundry runtime-adapter wording while keeping Pi mentions limited to adapter internals and diagnostics.
+- Replaced remaining primary TUI status/footer labels with AlphaFoundry runtime wording while keeping adapter implementation details out of user-facing product copy.
 - Added a pure deterministic runtime permission/protected-path layer for future tool calls, covering plan/ask/act/auto modes, risk classes, protected workspace paths, AlphaFoundry state, credential files, and redacted JSON-serializable decisions.
 - Kept optional/domain packs disabled by default; future executable packs must still pass permission, protected-path, approval, redaction, and verification gates.
 - Derived CLI `--version`/`-v` output from `package.json` to prevent release version drift.
 - Cleared the cached TUI runtime-runner promise after startup rejection so a later prompt can retry runtime creation.
-- Updated `@mariozechner/pi-coding-agent` to `^0.72.0`, resolving the moderate transitive audit findings while keeping runtime adapter tests green.
+- Updated the runtime dependency set, resolving the moderate transitive audit findings while keeping runtime adapter tests green.
 - Runtime streaming now uses real-time event streaming through the runner rather than post-hoc event replay.
 - Mock adapter in tests now also respects `onEvent` callbacks so streaming smoke tests work end-to-end.
 - CLI session and approval commands now provide clearer empty states, redacted exports, and recovery guidance for missing identifiers.
@@ -49,8 +49,8 @@ All notable AlphaFoundry changes are recorded here.
 
 ### Known limitations
 
-- Runtime execution still delegates through the Pi Agent adapter.
-- Live incremental streaming is now implemented for the Pi JSONL path; legacy batch mode remains for non-streaming runtime paths.
+- Runtime execution delegates through AlphaFoundry's configured runtime layer.
+- Live incremental streaming is implemented for structured runtime events; legacy batch mode remains for non-streaming runtime paths.
 - Approval persistence, local replay/evals, `/tools` plus `/approve-tools` request/approval flow, and the safe tool-pack executor skeleton are implemented foundations; full interactive approval prompts that pause/resume live tool calls, native file/shell/MCP execution, external tool-pack marketplaces, and production-grade autonomous workflows remain gated future work.
 - Finance remains intentionally out of scope: no finance tools, trading workflows, market-data connectors, broker/exchange APIs, portfolio logic, alpha models, finance-specific MCP servers, finance config keys, or finance examples are included.
 
@@ -75,6 +75,6 @@ All notable AlphaFoundry changes are recorded here.
 
 ### Known limitations
 
-- Runtime execution currently delegates through the Pi Agent adapter.
+- Runtime execution currently delegates through AlphaFoundry's configured runtime layer.
 - Some runtime capabilities remain adapter-dependent, including provider/model discovery, tool enforcement, and backend session semantics.
-- Curated Pi package integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the core release path is reproducible.
+- Curated runtime integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the core release path is reproducible.

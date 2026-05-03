@@ -1,7 +1,7 @@
 {
   "name": "alphafoundry",
   "version": "0.4.0",
-  "description": "AlphaFoundry: a native terminal AI workspace with a React Ink TUI and Pi runtime adapter.",
+  "description": "AlphaFoundry: a native terminal AI workspace with a React Ink TUI and durable runtime control plane.",
   "type": "module",
   "bin": {
     "af": "./src/cli.js",
@@ -58,7 +58,6 @@
     "ai-agent",
     "tui",
     "ink",
-    "terminal",
-    "pi-agent"
+    "terminal"
   ]
 }

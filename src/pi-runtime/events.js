@@ -24,7 +24,7 @@ export function createEventBus() {
   return {
     emit(event) {
       if (!event || !isPiRuntimeEventType(event.type)) {
-        throw new TypeError(`Unknown Pi runtime event type: ${event?.type ?? "<missing>"}`);
+        throw new TypeError(`Unknown runtime event type: ${event?.type ?? "<missing>"}`);
       }
       const enriched = {
         timestamp: new Date().toISOString(),
@@ -38,7 +38,7 @@ export function createEventBus() {
 
     subscribe(listener) {
       if (typeof listener !== "function") {
-        throw new TypeError("Pi runtime event listener must be a function");
+        throw new TypeError("Runtime event listener must be a function");
       }
       listeners.add(listener);
       return () => {

@@ -6,10 +6,10 @@ This roadmap reflects the council review and separates product identity, runtime
 
 Goal: replace shallow one-shot execution in interactive flows with a long-lived runtime adapter.
 
-- Build a `src/pi-runtime` interface around Pi RPC or an equivalent streaming runtime mode.
+- Build a runtime interface around streaming execution mode.
 - Support lifecycle methods: start, send prompt, abort, set model, read stats, and stop.
 - Map runtime events into AlphaFoundry state: assistant deltas, tool calls, errors, usage, and session metadata.
-- Preserve AlphaFoundry as the product surface while keeping Pi Agent as the adapter.
+- Preserve AlphaFoundry as the product surface while keeping runtime-adapter details behind that surface.
 
 ## Phase 2: Real Ink Commands and Sessions
 
@@ -54,10 +54,10 @@ Goal: make AlphaFoundry releasable and supportable.
 
 ## Current status
 
-The installed package path, `af onboard`, config-controlled runtime execution, config validation/redaction, provider-aware doctor diagnostics, RPC lifecycle hardening, TUI command honesty, durable session/event records, `af sessions` list/show/export/replay/eval, `af approvals` list/show/export/expire, Pi JSONL live streaming, bounded runtime child-process timeouts, Pi tool-policy flag mapping, generic permission/protected-path decisions, generic verification evidence summaries, and an opt-in tool-pack boundary with a safe in-process executor skeleton are in place.
+The installed package path, `af onboard`, config-controlled runtime execution, config validation/redaction, provider-aware doctor diagnostics, runtime lifecycle hardening, TUI command honesty, durable session/event records, `af sessions` list/show/export/replay/eval, `af approvals` list/show/export/expire, live streaming, bounded runtime child-process timeouts, runtime tool-policy flag mapping, generic permission/protected-path decisions, generic verification evidence summaries, and an opt-in tool-pack registry skeleton are now in place.
 
 This is still foundation work. Remaining product work is concentrated in live TUI approval prompts that pause/resume actual tool calls, richer runtime tool panels, first built-in generic tool packs, prompt-injection/malicious-repo fixtures, CI matrix confirmation, and production-grade autonomous workflows.
 
-The next release-readiness focus is reproducible release discipline: follow `docs/RELEASE.md`, keep CI green across supported platforms, and update `CHANGELOG.md` before publishing. Curated Pi package integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the AlphaFoundry release path is stable.
+The next release-readiness focus is reproducible release discipline: follow `docs/RELEASE.md`, keep CI green across supported platforms, and update `CHANGELOG.md` before publishing. Curated runtime integrations for subagents, web access, guardrails, LSP, context, and extension management are deferred until the AlphaFoundry release path is stable.
 
 Finance remains intentionally gated. Do not add finance tools, trading workflows, market-data connectors, broker/exchange APIs, portfolio logic, alpha models, finance-specific MCP servers, finance config keys, or finance examples. Future finance work, if approved later, should start as gated read-only research/council/tool-pack exploration after the generic plugin boundary, permissions, redaction, replay/evals, and default-excludes-finance behavior are tested.

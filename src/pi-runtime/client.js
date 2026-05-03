@@ -127,7 +127,7 @@ export function createPiRuntime(options = {}) {
 
     sendPrompt(prompt, runOptions = {}) {
       if (activeRun) {
-        return Promise.reject(new Error("Pi runtime already has an active run"));
+        return Promise.reject(new Error("Runtime already has an active run"));
       }
       if (typeof prompt !== "string" || prompt.length === 0) {
         return Promise.reject(new TypeError("prompt must be a non-empty string"));

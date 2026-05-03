@@ -178,7 +178,7 @@ test("session store refuses concurrent writes while a session lock exists", () =
   }
 });
 
-test("Pi adapter converts prompt results into canonical runtime events", () => {
+test("adapter converts prompt results into canonical runtime events", () => {
   const events = piResultToEvents({
     sessionId: "ses_test",
     runId: "run_test",

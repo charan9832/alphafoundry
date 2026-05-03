@@ -5,7 +5,7 @@ This runbook defines the minimum release process for AlphaFoundry. It is intenti
 ## Release principles
 
 - Release AlphaFoundry as the product users install and operate.
-- Keep Pi Agent references limited to runtime adapter internals, diagnostics, and troubleshooting.
+- Keep runtime-adapter implementation details out of user-facing product copy unless needed for diagnostics or troubleshooting.
 - Do not publish or tag from a dirty working tree.
 - Do not store or commit raw secrets in config, docs, fixtures, logs, or release artifacts.
 - Do not claim production-ready unless every local gate and the GitHub CI matrix are green and no known FAIL-level blocker remains.

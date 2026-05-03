@@ -46,7 +46,7 @@ function withToolPolicyArgs(args = [], options = {}) {
     env: options.processEnv,
     home: options.home,
   });
-  if (!result.ok) throw new Error(`Pi tool policy denied: ${result.reason}`);
+  if (!result.ok) throw new Error(`Runtime tool policy denied: ${result.reason}`);
   return [...args, ...result.flags];
 }
 
@@ -154,6 +154,6 @@ export function runPiPrompt(prompt, options = {}) {
     env: options.processEnv,
     home: options.home,
   });
-  if (!toolPolicy.ok) throw new Error(`Pi tool policy denied: ${toolPolicy.reason}`);
+  if (!toolPolicy.ok) throw new Error(`Runtime tool policy denied: ${toolPolicy.reason}`);
   return runPi([...args, ...toolPolicy.flags], { ...options, env: runtimeConfig.env });
 }

@@ -1,6 +1,5 @@
-# Upstream
+# Upstream runtime dependencies
 
-AlphaFoundry uses Pi Agent as its current runtime adapter.
+AlphaFoundry uses an adapter-based runtime layer for model and tool execution.
 
-Upstream package: `@mariozechner/pi-coding-agent`
-Upstream repo: https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent
+Runtime dependencies are intentionally treated as implementation details. The public product surface is AlphaFoundry: `af`, onboarding, doctor, TUI, durable sessions, approvals, replay/eval, and safety controls.

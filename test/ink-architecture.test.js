@@ -12,7 +12,7 @@ test("createInitialState uses real AlphaFoundry runtime data", () => {
     version: "9.9.9",
     packageName: "alphafoundry",
     nodeVersion: "v99.0.0",
-    backendPackage: "@mariozechner/pi-coding-agent",
+    backendPackage: "AlphaFoundry runtime",
     backendVersion: "0.70.6",
     gitBranch: "main",
     gitDirty: false,
@@ -82,7 +82,7 @@ test("loadRuntimeRunner clears rejected cached runner promise before retry", () 
 });
 
 test("TUI safety summary is explicit about mode, disabled tools, approvals, and approved tools", () => {
-  const state = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const state = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
   assert.deepEqual(summarizeSafety(state), {
     tone: "restricted",
     short: "mode ask · tools off",

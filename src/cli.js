@@ -35,13 +35,13 @@ function runInkTui() {
 }
 
 function printHelp() {
-  console.log(`AlphaFoundry - native AI product workspace with Pi Agent runtime adapter
+  console.log(`AlphaFoundry - native terminal AI workspace
 
 Usage:
   af                         Start AlphaFoundry Ink TUI
   af tui                     Start AlphaFoundry Ink TUI
   af init [--non-interactive] Create ~/.alphafoundry/config.json
-  af onboard [--force]       Interactive setup wizard
+  af onboard                  Interactive setup wizard; replaces existing config
   af doctor [--json]         Check local AlphaFoundry health
   af config path             Print active config path
   af config get <key>        Read config key (provider, model, env.apiKey, env.baseUrl)
@@ -60,7 +60,7 @@ Usage:
   af approvals export [--json|--ndjson] Export approval decisions
   af approvals expire <id> [--json] Expire one approval decision
 
-AlphaFoundry owns the product identity and command surface. Pi Agent is the runtime adapter for model/tool execution.
+AlphaFoundry owns the product identity, command surface, sessions, approvals, replay, evals, and safety controls.
 `);
 }
 
@@ -142,7 +142,7 @@ function handleDoctor(args) {
 function handleModels() {
   console.log(`AlphaFoundry models
 
-Model discovery is delegated to the configured runtime adapter. The current adapter is @mariozechner/pi-coding-agent, so provider/model flags continue to pass through to that backend.
+Model execution is handled through AlphaFoundry's configured runtime layer. Provider and model preferences are stored in AlphaFoundry config and applied to the next interactive run.
 
 Use:
   af config set provider <name>

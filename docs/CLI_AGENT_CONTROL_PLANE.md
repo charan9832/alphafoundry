@@ -1,6 +1,6 @@
 # AlphaFoundry CLI Agent Control Plane
 
-AlphaFoundry is the terminal AI product. Runtime adapters such as Pi Agent may execute model calls, but AlphaFoundry owns the product control plane: run identity, durable events, sessions, redaction, export, permissions, approval decisions, replay/evals, and tool-pack boundaries.
+AlphaFoundry is the terminal AI product. Runtime adapters may execute model calls, but AlphaFoundry owns the product control plane: run identity, durable events, sessions, redaction, export, permissions, approval decisions, replay/evals, and tool-pack boundaries.
 
 ## Current milestone
 
@@ -19,7 +19,7 @@ The goal is not to add finance, MCP, subagents, or shell autonomy yet. The goal 
 ## Product principles
 
 1. **AlphaFoundry owns runtime records.** Runtime activity has an AlphaFoundry session ID, run ID, event log, and export path.
-2. **Adapters are implementation details.** Pi Agent is currently the default adapter, but Pi event shapes must not become AlphaFoundry's permanent public API.
+2. **Adapters are implementation details.** Runtime event shapes must not become AlphaFoundry's permanent public API.
 3. **Redaction happens before persistence/export.** Secret-looking values must not be written into durable transcripts.
 4. **Machine-readable exports are first-class.** Session JSON/NDJSON exports are product APIs, not debug output.
 5. **Safety comes before agency.** Native file writes, shell, MCP, and finance/domain tools require permissions, protected paths, replay/evals, and redaction gates first.
@@ -135,11 +135,11 @@ extension-only -> --no-builtin-tools
 explicit list  -> --tools <comma-list> after built-in validation
 ```
 
-Unknown profiles, unknown tools, unsupported permission modes, protected paths, and denied risk classes fail closed before Pi flags are emitted.
+Unknown profiles, unknown tools, unsupported permission modes, protected paths, and denied risk classes fail closed before runtime flags are emitted.
 
 ## Implemented safety-control slice
 
-AlphaFoundry now has pure deterministic permission/protected-path and runtime tool-policy layers. They do not execute tools; they classify whether a future tool invocation should be allowed, denied, or require approval, and map permitted Pi built-ins to runtime adapter flags.
+AlphaFoundry now has pure deterministic permission/protected-path and runtime tool-policy layers. They do not execute tools; they classify whether a future tool invocation should be allowed, denied, or require approval, and map permitted built-in runtime tools to adapter flags.
 
 Implemented primitives:
 

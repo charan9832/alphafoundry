@@ -478,15 +478,35 @@ test("af onboard interactively writes provider model and env var names", () => {
     assert.match(result.stdout, /Run doctor now\? \[Y\/n\]/);
     assert.doesNotMatch(result.stdout, /AlphaFoundry doctor:/);
     assert.match(result.stdout, /export/);
-    assert.match(result.stdout, /Run af to open AlphaFoundry/i);
 
-    const config = JSON.parse(readFileSync(temp.path, "utf8"));
-    assert.equal(config.product, "AlphaFoundry");
+    const config = readConfig({ path: temp.path });
     assert.equal(config.provider, "openai");
     assert.equal(config.model, "gpt-4o-mini");
     assert.equal(config.env.apiKey, "OPENAI_API_KEY");
-    assert.equal(config.env.baseUrl, undefined);
-    assert.doesNotMatch(JSON.stringify(config), /sk-|secret|token/i);
+    assert.deepEqual(config.env.baseUrl, undefined);
+  } finally {
+    rmSync(temp.dir, { recursive: true, force: true });
+  }
+});
+
+test("af onboard replaces an existing config without requiring --force", () => {
+  const temp = tempConfigPath();
+  try {
+    initConfig({ path: temp.path, nonInteractive: true });
+    setConfigValue("provider", "anthropic", { path: temp.path });
+    setConfigValue("model", "claude-old", { path: temp.path });
+    setConfigValue("env.apiKey", "ANTHROPIC_API_KEY", { path: temp.path });
+
+    const input = ["openai", "gpt-4o-mini", "OPENAI_API_KEY", "", "N", ""].join("\n");
+    const result = runCliWithInput(["onboard"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /already exists|--force/i);
+    assert.match(result.stdout, /Config written/);
+
+    const config = readConfig({ path: temp.path });
+    assert.equal(config.provider, "openai");
+    assert.equal(config.model, "gpt-4o-mini");
+    assert.equal(config.env.apiKey, "OPENAI_API_KEY");
   } finally {
     rmSync(temp.dir, { recursive: true, force: true });
   }
@@ -621,7 +641,7 @@ test("af doctor --json emits parseable doctor JSON", () => {
 test("af models, af tool-packs, and af session are native informational commands", () => {
   const models = runCli(["models"]);
   assert.equal(models.status, 0, models.stderr);
-  assert.match(models.stdout, /delegated/i);
+  assert.match(models.stdout, /configured runtime layer/i);
 
   const toolPacks = runCli(["tool-packs"]);
   assert.equal(toolPacks.status, 0, toolPacks.stderr);

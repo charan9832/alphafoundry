@@ -121,9 +121,9 @@ export function runDoctor(options = {}) {
 
   if (existsSync(backendPath)) {
     const backend = JSON.parse(readFileSync(backendPath, "utf8"));
-    checks.push(check("pass", "backend", `${backend.name} ${backend.version}`, { name: backend.name, version: backend.version }));
+    checks.push(check("pass", "backend", `Runtime engine ${backend.version}`, { name: "AlphaFoundry runtime", version: backend.version }));
   } else {
-    checks.push(check("fail", "backend", "Backend package @mariozechner/pi-coding-agent is not installed", { package: "@mariozechner/pi-coding-agent" }));
+    checks.push(check("fail", "backend", "Runtime engine package is not installed", { package: "runtime-engine" }));
   }
 
   checks.push(gitInfo(cwd));

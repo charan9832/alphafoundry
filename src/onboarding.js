@@ -45,15 +45,9 @@ export async function runOnboarding(options = {}) {
   const output = options.output ?? defaultOutput;
   const env = options.env ?? process.env;
   const path = options.path ?? defaultConfigPath(env);
-  const force = Boolean(options.force);
   const exists = options.exists ?? existsSync;
 
-  const existing = readConfig({ path, env });
-  if (!force && exists(path)) {
-    output.write(`AlphaFoundry config already exists: ${path}\n`);
-    output.write("Re-run with --force to overwrite, or use af config set <key> <value>.\n");
-    return { path, created: false, config: existing };
-  }
+  const existing = exists(path) ? readConfig({ path, env }) : defaultConfig();
 
   output.write("AlphaFoundry onboarding\n");
   output.write("Config stores environment variable names only, never raw secrets.\n\n");

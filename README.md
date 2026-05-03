@@ -2,7 +2,7 @@
 
 AlphaFoundry is a native terminal workspace for agentic software work. It provides the `af` command, first-run configuration, health diagnostics, durable run/session records, and a React Ink TUI designed around context, tasks, diffs, and clear runtime status.
 
-AlphaFoundry is its own product. Runtime execution is adapter-based: the current adapter is `@mariozechner/pi-coding-agent`, which handles model/tool execution behind the AlphaFoundry command surface. Pi Agent is an implementation detail of the runtime layer, not the product identity.
+AlphaFoundry is its own product: a native terminal AI workspace with durable sessions, approvals, replay/evals, redaction, and runtime safety controls behind the `af` command surface.
 
 ## Requirements
 
@@ -187,7 +187,7 @@ af config set env.apiKey OPENAI_API_KEY
 
 - AlphaFoundry package version
 - Node.js version and engine compatibility
-- Runtime adapter package installation
+- Runtime engine package installation
 - Git branch/dirty state when available
 - Config file path and existence
 - Local AlphaFoundry env-file permission status when `~/.alphafoundry/.env` or the config-adjacent `.env` exists
@@ -204,11 +204,11 @@ af doctor --json
 
 AlphaFoundry owns the user-facing product surface: `af`, config, doctor, docs, roadmap, TUI workflow, durable session records, approval-decision records, and local replay/eval summaries. Session records live under `~/.alphafoundry/sessions/` and can be listed, shown, exported, replayed, and evaluated through `af sessions`.
 
-Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, Pi built-in tool profile mapping, persisted approval decisions, local replay/eval checks, and a safe in-process tool-pack executor skeleton. In the TUI, `/tools <list>` requests runtime tools and `/approve-tools` approves pending write/shell-capable requests for the current session before retrying. It does not yet implement a full live tool-call pause/resume prompt, MCP/server loading, external tool marketplaces, finance, or domain tool execution.
+Tool governance is generic foundation work. AlphaFoundry has deterministic permission/protected-path decisions, verification evidence summaries, runtime tool profile mapping, persisted approval decisions, local replay/eval checks, and a safe in-process tool-pack executor skeleton. In the TUI, `/tools <list>` requests runtime tools and `/approve-tools` approves pending write/shell-capable requests for the current session before retrying. It does not yet implement a full live tool-call pause/resume prompt, MCP/server loading, external tool marketplaces, finance, or domain tool execution.
 
-## Runtime adapter
+## Runtime execution
 
-The current runtime adapter delegates model/tool execution to `@mariozechner/pi-coding-agent`. Runtime child processes can be bounded with `ALPHAFOUNDRY_RUN_TIMEOUT_MS` to prevent hung adapter runs; timed-out runs return status `124` and persist terminal error/run-end events where streaming events are available. Future runtime work will deepen live streaming, backend session integration, cancellation, tool visibility, and provider/model discovery while preserving AlphaFoundry as the product identity.
+Runtime child processes can be bounded with `ALPHAFOUNDRY_RUN_TIMEOUT_MS` to prevent hung runs; timed-out runs return status `124` and persist terminal error/run-end events where streaming events are available. Future runtime work will deepen live streaming, backend session integration, cancellation, tool visibility, and provider/model discovery while preserving AlphaFoundry as the product identity.
 
 ## Release, roadmap, and project support
 

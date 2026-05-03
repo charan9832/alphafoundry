@@ -17,7 +17,7 @@ const profileCases = [
   ["extension-only", ["--no-builtin-tools"]],
 ];
 
-test("Pi tool profiles map to stable runtime adapter flags", () => {
+test("runtime tool profiles map to stable adapter flags", () => {
   assert.deepEqual(PI_BUILTIN_TOOLS, Object.freeze(["read", "bash", "edit", "write", "grep", "find", "ls"]));
 
   for (const [profile, flags] of profileCases) {
@@ -29,7 +29,7 @@ test("Pi tool profiles map to stable runtime adapter flags", () => {
   }
 });
 
-test("explicit Pi allowlists validate built-ins and preserve requested order", () => {
+test("explicit runtime allowlists validate built-ins and preserve requested order", () => {
   assert.deepEqual(normalizePiToolAllowlist(["read", "bash", "read", "ls"]), ["read", "bash", "ls"]);
   assert.deepEqual(normalizePiToolAllowlist("read,grep,find"), ["read", "grep", "find"]);
 
@@ -42,18 +42,18 @@ test("explicit Pi allowlists validate built-ins and preserve requested order", (
   assert.ok(result.decisions.every((decision) => ["allow", "ask"].includes(decision.decision)));
 });
 
-test("unknown profiles, tools, and modes fail closed without Pi flags", () => {
+test("unknown profiles, tools, and modes fail closed without adapter flags", () => {
   const unknownProfile = mapPiToolPolicy({ profile: "yolo", mode: "auto" });
   assert.equal(unknownProfile.ok, false);
   assert.equal(unknownProfile.decision, "deny");
   assert.deepEqual(unknownProfile.flags, []);
-  assert.match(unknownProfile.reason, /Unknown Pi tool profile/);
+  assert.match(unknownProfile.reason, /Unknown runtime tool profile/);
 
   const unknownTool = mapPiToolPolicy({ allow: ["read", "curl"], mode: "auto" });
   assert.equal(unknownTool.ok, false);
   assert.equal(unknownTool.decision, "deny");
   assert.deepEqual(unknownTool.flags, []);
-  assert.match(unknownTool.reason, /Unknown Pi tool/);
+  assert.match(unknownTool.reason, /Unknown runtime tool/);
 
   const unknownMode = mapPiToolPolicy({ profile: "none", mode: "bypass" });
   assert.equal(unknownMode.ok, false);
@@ -84,14 +84,14 @@ test("policy decisions are derived from AlphaFoundry permission mode", () => {
   assert.deepEqual(approvedShell.flags, ["--tools", "read,grep,find,ls,bash"]);
 });
 
-test("configured Pi prompt args include mapped tool policy flags", () => {
+test("configured prompt args include mapped tool policy flags", () => {
   const args = buildConfiguredPiArgs(["-p", "hello"], { provider: "openai", model: "gpt-test" }, { toolProfile: "read-only", permissionMode: "ask" });
 
   assert.deepEqual(args.slice(0, 1), [piCliPath()]);
   assert.deepEqual(args.slice(-2), ["--tools", "read,grep,find,ls"]);
 });
 
-test("Pi tool policy declares startup allowlist enforcement without live interception", () => {
+test("runtime tool policy declares startup allowlist enforcement without live interception", () => {
   const allowed = mapPiToolPolicy({ profile: "read-only", mode: "ask", approved: true, path: "src/index.js" });
   assert.equal(allowed.ok, true);
   assert.equal(allowed.enforcement, "startup-allowlist");
@@ -105,9 +105,9 @@ test("Pi tool policy declares startup allowlist enforcement without live interce
   assert.equal(denied.pathPolicyScope, "none");
 });
 
-test("configured Pi prompt args fail closed for denied tool policy", () => {
+test("configured prompt args fail closed for denied tool policy", () => {
   assert.throws(
     () => buildConfiguredPiArgs(["-p", "hello"], {}, { toolProfile: "shell", permissionMode: "auto" }),
-    /Pi tool policy denied: shell operations are denied in auto mode\./,
+    /Runtime tool policy denied: shell operations are denied in auto mode\./,
   );
 });

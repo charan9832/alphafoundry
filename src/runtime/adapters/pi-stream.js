@@ -364,7 +364,7 @@ export function runPiPromptJsonStream(prompt, options = {}) {
     env: options.processEnv,
     home: options.home,
   });
-  if (!toolPolicy.ok) throw new Error(`Pi tool policy denied: ${toolPolicy.reason}`);
+  if (!toolPolicy.ok) throw new Error(`Runtime tool policy denied: ${toolPolicy.reason}`);
 
   args.push(prompt);
 

@@ -19,7 +19,7 @@ Before non-trivial work, read:
 - Default config: `~/.alphafoundry/config.json`
 - Config override: `ALPHAFOUNDRY_CONFIG_PATH`
 
-Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. Pi Agent is an internal runtime substrate/adapter, not the product identity.
+Do not describe AlphaFoundry as a rebrand, thin wrapper, or launcher. Runtime adapter details are not product identity and should stay out of user-facing product copy unless a task explicitly concerns internal runtime diagnostics.
 
 ## Current architecture direction
 
@@ -30,17 +30,17 @@ AlphaFoundry owns:
 - session/control-plane UX
 - docs/onboarding/release story
 
-Pi Agent owns/reuses:
+Runtime adapter layer owns/reuses:
 - model runtime
 - built-in tool execution substrate
 - backend sessions where applicable
 - skills/prompts/themes/extensions where useful
 
-Do not rebuild Pi inside AlphaFoundry unless a concrete verified requirement cannot be satisfied by Pi.
+Do not rebuild runtime-adapter internals inside AlphaFoundry unless a concrete verified requirement cannot be satisfied through the existing runtime boundary.
 
 ## Current implementation priority
 
-The next suitable implementation slice is generic CLI-agent foundation work such as the Pi tool-policy mapper.
+The next suitable implementation slice is generic CLI-agent foundation work such as the runtime tool-policy mapper.
 
 Do not add finance functionality yet.
 Do not add MCP execution yet.

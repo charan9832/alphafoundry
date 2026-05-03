@@ -88,8 +88,8 @@ test("command help documents keyboard hints without one-shot prompt flags", () =
 test("reducer applies slash command effects to TUI state", () => {
   const initial = createInitialState({
     cwd: "/tmp/alphafoundry",
-    provider: "pi-agent",
-    model: "pi-default",
+    provider: "runtime",
+    model: "default-model",
     version: "1.0.0",
     backendVersion: "0.70.6",
   });
@@ -140,7 +140,7 @@ test("reducer applies slash command effects to TUI state", () => {
 });
 
 test("expired pending tool approvals are refused", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
   const pending = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/tools write") });
   const expired = {
     ...pending,
@@ -157,7 +157,7 @@ test("expired pending tool approvals are refused", () => {
 });
 
 test("prompt history preserves multiline prompts and restores drafts", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
   const multiline = "first line\nsecond line";
   const afterRun = reducer(initial, { type: "RUN_STARTED", prompt: multiline, run: { id: "run_1" } });
   assert.deepEqual(afterRun.promptHistory, [multiline]);
@@ -174,14 +174,14 @@ test("prompt history preserves multiline prompts and restores drafts", () => {
 });
 
 test("prompt history does not duplicate consecutive prompts", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
   const first = reducer(initial, { type: "RUN_STARTED", prompt: "inspect", run: { id: "run_1" } });
   const second = reducer(first, { type: "RUN_STARTED", prompt: "inspect", run: { id: "run_2" } });
   assert.deepEqual(second.promptHistory, ["inspect"]);
 });
 
 test("runtime-sensitive slash commands do not overclaim backend effects", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
 
   const withStats = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/stats") });
   assert.equal(initial.permissionMode, "ask");
@@ -203,7 +203,7 @@ test("runtime-sensitive slash commands do not overclaim backend effects", () => 
 });
 
 test("/export redacts runtime and tool transcript text", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
   const apiSecret = "sk-" + "live-secret";
   const bearerSecret = "Bearer " + "abc123";
   const withAssistantSecret = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "assistant", text: `token=${apiSecret}` } });
@@ -218,7 +218,7 @@ test("/export redacts runtime and tool transcript text", () => {
 });
 
 test("state supports runtime run lifecycle, cancellation, errors, stats, and sessions", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
   assert.equal(initial.activeRun, null);
   assert.equal(initial.status, "idle");
   assert.equal(initial.terminalState, "idle");
@@ -271,9 +271,9 @@ test("state supports runtime run lifecycle, cancellation, errors, stats, and ses
 });
 
 test("canonical runtime events drive terminal state, errors, stats, sessions, and evidence", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
 
-  const started = reducer(initial, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "run_start", sessionId: "ses_runtime", runId: "run_2", payload: { prompt: "inspect", provider: "pi-agent", model: "pi-default" } } });
+  const started = reducer(initial, { type: "RUNTIME_EVENT", event: { schemaVersion: 1, type: "run_start", sessionId: "ses_runtime", runId: "run_2", payload: { prompt: "inspect", provider: "runtime", model: "default-model" } } });
   assert.equal(started.status, "running");
   assert.equal(started.terminalState, "running");
   assert.equal(started.goal, "inspect");
@@ -308,7 +308,7 @@ test("canonical runtime events drive terminal state, errors, stats, sessions, an
 });
 
 test("runtime-backed commands report observed runtime data when available", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
   const withRuntimeSession = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "session", sessionId: "ses_runtime", title: "Runtime session" } });
   const withStats = reducer(withRuntimeSession, { type: "RUNTIME_EVENT", event: { type: "stats", stats: { runs: 2, completed: 1, failed: 1, running: false }, tokens: 128, percent: 20, cost: "$0.03" } });
 
@@ -325,7 +325,7 @@ test("runtime-backed commands report observed runtime data when available", () =
 });
 
 test("workspace status labels preserve AlphaFoundry product identity without synthetic agentic tasks", () => {
-  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "pi-agent", model: "pi-default" });
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
 
   const submitted = reducer(initial, { type: "SUBMIT_HOME", value: "inspect" });
   assert.equal(submitted.product, "AlphaFoundry");
@@ -337,6 +337,6 @@ test("workspace status labels preserve AlphaFoundry product identity without syn
 
   const running = reducer(initial, { type: "RUN_STARTED", prompt: "inspect", run: { id: "run_1" } });
   assert.equal(running.action, "Runtime request running");
-  assert.doesNotMatch(running.action, /Pi runtime/);
+  assert.doesNotMatch(running.action, /internal runtime/i);
   assert.doesNotMatch(JSON.stringify(running.events), /af -p/);
 });

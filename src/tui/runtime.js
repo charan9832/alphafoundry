@@ -25,7 +25,7 @@ export function detectRuntime(overrides = {}) {
   const packagePath = join(root, "package.json");
   const packageInfo = existsSync(packagePath) ? readJson(packagePath) : { name: "alphafoundry", version: "0.0.0" };
   const backendPackagePath = join(root, "node_modules", "@mariozechner", "pi-coding-agent", "package.json");
-  const backendInfo = existsSync(backendPackagePath) ? readJson(backendPackagePath) : { name: "@mariozechner/pi-coding-agent", version: "not installed" };
+  const backendInfo = existsSync(backendPackagePath) ? readJson(backendPackagePath) : { name: "AlphaFoundry runtime", version: "not installed" };
   const gitBranch = maybeGit(["branch", "--show-current"], root) || "no git";
   const gitStatus = maybeGit(["status", "--short"], root);
   let configRuntime = { provider: "default", model: "default" };
@@ -46,7 +46,7 @@ export function detectRuntime(overrides = {}) {
     model: overrides.model ?? model,
     runtime: {
       nodeVersion: overrides.nodeVersion ?? overrides.runtime?.nodeVersion ?? process.version,
-      backendPackage: overrides.backendPackage ?? overrides.runtime?.backendPackage ?? backendInfo.name,
+      backendPackage: overrides.backendPackage ?? overrides.runtime?.backendPackage ?? "AlphaFoundry runtime",
       backendVersion: overrides.backendVersion ?? overrides.runtime?.backendVersion ?? backendInfo.version,
     },
     project: {
