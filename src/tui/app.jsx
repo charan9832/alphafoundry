@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useReducer, useRef } from "react";
+import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useApp, useInput } from "ink";
 import { createApprovalStore } from "../runtime/approval-store.js";
 import { createSessionStore } from "../runtime/session-store.js";
@@ -31,6 +31,7 @@ export function App() {
   const stateRef = useRef(state);
   const processedPersistRequests = useRef(0);
   const processedEffectRequests = useRef(0);
+  const [runStartedAt, setRunStartedAt] = useState(null);
 
   useEffect(() => {
     const requests = state.effectRequests ?? [];
@@ -133,6 +134,7 @@ export function App() {
     const controller = new AbortController();
     const run = { id: `run_${Date.now().toString(36)}`, abort: (reason) => controller.abort(reason) };
     dispatch({ type: "RUN_STARTED", prompt: command.value, run });
+    setRunStartedAt(Date.now());
     try {
       const runner = await loadRuntimeRunner();
       const result = await runPromptWithEvents(
@@ -143,12 +145,14 @@ export function App() {
       );
       if (controller.signal.aborted) return;
       dispatch({ type: "RUN_FINISHED", result });
+      setRunStartedAt(null);
     } catch (error) {
       if (controller.signal.aborted) {
         dispatch({ type: "RUN_CANCELLED", reason: controller.signal.reason ?? "aborted" });
       } else {
         dispatch({ type: "RUN_ERROR", error: new Error(classifyRuntimeError(error, current)) });
       }
+      setRunStartedAt(null);
     }
   }, [cancelActiveRun, exit]);
 
@@ -188,5 +192,5 @@ export function App() {
 
   if (state.view === "home") return <Home state={state} dispatch={dispatch} columns={size.columns} rows={size.rows} onSubmit={submitPrompt} />;
   const widths = paneWidths(size.columns);
-  return <Workspace state={state} dispatch={dispatch} columns={size.columns} rows={size.rows} mainWidth={widths.main} sidebarWidth={widths.sidebar} showSidebar={widths.showSidebar} onSubmit={submitPrompt} />;
+  return <Workspace state={state} dispatch={dispatch} columns={size.columns} rows={size.rows} mainWidth={widths.main} sidebarWidth={widths.sidebar} showSidebar={widths.showSidebar} onSubmit={submitPrompt} runStartedAt={runStartedAt} />;
 }

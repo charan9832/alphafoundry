@@ -39,7 +39,7 @@ function CommandSuggestions({ input, suggestions }) {
 
 export function Workspace({
   state, dispatch, columns, rows,
-  mainWidth, sidebarWidth, showSidebar = true, onSubmit,
+  mainWidth, sidebarWidth, showSidebar = true, onSubmit, runStartedAt,
 }) {
   const safety = summarizeSafety(state);
   const contentHeight = Math.max(8, rows - 4);
@@ -49,7 +49,7 @@ export function Workspace({
     <Box flexDirection="column" width={columns} height={rows}>
       {/* ── Top rail ─────────────────────────────────────── */}
       <Box height={1}>
-        <StatusBar state={state} width={columns} />
+        <StatusBar state={state} width={columns} runStartedAt={runStartedAt} />
       </Box>
 
       {/* ── Subtle divider ───────────────────────────────── */}

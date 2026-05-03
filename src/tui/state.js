@@ -8,7 +8,11 @@ const MAX_PROMPT_HISTORY = 50;
 const TOOL_APPROVAL_TTL_SECONDS = 5 * 60;
 
 function appendEvent(state, event) {
-  return { ...state, events: [...state.events, event].slice(-MAX_EVENTS) };
+  const withTime = {
+    ...event,
+    timestamp: event.timestamp ?? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  };
+  return { ...state, events: [...state.events, withTime].slice(-MAX_EVENTS) };
 }
 
 function appendPersistRequest(state, request) {
