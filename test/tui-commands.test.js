@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseSlashCommand, commandHelp } from "../src/tui/commands.js";
+import { parseSlashCommand, commandHelp, commandSuggestions, completeSlashCommand } from "../src/tui/commands.js";
 import { createInitialState, reducer } from "../src/tui/state.js";
 import { initConfig, setConfigValue } from "../src/config.js";
 
@@ -35,6 +35,14 @@ test("TUI initial state uses AlphaFoundry config provider/model with explicit ov
   }
 });
 
+test("slash command suggestions and completion expose discoverable command palette", () => {
+  assert.deepEqual(commandSuggestions("/mo").map((item) => item.command), ["mode", "model"]);
+  assert.ok(commandSuggestions("/").some((item) => item.command === "doctor" && /health/.test(item.description)));
+  assert.ok(commandSuggestions("/tools ").some((item) => item.command === "tools" && /read grep/.test(item.hint)));
+  assert.equal(completeSlashCommand("/mo"), "/mode ");
+  assert.equal(completeSlashCommand("/doctor"), "/doctor");
+});
+
 test("Ink slash command parser recognizes all supported commands without legacy TUI", () => {
   assert.deepEqual(parseSlashCommand("/help"), { type: "help" });
   assert.deepEqual(parseSlashCommand("/clear"), { type: "clear" });
@@ -43,7 +51,13 @@ test("Ink slash command parser recognizes all supported commands without legacy 
   assert.deepEqual(parseSlashCommand("/stats"), { type: "stats" });
   assert.deepEqual(parseSlashCommand("/session"), { type: "session" });
   assert.deepEqual(parseSlashCommand("/new"), { type: "new" });
-  assert.deepEqual(parseSlashCommand("/export"), { type: "export" });
+  assert.deepEqual(parseSlashCommand("/export"), { type: "export", scope: "visible" });
+  assert.deepEqual(parseSlashCommand("/print"), { type: "export", scope: "visible" });
+  assert.deepEqual(parseSlashCommand("/doctor"), { type: "doctor" });
+  assert.deepEqual(parseSlashCommand("/retry"), { type: "retry" });
+  assert.deepEqual(parseSlashCommand("/sessions"), { type: "sessions" });
+  assert.deepEqual(parseSlashCommand("/replay"), { type: "replay" });
+  assert.deepEqual(parseSlashCommand("/eval"), { type: "eval" });
   assert.deepEqual(parseSlashCommand("/tools read,write shell"), { type: "tools", tools: ["read", "write", "shell"] });
   assert.deepEqual(parseSlashCommand("/approve-tools"), { type: "approve-tools" });
   assert.deepEqual(parseSlashCommand("/mode act"), { type: "mode", mode: "act" });
@@ -56,13 +70,16 @@ test("Ink slash command parser recognizes all supported commands without legacy 
 
 test("command help documents every Ink slash command", () => {
   const help = commandHelp();
-  for (const command of ["/help", "/clear", "/model", "/provider", "/exit", "/stats", "/tools", "/approve-tools", "/mode", "/session", "/new", "/export"]) {
+  for (const command of ["/help", "/clear", "/model", "/provider", "/exit", "/stats", "/tools", "/approve-tools", "/mode", "/session", "/sessions", "/new", "/doctor", "/retry", "/replay", "/eval", "/export", "/print"]) {
     assert.match(help, new RegExp(command.replace("/", "\\/")));
   }
 });
 
 test("command help is honest about local-only runtime command fallbacks", () => {
   const help = commandHelp();
+  assert.match(help, /Conversation/);
+  assert.match(help, /Model \+ session/);
+  assert.match(help, /Tools \+ safety/);
   assert.match(help, /\/model <id>\s+set local model preference/i);
   assert.match(help, /\/provider <name>\s+set local provider preference/i);
   assert.match(help, /\/stats\s+show local TUI counters/i);
@@ -70,8 +87,14 @@ test("command help is honest about local-only runtime command fallbacks", () => 
   assert.match(help, /\/approve-tools\s+approve pending tool request/i);
   assert.match(help, /\/mode <mode>\s+set tool permission mode/i);
   assert.match(help, /\/session\s+show durable session metadata/i);
+  assert.match(help, /\/sessions\s+list known TUI sessions/i);
   assert.match(help, /\/new\s+start a fresh durable session/i);
+  assert.match(help, /\/doctor\s+show local health guidance/i);
+  assert.match(help, /\/retry\s+retry the last prompt/i);
+  assert.match(help, /\/replay\s+summarize the current visible session/i);
+  assert.match(help, /\/eval\s+run local visible-session checks/i);
   assert.match(help, /\/export\s+print visible transcript/i);
+  assert.match(help, /\/print\s+alias for \/export/i);
 });
 
 test("command help documents keyboard hints without one-shot prompt flags", () => {
@@ -137,6 +160,104 @@ test("reducer applies slash command effects to TUI state", () => {
 
   const cleared = reducer(withTools, { type: "COMMAND", command: parseSlashCommand("/clear") });
   assert.deepEqual(cleared.events, []);
+});
+
+test("scrollback actions move transcript view and disable follow mode", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
+  const withEvents = Array.from({ length: 20 }, (_, index) => ({ type: "assistant", text: `event ${index}` })).reduce(
+    (state, event) => reducer(state, { type: "ADD_EVENT", event }),
+    initial,
+  );
+
+  const up = reducer(withEvents, { type: "SCROLL_TRANSCRIPT", direction: "up", amount: 5 });
+  assert.equal(up.transcript.follow, false);
+  assert.equal(up.transcript.offset, 5);
+
+  const down = reducer(up, { type: "SCROLL_TRANSCRIPT", direction: "down", amount: 2 });
+  assert.equal(down.transcript.offset, 3);
+
+  const latest = reducer(down, { type: "SCROLL_TRANSCRIPT", direction: "latest" });
+  assert.equal(latest.transcript.follow, true);
+  assert.equal(latest.transcript.offset, 0);
+});
+
+test("doctor replay and eval commands request real durable engines before falling back", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
+
+  const doctor = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/doctor") });
+  assert.equal(doctor.effectRequests.at(-1).kind, "doctor");
+  assert.match(doctor.events.at(-1).text, /Running AlphaFoundry doctor/i);
+
+  const replay = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/replay") });
+  assert.equal(replay.effectRequests.at(-1).kind, "replay");
+  assert.equal(replay.effectRequests.at(-1).sessionId, initial.session.id);
+
+  const evaluated = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/eval") });
+  assert.equal(evaluated.effectRequests.at(-1).kind, "eval");
+  assert.equal(evaluated.effectRequests.at(-1).sessionId, initial.session.id);
+
+  const applied = reducer(initial, { type: "EFFECT_RESULT", request: { kind: "replay" }, result: { ok: true, text: "Replay ses_1" } });
+  assert.match(applied.events.at(-1).text, /Replay ses_1/);
+});
+
+test("pending tool approvals block prompt runs until approval is handled", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
+  const pending = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/tools write") });
+  const blocked = reducer(pending, { type: "SUBMIT_PROMPT", value: "modify files" });
+
+  assert.equal(blocked.status, "idle");
+  assert.equal(blocked.activeRun, null);
+  assert.match(blocked.events.at(-1).text, /approve-tools/i);
+  assert.match(blocked.events.at(-1).text, /pending tool approval/i);
+  assert.deepEqual(blocked.promptHistory, []);
+
+  const approved = reducer(pending, { type: "COMMAND", command: parseSlashCommand("/approve-tools") });
+  const runnable = reducer(approved, { type: "SUBMIT_PROMPT", value: "modify files" });
+  assert.equal(runnable.status, "ready-to-run");
+  assert.equal(runnable.intent.prompt, "modify files");
+  assert.deepEqual(runnable.promptHistory, ["modify files"]);
+});
+
+test("setup status, retry, doctor, sessions, replay, and eval commands expose recoverable UX state", () => {
+  const setup = createInitialState({ cwd: "/tmp/alphafoundry", provider: "default", model: "default", setupStatus: { level: "missing-config", message: "No config found" } });
+  assert.equal(setup.setupStatus.level, "missing-config");
+
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
+  const submitted = reducer(initial, { type: "SUBMIT_PROMPT", value: "inspect repo" });
+  assert.equal(submitted.lastPrompt, "inspect repo");
+  assert.equal(submitted.status, "ready-to-run");
+
+  const retry = reducer(submitted, { type: "COMMAND", command: parseSlashCommand("/retry") });
+  assert.equal(retry.status, "ready-to-run");
+  assert.match(retry.events.at(-1).text, /Retry queued/i);
+
+  const doctor = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/doctor") });
+  assert.match(doctor.events.at(-1).text, /af doctor/i);
+  assert.match(doctor.events.at(-1).text, /Config/i);
+
+  const sessions = reducer(retry, { type: "COMMAND", command: parseSlashCommand("/sessions") });
+  assert.match(sessions.events.at(-1).text, /Known TUI sessions/i);
+
+  const replay = reducer(retry, { type: "COMMAND", command: parseSlashCommand("/replay") });
+  assert.match(replay.events.at(-1).text, /Visible replay/i);
+
+  const evaluated = reducer(retry, { type: "COMMAND", command: parseSlashCommand("/eval") });
+  assert.match(evaluated.events.at(-1).text, /Visible eval/i);
+});
+
+test("TUI state exposes persistence hooks for approvals and new sessions", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
+  const pending = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/tools write") });
+  assert.equal(pending.persistRequests.at(-1).kind, "approval");
+  assert.equal(pending.persistRequests.at(-1).status, "ask");
+
+  const approved = reducer(pending, { type: "COMMAND", command: parseSlashCommand("/approve-tools") });
+  assert.equal(approved.persistRequests.at(-1).kind, "approval");
+  assert.equal(approved.persistRequests.at(-1).status, "allow");
+
+  const fresh = reducer(initial, { type: "COMMAND", command: parseSlashCommand("/new") });
+  assert.equal(fresh.persistRequests.at(-1).kind, "session");
+  assert.equal(fresh.persistRequests.at(-1).session.id, fresh.session.id);
 });
 
 test("expired pending tool approvals are refused", () => {

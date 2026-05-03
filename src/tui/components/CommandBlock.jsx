@@ -6,13 +6,14 @@ import { theme } from "../theme.js";
 export function CommandBlock({ event, width }) {
   const success = event.status === "success";
   const failed = event.status === "error";
-  const marker = success ? "[✓]" : failed ? "[x]" : "[ ]";
-  const color = success ? theme.green : failed ? theme.red : theme.cyan;
+  const marker = success ? "[✓]" : failed ? "[x]" : event.status === "running" ? "[…]" : "[ ]";
+  const color = success ? theme.state.success : failed ? theme.state.danger : theme.state.running;
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Text color={color}>{marker} $ {event.command}</Text>
-      {event.output && wrapPlain(event.output, width - 2).map((line, index) => <Text key={index} color={theme.muted}>{line}</Text>)}
-      {event.status === "running" && <Text color={theme.cyan}>running...</Text>}
+      <Text><Text color={color} bold>CMD</Text><Text color={theme.fg.quiet}> {marker} controlled execution</Text></Text>
+      <Text color={theme.fg.secondary}>$ {event.command}</Text>
+      {event.output && wrapPlain(event.output, width - 2).map((line, index) => <Text key={index} color={theme.fg.tertiary}>│ {line}</Text>)}
+      {event.status === "running" && <Text color={theme.state.running}>running...</Text>}
     </Box>
   );
 }

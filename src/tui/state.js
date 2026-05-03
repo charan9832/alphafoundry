@@ -1,5 +1,5 @@
 import { detectRuntime } from "./runtime.js";
-import { commandHelp, sessionId } from "./commands.js";
+import { commandHelp, commandSuggestions, sessionId } from "./commands.js";
 import { redactText } from "../redaction.js";
 import { mapPiToolPolicy } from "../runtime/pi-tool-policy.js";
 
@@ -9,6 +9,14 @@ const TOOL_APPROVAL_TTL_SECONDS = 5 * 60;
 
 function appendEvent(state, event) {
   return { ...state, events: [...state.events, event].slice(-MAX_EVENTS) };
+}
+
+function appendPersistRequest(state, request) {
+  return { ...state, persistRequests: [...(state.persistRequests ?? []), request] };
+}
+
+function appendEffectRequest(state, request) {
+  return { ...state, effectRequests: [...(state.effectRequests ?? []), request] };
 }
 
 function payloadOf(event = {}) {
@@ -131,6 +139,12 @@ export function createInitialState(overrides = {}) {
     tools: overrides.tools ?? [],
     pendingToolApproval: overrides.pendingToolApproval ?? null,
     permissionMode: overrides.permissionMode ?? "ask",
+    setupStatus: overrides.setupStatus ?? (runtime.provider === "default" || runtime.model === "default" ? { level: "needs-review", message: "Provider/model are not configured yet." } : { level: "ready", message: "Ready" }),
+    lastPrompt: overrides.lastPrompt ?? null,
+    persistRequests: overrides.persistRequests ?? [],
+    effectRequests: overrides.effectRequests ?? [],
+    transcript: overrides.transcript ?? { offset: 0, follow: true },
+    commandSuggestions: overrides.commandSuggestions ?? [],
     tokenUsage: { tokens: 0, percent: 0, cost: "$0.00", ...overrides.tokenUsage },
     runtimeStats: overrides.runtimeStats ?? null,
     evidence: overrides.evidence ?? [],
@@ -212,6 +226,30 @@ function recallPromptHistory(state, direction) {
   return { ...state, promptHistoryIndex: nextIndex, input: history[nextIndex] };
 }
 
+function submitPromptDraft(state, value, { readyOnly = true } = {}) {
+  const clean = String(value ?? "").trim();
+  if (!clean) return state;
+  if (state.pendingToolApproval) {
+    return appendEvent(state, { type: "error", text: `A pending tool approval must be handled before running a prompt. Use /approve-tools to allow ${state.pendingToolApproval.tools?.join(", ") || "requested tools"}, or change tools/mode before retrying.` });
+  }
+  const remembered = rememberPrompt(state, clean);
+  return appendEvent({
+    ...remembered,
+    view: "workspace",
+    goal: clean,
+    intent: { prompt: clean },
+    lastPrompt: clean,
+    input: "",
+    status: readyOnly ? "ready-to-run" : "idle",
+    terminalState: "idle",
+    cancelling: false,
+    cancelled: false,
+    error: null,
+    action: readyOnly ? "ready to run" : "ready",
+    tasks: [],
+  }, { type: "user", text: clean });
+}
+
 function applyToolRequest(state, tools = []) {
   const requested = Array.isArray(tools) ? tools : [];
   const policy = mapPiToolPolicy({ allow: requested, mode: state.permissionMode, workspace: state.cwd, approved: true });
@@ -219,7 +257,9 @@ function applyToolRequest(state, tools = []) {
     return appendEvent({ ...state, pendingToolApproval: null }, { type: "error", text: `Tool request denied: ${policy.reason}` });
   }
   if (policy.requiresApproval) {
-    return appendEvent({ ...state, pendingToolApproval: createPendingToolApproval(requested, policy) }, { type: "permission_request", text: `Tool request requires approval: ${requested.join(", ") || "none"}. Run /approve-tools to allow for this session.` });
+    const pending = createPendingToolApproval(requested, policy);
+    const withPending = appendPersistRequest({ ...state, pendingToolApproval: pending }, { kind: "approval", status: "ask", decision: pending, sessionId: state.session?.id });
+    return appendEvent(withPending, { type: "permission_request", text: `Tool request requires approval: ${requested.join(", ") || "none"}. Run /approve-tools to allow for this session.` });
   }
   return appendEvent({ ...state, tools: requested, pendingToolApproval: null }, { type: "tool", text: `runtime tools enabled: ${requested.join(", ") || "none"}` });
 }
@@ -227,11 +267,27 @@ function applyToolRequest(state, tools = []) {
 export function reducer(state, action) {
   switch (action.type) {
     case "SET_INPUT":
-      return { ...state, input: action.value, ...(action.fromHistory ? {} : { promptHistoryIndex: null }) };
+      return { ...state, input: action.value, commandSuggestions: commandSuggestions(action.value), ...(action.fromHistory ? {} : { promptHistoryIndex: null }) };
+    case "COMPLETE_INPUT": {
+      const suggestion = state.commandSuggestions?.[0];
+      if (!suggestion) return state;
+      const value = `/${suggestion.command} `;
+      return { ...state, input: value, commandSuggestions: commandSuggestions(value), promptHistoryIndex: null };
+    }
+    case "SCROLL_TRANSCRIPT": {
+      const amount = Number.isInteger(action.amount) ? action.amount : 5;
+      if (action.direction === "latest") return { ...state, transcript: { offset: 0, follow: true } };
+      const current = state.transcript?.offset ?? 0;
+      const maxOffset = Math.max(0, (state.events?.length ?? 0) - 1);
+      const nextOffset = action.direction === "up" ? Math.min(maxOffset, current + amount) : Math.max(0, current - amount);
+      return { ...state, transcript: { offset: nextOffset, follow: nextOffset === 0 } };
+    }
     case "PROMPT_HISTORY_PREV":
       return recallPromptHistory(state, "prev");
     case "PROMPT_HISTORY_NEXT":
       return recallPromptHistory(state, "next");
+    case "SUBMIT_PROMPT":
+      return submitPromptDraft(state, action.value, { readyOnly: true });
     case "SUBMIT_HOME":
       return {
         ...rememberPrompt(state, action.value),
@@ -270,6 +326,7 @@ export function reducer(state, action) {
         view: "workspace",
         goal: action.prompt ?? state.goal,
         intent: action.prompt ? { prompt: action.prompt } : state.intent,
+        lastPrompt: action.prompt ?? state.lastPrompt,
         status: "running",
         terminalState: "running",
         action: "Runtime request running",
@@ -306,6 +363,8 @@ export function reducer(state, action) {
     }
     case "RUNTIME_EVENT":
       return applyRuntimeEvent(state, action.event);
+    case "EFFECT_RESULT":
+      return appendEvent(state, { type: action.result?.ok === false ? "error" : "assistant", text: action.result?.text ?? "Effect completed." });
     default:
       return state;
   }
@@ -452,7 +511,8 @@ export function applyCommand(state, command = {}) {
         createdAt: state.pendingToolApproval.createdAt,
         expiresAt: state.pendingToolApproval.expiresAt,
       };
-      return appendEvent({ ...state, tools, pendingToolApproval: null }, { type: "permission_decision", payload, text: `approved runtime tools for this session: ${tools.join(", ") || "none"}` });
+      const withApproval = appendPersistRequest({ ...state, tools, pendingToolApproval: null }, { kind: "approval", status: "allow", decision: payload, sessionId: state.session?.id });
+      return appendEvent(withApproval, { type: "permission_decision", payload, text: `approved runtime tools for this session: ${tools.join(", ") || "none"}` });
     }
     case "mode": {
       const mode = String(command.mode ?? "").toLowerCase();
@@ -466,8 +526,21 @@ export function applyCommand(state, command = {}) {
     }
     case "new": {
       const session = createSession();
-      return appendEvent({ ...state, view: "workspace", goal: "", intent: null, session, sessions: upsertSession(state.sessions, session), events: [], status: "idle", terminalState: "idle", action: "new session", activeRun: null, evidence: [], tools: [], pendingToolApproval: null }, { type: "session", text: `started durable session ${session.id}` });
+      const next = { ...state, view: "workspace", goal: "", intent: null, session, sessions: upsertSession(state.sessions, session), events: [], status: "idle", terminalState: "idle", action: "new session", activeRun: null, evidence: [], tools: [], pendingToolApproval: null };
+      return appendEvent(appendPersistRequest(next, { kind: "session", session }), { type: "session", text: `started durable session ${session.id}` });
     }
+    case "doctor":
+      return appendEvent(appendEffectRequest(state, { kind: "doctor" }), { type: "assistant", text: "Running AlphaFoundry doctor... Config checks included. For the full report, exit and run af doctor." });
+    case "retry": {
+      if (!state.lastPrompt) return appendEvent(state, { type: "assistant", text: "No previous prompt to retry." });
+      return appendEvent({ ...state, input: state.lastPrompt, status: "ready-to-run", action: "retry queued", view: "workspace", intent: { prompt: state.lastPrompt } }, { type: "assistant", text: `Retry queued: ${state.lastPrompt}` });
+    }
+    case "sessions":
+      return appendEvent(state, { type: "session", text: `Known TUI sessions:\n${(state.sessions ?? []).map((session) => `- ${session.id}${session.title ? ` · ${session.title}` : ""}`).join("\n") || "none"}` });
+    case "replay":
+      return appendEvent(appendEffectRequest(state, { kind: "replay", sessionId: state.session?.id }), { type: "assistant", text: `Visible replay requested; replaying durable session ${state.session?.id ?? "unknown"}...` });
+    case "eval":
+      return appendEvent(appendEffectRequest(state, { kind: "eval", sessionId: state.session?.id }), { type: "assistant", text: `Visible eval requested; evaluating durable session ${state.session?.id ?? "unknown"}...` });
     case "export":
       return appendEvent(state, { type: "assistant", text: `Visible transcript:\n${state.events.map((event) => `[${event.type}] ${exportedEventText(event)}`).join("\n") || "Nothing to print."}` });
     case "unknown":

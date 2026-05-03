@@ -474,7 +474,11 @@ test("af onboard interactively writes provider model and env var names", () => {
     const result = runCliWithInput(["onboard"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /AlphaFoundry onboarding/i);
+    assert.match(result.stdout, /Step 1\/4: Choose the provider/i);
+    assert.match(result.stdout, /Step 4\/4: Verify the setup/i);
     assert.match(result.stdout, /Config written/);
+    assert.match(result.stdout, /Setup summary:/);
+    assert.match(result.stdout, /Provider: openai/);
     assert.match(result.stdout, /Run doctor now\? \[Y\/n\]/);
     assert.doesNotMatch(result.stdout, /AlphaFoundry doctor:/);
     assert.match(result.stdout, /export/);
@@ -520,6 +524,7 @@ test("af onboard accepts a pasted API key and stores it in local env file, not c
     const result = runCliWithInput(["onboard"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /API key saved locally/);
+    assert.match(result.stdout, /Setup summary:/);
     assert.match(result.stdout, /AlphaFoundry doctor:/);
     assert.doesNotMatch(result.stdout, new RegExp(secret));
 
@@ -545,6 +550,7 @@ test("af onboard can run doctor after writing config", () => {
     const result = runCliWithInput(["onboard"], input, { ALPHAFOUNDRY_CONFIG_PATH: temp.path });
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /Config written/);
+    assert.match(result.stdout, /Next steps:/);
     assert.match(result.stdout, /AlphaFoundry doctor:/);
     assert.match(result.stdout, /OPENROUTER_API_KEY/);
   } finally {

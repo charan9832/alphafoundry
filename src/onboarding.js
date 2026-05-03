@@ -50,22 +50,27 @@ export async function runOnboarding(options = {}) {
   const existing = exists(path) ? readConfig({ path, env }) : defaultConfig();
 
   output.write("AlphaFoundry onboarding\n");
-  output.write("Config stores environment variable names only, never raw secrets.\n\n");
+  output.write("Set up the local app in four steps: provider, model, credentials, verification.\n");
+  output.write("Config stores environment variable names only, never raw secrets. Pasted keys can be saved to the local env file; config.json always stays secret-free.\n\n");
 
   const scripted = !input.isTTY;
   const rl = scripted ? null : createInterface({ input, output, terminal: true });
   const ask = scripted ? createScriptedAsk(input, output) : (question, fallback) => askInteractive(rl, question, fallback);
 
   try {
+    output.write("Step 1/4: Choose the provider AlphaFoundry should call.\n");
     const provider = (await ask("Provider [openai/anthropic/gemini/openrouter/default]", existing.provider ?? "openai")).toLowerCase();
     const defaults = providerDefaults(provider);
+    output.write("Step 2/4: Pick the default model.\n");
     const model = await ask("Model", existing.model && existing.model !== "default" ? existing.model : defaults.model);
+    output.write("Step 3/4: Connect credentials. Raw secrets go to the local env file.\n");
     const apiKeyInput = await ask("API key env var name or paste key", existing.env?.apiKey ?? defaults.apiKey);
-    const baseUrl = await ask("Base URL environment variable name (optional)", existing.env?.baseUrl ?? "");
+    const baseUrl = await ask("Base URL env var name, if your provider needs one", existing.env?.baseUrl ?? "");
     const defaultApiKeyName = existing.provider === provider && existing.env?.apiKey && isEnvVarName(existing.env.apiKey) ? existing.env.apiKey : defaults.apiKey;
     const pastedApiKey = looksLikeSecret(apiKeyInput) ? apiKeyInput : "";
     const apiKey = pastedApiKey ? defaultApiKeyName : apiKeyInput;
     const savePastedKey = pastedApiKey ? await ask(`Save pasted API key to ${defaultSecretsPath(env, { configPath: path })}? [Y/n]`, "Y") : "N";
+    output.write("Step 4/4: Verify the setup.\n");
     const runDoctorNow = await ask("Run doctor now? [Y/n]", "Y");
     const openNow = await ask("Open AlphaFoundry after setup? [y/N]", "N");
 
@@ -90,9 +95,14 @@ export async function runOnboarding(options = {}) {
       doctorEnv = { ...env, [apiKey]: pastedApiKey };
     }
 
-    output.write(`\nConfig written: ${path}\n`);
-    if (secretsPath) output.write(`API key saved locally: ${secretsPath} (0600)\n`);
-    else if (pastedApiKey) output.write(`API key not saved. Export ${apiKey} before running AlphaFoundry.\n`);
+    output.write("\nSetup summary:\n");
+    output.write(`  Provider: ${provider}\n`);
+    output.write(`  Model: ${model}\n`);
+    output.write(`  Config written: ${path}\n`);
+    output.write(`  API key source: ${apiKey}\n`);
+    if (baseUrl) output.write(`  Base URL source: ${baseUrl}\n`);
+    if (secretsPath) output.write(`  API key saved locally: ${secretsPath} (0600)\n`);
+    else if (pastedApiKey) output.write(`  API key not saved. Export ${apiKey} before running AlphaFoundry.\n`);
     if (!no(runDoctorNow)) {
       const report = runDoctor({ configPath: path, env: doctorEnv });
       output.write("\n");
@@ -101,12 +111,14 @@ export async function runOnboarding(options = {}) {
     }
 
     output.write("\nNext steps:\n");
-    if (!secretsPath) output.write(`  export ${apiKey}=...\n`);
-    else output.write("  af doctor\n");
-    if (baseUrl) output.write(`  export ${baseUrl}=...\n`);
-    if (!secretsPath) output.write("  af doctor\n");
-    output.write("  af\n");
-    output.write("Run af to open AlphaFoundry.\n");
+    const steps = [];
+    if (!secretsPath) steps.push(`export ${apiKey}=...`);
+    else steps.push("af doctor");
+    if (baseUrl) steps.push(`export ${baseUrl}=...`);
+    if (!secretsPath) steps.push("af doctor");
+    steps.push("af");
+    steps.forEach((step, index) => output.write(`  ${index + 1}. ${step}\n`));
+    output.write("Run af to open the AlphaFoundry workspace.\n");
 
     return { path, created: true, config, secretsPath: secretsPath || undefined, doctorRun: !no(runDoctorNow), openNow: yes(openNow) };
   } finally {

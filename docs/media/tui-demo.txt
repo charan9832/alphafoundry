@@ -1,0 +1,22 @@
+ALPHAFOUNDRY
+terminal workspace for agentic software work
+Plan changes, gate tools, track evidence, and keep durable sessions.
+
+╭─ Start a workspace run / run input ──────────────────────────────────╮
+│ af › "Audit this repo and propose the safest next change"            │
+│ Mode ask · Model openrouter/qwen3-coder · Session ses_...             │
+│ Session records · Pre-run tool approval · Diff display · Evidence when emitted
+╰───────────────────────────────────────────────────────────────────────╯
+
+When runtime events are available:
+
+YOU       Audit this repo and propose the safest next change
+ALPHA     Plan: inspect tests, isolate the smallest safe patch, verify before reporting.
+TOOL      read, grep requested for the next run
+ARTIFACT  runtime evidence: artifacts/run-summary.json
+DIFF      src/tui/components/Workspace.jsx +18 -6
+
+Prompt footer:
+╭─ RUN af › Describe the change, investigation, or review... ──────────╮
+│ policy mode ask · tools off · Enter submit · Esc cancel · /help
+╰───────────────────────────────────────────────────────────────────────╯

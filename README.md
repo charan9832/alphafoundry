@@ -164,6 +164,49 @@ $env:OPENAI_API_KEY="***"
 af config set env.apiKey OPENAI_API_KEY
 ```
 
+## TUI demo
+
+Open AlphaFoundry with `af` after onboarding. The TUI presents a compact workspace run surface with the current model, session, and tool-policy state visible. A text capture is available at [`docs/media/tui-demo.txt`](docs/media/tui-demo.txt):
+
+```text
+ALPHAFOUNDRY
+terminal workspace for agentic software work
+Plan changes, gate tools, track evidence, and keep durable sessions.
+
+╭─ Start a workspace run / run input ──────────────────────────────────╮
+│ af › "Audit this repo and propose the safest next change"            │
+│ Mode ask · Model openrouter/qwen3-coder · Session ses_...             │
+│ Session records · Pre-run tool approval · Diff display · Evidence when emitted
+╰───────────────────────────────────────────────────────────────────────╯
+```
+
+When runtime events are available, the workspace groups them into the product-owned records AlphaFoundry tracks: prompt, assistant text, tool policy, evidence, and diffs.
+
+```text
+AlphaFoundry  openrouter/qwen3-coder      ● tool approval pending  approve allowlist: /approve-tools
+
+YOU       Audit this repo and propose the safest next change
+ALPHA     Plan: inspect tests, isolate the smallest safe patch, verify before reporting.
+TOOL      read, grep requested for the next run
+ARTIFACT  runtime evidence: artifacts/run-summary.json
+DIFF      src/tui/components/Workspace.jsx +18 -6
+
+╭─ RUN af › Describe the change, investigation, or review... ──────────╮
+│ policy mode ask · tools off · Enter submit · Esc cancel · /help
+╰───────────────────────────────────────────────────────────────────────╯
+```
+
+The inspector keeps the important context visible without pretending work happened:
+
+- Run context: current prompt and action
+- Run: state, provider/model, durable session
+- Tool policy: permission mode, pre-run tool approval, recovery hint
+- Evidence: runtime artifacts or verification records when emitted
+- Project: branch, dirty/clean tree, cwd
+- Tools and usage: enabled tools, observed tokens/cost
+
+This TUI is designed to surface these records without claiming a live approval pause/resume loop. Current tool governance is a pre-run allowlist flow: `/tools <list>` requests runtime tools and `/approve-tools` approves the allowlist for the next run.
+
 ## TUI slash commands
 
 ```text

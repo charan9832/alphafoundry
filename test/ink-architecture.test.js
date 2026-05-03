@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { initialState, reducer, createInitialState } from "../src/tui/state.js";
 import { paneWidths } from "../src/tui/layout.js";
 import { formatDiffLines, wrapPlain } from "../src/tui/formatters.js";
@@ -35,6 +35,44 @@ test("initial state is AlphaFoundry branded and does not use OpenCode placeholde
   assert.doesNotMatch(serialized, /OpenCode|Claude Opus|Hard Connected/);
 });
 
+test("home and sidebar copy use concrete product language without agent theater", () => {
+  const homeSource = readFileSync(new URL("../src/tui/components/Home.jsx", import.meta.url), "utf8");
+  const sidebarSource = readFileSync(new URL("../src/tui/components/Sidebar.jsx", import.meta.url), "utf8");
+
+  assert.match(homeSource, /Start a workspace run/);
+  assert.match(homeSource, /terminal workspace for agentic software work/);
+  assert.match(homeSource, /Audit this repo and propose the safest next change/);
+  assert.match(homeSource, /Session records/);
+  assert.match(homeSource, /Pre-run tool approval/);
+  assert.match(homeSource, /Diff display/);
+  assert.match(homeSource, /Evidence when emitted/);
+  assert.doesNotMatch(homeSource, /████|What should AlphaFoundry do|mission-control|workspace cockpit|Approval-gated/);
+
+  assert.match(sidebarSource, /Run context/);
+  assert.match(sidebarSource, /Tool policy/);
+  assert.match(sidebarSource, /Evidence/);
+  assert.match(sidebarSource, /Project/);
+  assert.doesNotMatch(sidebarSource, /mission-control|Language tools|Tasks|waiting for prompt/);
+});
+
+test("TUI source has semantic visual tokens and honest run/status surfaces", () => {
+  const themeSource = readFileSync(new URL("../src/tui/theme.js", import.meta.url), "utf8");
+  const workspaceSource = readFileSync(new URL("../src/tui/components/Workspace.jsx", import.meta.url), "utf8");
+  const statusSource = readFileSync(new URL("../src/tui/components/StatusBar.jsx", import.meta.url), "utf8");
+  const messageSource = readFileSync(new URL("../src/tui/components/MessagePane.jsx", import.meta.url), "utf8");
+
+  for (const token of ["fg", "surface", "accent", "state", "diff"]) assert.match(themeSource, new RegExp(`${token}:`));
+  assert.match(workspaceSource, /RUN/);
+  assert.match(workspaceSource, /af ›/);
+  assert.match(workspaceSource, /Enter submit · Esc cancel · \/help/);
+  assert.doesNotMatch(workspaceSource, /\/doctor|command deck|MISSION|mode \{state\.mode\}/);
+  assert.match(statusSource, /tool approval pending/);
+  assert.match(statusSource, /running — Esc cancels/);
+  assert.doesNotMatch(statusSource, /blocked: approval/);
+  assert.match(messageSource, /YOU|ALPHA|TOOL|DIFF|ARTIFACT|ERR/);
+  assert.match(messageSource, /earlier events hidden/);
+});
+
 test("reducer records home submit intent without claiming runtime work", () => {
   const state = reducer(initialState, { type: "SUBMIT_HOME", value: "Fix broken tests" });
 
@@ -48,9 +86,56 @@ test("reducer records home submit intent without claiming runtime work", () => {
   assert.equal(state.events[0].type, "user");
 });
 
-test("paneWidths allocates split layout with usable sidebar", () => {
-  assert.deepEqual(paneWidths(120), { main: 89, sidebar: 30 });
-  assert.deepEqual(paneWidths(80), { main: 51, sidebar: 28 });
+test("paneWidths allocates split layout with usable sidebar and collapses on narrow terminals", () => {
+  assert.deepEqual(paneWidths(120), { main: 89, sidebar: 30, showSidebar: true });
+  assert.deepEqual(paneWidths(80), { main: 51, sidebar: 28, showSidebar: true });
+  assert.deepEqual(paneWidths(79), { main: 79, sidebar: 0, showSidebar: false });
+  assert.deepEqual(paneWidths(60), { main: 60, sidebar: 0, showSidebar: false });
+  assert.deepEqual(paneWidths(40), { main: 40, sidebar: 0, showSidebar: false });
+});
+
+test("home and run input source are reducer-backed for setup states and prompt history", () => {
+  const homeSource = readFileSync(new URL("../src/tui/components/Home.jsx", import.meta.url), "utf8");
+  const workspaceSource = readFileSync(new URL("../src/tui/components/Workspace.jsx", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../src/tui/app.jsx", import.meta.url), "utf8");
+  const runSource = readFileSync(new URL("../src/tui/run.jsx", import.meta.url), "utf8");
+
+  assert.doesNotMatch(homeSource, /useState/);
+  assert.doesNotMatch(workspaceSource, /useState/);
+  assert.match(homeSource, /setupStatus/);
+  assert.match(homeSource, /Run af onboard/);
+  assert.match(workspaceSource, /value=\{state\.input/);
+  assert.match(appSource, /PROMPT_HISTORY_PREV/);
+  assert.match(appSource, /PROMPT_HISTORY_NEXT/);
+  assert.match(runSource, /af --help/);
+  assert.match(runSource, /af doctor --json/);
+});
+
+test("workspace renders command suggestions and transcript scroll state", () => {
+  const workspaceSource = readFileSync(new URL("../src/tui/components/Workspace.jsx", import.meta.url), "utf8");
+  const messageSource = readFileSync(new URL("../src/tui/components/MessagePane.jsx", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../src/tui/app.jsx", import.meta.url), "utf8");
+
+  assert.match(workspaceSource, /commandSuggestions/);
+  assert.match(workspaceSource, /Tab complete/);
+  assert.match(messageSource, /transcript\.offset/);
+  assert.match(messageSource, /PgUp\/PgDn/);
+  assert.match(appSource, /SCROLL_TRANSCRIPT/);
+  assert.match(appSource, /completeSlashCommand/);
+  assert.match(appSource, /runDoctor/);
+  assert.match(appSource, /replaySession/);
+  assert.match(appSource, /evaluateSession/);
+});
+
+test("repository includes CI workflow and README media artifact", () => {
+  const workflow = new URL("../.github/workflows/ci.yml", import.meta.url);
+  const media = new URL("../docs/media/tui-demo.txt", import.meta.url);
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+
+  assert.equal(existsSync(workflow), true);
+  assert.equal(existsSync(media), true);
+  assert.match(readFileSync(workflow, "utf8"), /node-version: \[20\.x, 22\.x, 24\.x\]/);
+  assert.match(readme, /docs\/media\/tui-demo\.txt/);
 });
 
 test("formatDiffLines preserves signs, line numbers, and wraps safely", () => {
@@ -79,6 +164,20 @@ test("loadRuntimeRunner clears rejected cached runner promise before retry", () 
   assert.match(source, /createRuntimeRunner\(\)\.catch\(\(error\) => \{/);
   assert.match(source, /cachedRuntimeRunnerPromise = undefined;/);
   assert.match(source, /throw error;/);
+});
+
+test("README presents an honest visual TUI demo narrative", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+
+  assert.match(readme, /## TUI demo/i);
+  assert.match(readme, /Start a workspace run/);
+  assert.match(readme, /RUN/);
+  assert.match(readme, /pre-run tool approval/i);
+  assert.match(readme, /when runtime events are available/i);
+  assert.match(readme, /without claiming a live approval pause\/resume loop/i);
+  assert.match(readme, /evidence/i);
+  assert.match(readme, /diff/i);
+  assert.doesNotMatch(readme, /mission-control|cockpit|Approval-gated|blocked: approval/);
 });
 
 test("TUI safety summary is explicit about mode, disabled tools, approvals, and approved tools", () => {
