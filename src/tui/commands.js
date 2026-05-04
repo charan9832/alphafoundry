@@ -3,6 +3,7 @@ export const COMMAND_NAMES = [
   "clear",
   "model",
   "provider",
+  "onboard",
   "exit",
   "stats",
   "tools",
@@ -20,6 +21,7 @@ export const COMMAND_NAMES = [
 ];
 
 const COMMAND_META = {
+  onboard: { description: "interactive setup wizard", hint: "/onboard" },
   help: { description: "show this help", hint: "/help" },
   clear: { description: "clear visible conversation", hint: "/clear" },
   model: { description: "set model preference", hint: "/model openrouter/qwen3-coder" },
@@ -84,7 +86,7 @@ export function parseSlashCommand(raw) {
   const rest = firstSpace === -1 ? "" : withoutSlash.slice(firstSpace + 1).trim();
 
   if (command === "quit") return { type: "exit" };
-  if (["help", "clear", "exit", "stats", "session", "sessions", "new", "doctor", "retry", "replay", "eval"].includes(command)) return { type: command };
+  if (["onboard", "help", "clear", "exit", "stats", "session", "sessions", "new", "doctor", "retry", "replay", "eval"].includes(command)) return { type: command };
   if (command === "export" || command === "print") return { type: "export", scope: "visible" };
   if (command === "approve-tools") return { type: "approve-tools" };
   if (command === "mode") return { type: "mode", mode: rest };
@@ -123,6 +125,7 @@ export function commandHelp() {
     "",
     "  Setup + health",
     "    /doctor            show local health guidance; exit and run af doctor for full report",
+    "    /onboard           interactive setup wizard — provider, model, credentials, verify",
     "",
     "  Tools + safety",
     "    /tools <list>      request runtime tools, separated by spaces or commas",

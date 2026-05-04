@@ -102,7 +102,7 @@ test("home and run input source are reducer-backed for setup states and prompt h
   assert.doesNotMatch(homeSource, /useState/);
   assert.doesNotMatch(workspaceSource, /useState/);
   assert.match(homeSource, /setupStatus/);
-  assert.match(homeSource, /Run af onboard/);
+  assert.match(homeSource, /onboard/);
   assert.match(workspaceSource, /value=\{state\.input/);
   assert.match(appSource, /PROMPT_HISTORY_PREV/);
   assert.match(appSource, /PROMPT_HISTORY_NEXT/);

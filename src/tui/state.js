@@ -535,6 +535,8 @@ export function applyCommand(state, command = {}) {
     }
     case "doctor":
       return appendEvent(appendEffectRequest(state, { kind: "doctor" }), { type: "assistant", text: "Running AlphaFoundry doctor... Config checks included. For the full report, exit and run af doctor." });
+    case "onboard":
+      return appendEvent(appendEffectRequest(state, { kind: "onboard" }), { type: "assistant", text: "Starting AlphaFoundry interactive onboard... Follow the prompts and then return here with /refresh or exit and start a fresh TUI session." });
     case "retry": {
       if (!state.lastPrompt) return appendEvent(state, { type: "assistant", text: "No previous prompt to retry." });
       return appendEvent({ ...state, input: state.lastPrompt, status: "ready-to-run", action: "retry queued", view: "workspace", intent: { prompt: state.lastPrompt } }, { type: "assistant", text: `Retry queued: ${state.lastPrompt}` });

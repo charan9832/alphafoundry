@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
 import { theme } from "../theme.js";
+import { commandSuggestions } from "../commands.js";
 
 // ── Character logo ──────────────────────────────────────────
 const LOGO = [
@@ -16,9 +17,24 @@ function setupLines(state) {
   if (!state.setupStatus || state.setupStatus.level === "ready") return [];
   return [
     state.setupStatus.message ?? "Setup needs attention",
-    "Run af onboard to configure provider, model, and credentials.",
-    "Run af doctor for detailed health checks.",
+    "Type /onboard to configure provider, model, and credentials.",
+    "Type /doctor for detailed health checks.",
   ];
+}
+
+function CommandSuggestions({ input }) {
+  const items = commandSuggestions(input);
+  if (!String(input ?? "").startsWith("/") || !items.length) return null;
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      <Text color={theme.fg.quiet}>Tab complete · suggestions</Text>
+      {items.slice(0, 5).map((item) => (
+        <Text key={item.command} color={theme.fg.tertiary}>
+          /{item.command}  {item.description}  {item.hint}
+        </Text>
+      ))}
+    </Box>
+  );
 }
 
 export function Home({ state, dispatch, columns, rows, onSubmit }) {
@@ -62,7 +78,7 @@ export function Home({ state, dispatch, columns, rows, onSubmit }) {
           {setup.length > 0 && (
             <Box flexDirection="column" marginBottom={1}>
               {setup.map((line) => (
-                <Text key={line} color={line.startsWith("Run af") ? theme.fg.secondary : theme.fg.tertiary}>
+                <Text key={line} color={line.startsWith("Type /") ? theme.fg.secondary : theme.fg.tertiary}>
                   {line}
                 </Text>
               ))}
@@ -78,6 +94,8 @@ export function Home({ state, dispatch, columns, rows, onSubmit }) {
               placeholder={'Type a prompt or / command'}
             />
           </Box>
+
+          <CommandSuggestions input={state.input} />
 
           <Box marginTop={1}>
             <Text color={theme.fg.quiet}>Mode </Text>

@@ -42,6 +42,18 @@ export function Sidebar({ state, width }) {
     : theme.fg.tertiary;
   const treeColor = state.project?.gitDirty ? theme.state.warning : theme.state.success;
 
+  const stateLabel = state.terminalState ?? state.status ?? "idle";
+  const stateColor =
+    state.status === "error" ? theme.state.danger
+    : state.status === "running" ? theme.state.running
+    : theme.fg.secondary;
+  const view = state.view === "home" ? "home" : "workspace";
+  const nextAction = state.status === "error" ? "Fix error, then /retry"
+    : state.status === "running" ? "Esc to cancel"
+    : state.pendingToolApproval ? "/approve-tools to continue"
+    : state.tools?.length ? "Type a prompt to run"
+    : state.status === "idle" && state.goal ? "Ready. Submit or type a new prompt."
+    : "Type a prompt or / command";
   const compactLabel = `${state.provider}/${state.model}`;
   const sessionLabel = state.session?.id?.length > 12
     ? state.session.id.slice(0, 12) + "…"
@@ -54,12 +66,17 @@ export function Sidebar({ state, width }) {
         {trunc(state.goal || "Workspace", Math.max(16, width))}
       </Text>
 
+      {/* ── Navigation breadcrumb ─────────────────────────── */}
+      <Box marginTop={1}>
+        <Text color={theme.fg.tertiary}>/</Text>
+        <Text> </Text>
+        <Text color={theme.accent.brand}>{view}</Text>
+        <Text color={theme.fg.tertiary}> / {nextAction}</Text>
+      </Box>
+
       {/* ── State ──────────────────────────────────────────── */}
       <Section label="State">
-        {row("Status", state.terminalState ?? state.status ?? "idle",
-          state.status === "error" ? theme.state.danger
-          : state.status === "running" ? theme.state.running
-          : theme.fg.secondary)}
+        {row("Status", stateLabel, stateColor)}
         {row("Model", trunc(compactLabel, width - 10))}
         {row("Session", sessionLabel, theme.fg.tertiary)}
       </Section>

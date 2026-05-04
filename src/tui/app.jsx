@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { useApp, useInput } from "ink";
+import { spawnSync } from "node:child_process";
 import { createApprovalStore } from "../runtime/approval-store.js";
 import { createSessionStore } from "../runtime/session-store.js";
 import { runDoctor, formatDoctor } from "../doctor.js";
@@ -12,6 +13,9 @@ import { createRuntimeRunner, classifyRuntimeError } from "./runtime-runner.js";
 import { useTerminalSize, paneWidths } from "./layout.js";
 import { Home } from "./components/Home.jsx";
 import { Workspace } from "./components/Workspace.jsx";
+import { resolveTsxLoaderUrl } from "../dependencies.js";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 let cachedRuntimeRunnerPromise;
 
@@ -40,7 +44,30 @@ export function App() {
     processedEffectRequests.current = requests.length;
     for (const request of pending) {
       try {
-        if (request.kind === "doctor") {
+        if (request.kind === "onboard") {
+          try {
+            const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
+            process.stdin.pause();
+            process.stdout.write("\nStarting AlphaFoundry onboard — interactive setup follows.\n");
+            process.stdout.write("The TUI will exit, onboard runs in your terminal.\n\n");
+            const result = spawnSync(process.execPath, [join(root, "src", "cli.js"), "onboard"], {
+              stdio: "inherit",
+              env: { ...process.env },
+            });
+            const code = result.status ?? 1;
+            process.stdout.write("\n");
+            if (code === 0) {
+              process.stdout.write("✅ Onboarding complete. Restarting AlphaFoundry...\n");
+              process.nextTick(() => process.exit(0));
+            } else {
+              process.stdout.write("Onboarding exited. Run af onboard again or start fresh.\n");
+              process.nextTick(() => process.exit(1));
+            }
+          } catch {
+            process.stdout.write("Onboard failed. Run af onboard from your terminal directly.\n");
+            process.nextTick(() => process.exit(1));
+          }
+        } else if (request.kind === "doctor") {
           const report = runDoctor({ cwd: state.cwd });
           dispatch({ type: "EFFECT_RESULT", request, result: { ok: report.status !== "fail", text: formatDoctor(report) } });
         } else if (request.kind === "replay") {
