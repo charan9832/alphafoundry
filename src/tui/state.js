@@ -388,6 +388,14 @@ export function reducer(state, action) {
   }
 }
 
+function sameText(a, b) {
+  return String(a ?? "").trim() === String(b ?? "").trim();
+}
+
+function sameRun(a = {}, b = {}) {
+  return !a.runId || !b.runId || a.runId === b.runId;
+}
+
 export function applyRuntimeEvent(state, rawEvent = {}) {
   const event = normalizeRuntimeEvent(rawEvent);
   const payload = payloadOf(event);
@@ -464,6 +472,28 @@ export function applyRuntimeEvent(state, rawEvent = {}) {
     const evidence = evidenceFromRuntimeEvent(event);
     if (evidence.length) next = { ...next, evidence: [...next.evidence, ...evidence] };
     return next;
+  }
+
+  if (event.type === "user") {
+    const text = firstDefined(event.text, payload.text);
+    const lastUser = [...next.events].reverse().find((item) => item.type === "user");
+    if (sameText(text, lastUser?.text) || sameText(text, next.lastPrompt) || sameText(text, next.goal)) {
+      return next;
+    }
+  }
+
+  if (event.type === "assistant") {
+    const lastIndex = next.events.length - 1;
+    const last = lastIndex >= 0 ? next.events[lastIndex] : null;
+    const text = firstDefined(event.text, payload.text);
+    const lastText = last?.text ?? last?.payload?.text;
+    if (last?.type === "assistant" && sameRun(last, event)) {
+      if (sameText(text, lastText)) return next;
+      if (String(text ?? "").startsWith(String(lastText ?? ""))) {
+        const merged = { ...event, text, payload: { ...(event.payload ?? {}), text } };
+        return { ...next, events: [...next.events.slice(0, lastIndex), merged] };
+      }
+    }
   }
 
   const runtimeSession = sessionFromRuntimeEvent(next.session, event);

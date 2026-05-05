@@ -5,16 +5,23 @@ export function normalizeResultEvents(result) {
 }
 
 export async function runPromptWithEvents(runner, prompt, options, onEvent) {
-  const result = await runner(prompt, { ...options, onEvent });
+  let emittedInline = false;
+  const emit = (event) => {
+    emittedInline = true;
+    onEvent(event);
+  };
+
+  const result = await runner(prompt, { ...options, onEvent: emit });
   if (result && typeof result[Symbol.asyncIterator] === "function") {
-    for await (const event of result) onEvent(event);
+    for await (const event of result) emit(event);
     return { ok: true };
   }
-  // Streaming adapter already emitted events inline via onEvent during the run.
-  // Events in result.events are the same array — re-emitting them would double
-  // every event in the TUI. Only emit synthetic events for non-streaming results.
-  if (!result || !Array.isArray(result.events) || result.events.length === 0) {
-    for (const event of normalizeResultEvents(result)) onEvent(event);
+  // Streaming adapters emit events inline via onEvent during the run. Some
+  // wrappers return those events nested or omit top-level events entirely, so
+  // checking result.events is not enough. If anything emitted inline, do not
+  // synthesize fallback output such as "No output." after the run.
+  if (!emittedInline) {
+    for (const event of normalizeResultEvents(result)) emit(event);
   }
   return result ?? { ok: true };
 }

@@ -49,3 +49,23 @@ test("runPromptWithEvents supports async iterable fake runtimes", async () => {
     { type: "assistant", text: "chunk two" },
   ]);
 });
+
+
+test("runPromptWithEvents does not synthesize No output after inline streaming events", async () => {
+  const seen = [];
+  const runner = async (_prompt, options = {}) => {
+    options.onEvent({ type: "assistant", text: "streamed answer" });
+    // Runtime runner returns wrapper shape without top-level events.
+    return { ok: true, result: { ok: true, output: "" } };
+  };
+
+  const result = await runPromptWithEvents(
+    runner,
+    "hello",
+    {},
+    (event) => seen.push(event),
+  );
+
+  assert.deepEqual(result, { ok: true, result: { ok: true, output: "" } });
+  assert.deepEqual(seen, [{ type: "assistant", text: "streamed answer" }]);
+});

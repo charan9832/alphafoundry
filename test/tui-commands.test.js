@@ -428,6 +428,32 @@ test("canonical runtime events drive terminal state, errors, stats, sessions, an
   assert.equal(failed.error, "boom");
 });
 
+test("runtime event stream does not duplicate local prompt or final assistant after deltas", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
+  const running = reducer(initial, { type: "RUN_STARTED", prompt: "hey what can u do", run: { id: "run_1" } });
+
+  const withRuntimeUser = reducer(running, { type: "RUNTIME_EVENT", event: { type: "user", runId: "run_1", payload: { text: "hey what can u do" } } });
+  assert.equal(withRuntimeUser.events.filter((event) => event.type === "user").length, 1);
+
+  const withFirstDelta = reducer(withRuntimeUser, { type: "RUNTIME_EVENT", event: { type: "assistant_delta", runId: "run_1", payload: { delta: "Hello" } } });
+  const withSecondDelta = reducer(withFirstDelta, { type: "RUNTIME_EVENT", event: { type: "assistant_delta", runId: "run_1", payload: { delta: " there" } } });
+  assert.equal(withSecondDelta.events.filter((event) => event.type === "assistant").length, 1);
+  assert.equal(withSecondDelta.events.at(-1).text, "Hello there");
+
+  const withFinal = reducer(withSecondDelta, { type: "RUNTIME_EVENT", event: { type: "assistant", runId: "run_1", payload: { text: "Hello there" } } });
+  assert.equal(withFinal.events.filter((event) => event.type === "assistant").length, 1);
+  assert.equal(withFinal.events.at(-1).text, "Hello there");
+});
+
+test("runtime final assistant can replace a shorter delta buffer without appending duplicate", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
+  const withDelta = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "assistant_delta", runId: "run_1", payload: { delta: "Hello" } } });
+  const withFinal = reducer(withDelta, { type: "RUNTIME_EVENT", event: { type: "assistant", runId: "run_1", payload: { text: "Hello there" } } });
+
+  assert.equal(withFinal.events.filter((event) => event.type === "assistant").length, 1);
+  assert.equal(withFinal.events.at(-1).text, "Hello there");
+});
+
 test("runtime-backed commands report observed runtime data when available", () => {
   const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
   const withRuntimeSession = reducer(initial, { type: "RUNTIME_EVENT", event: { type: "session", sessionId: "ses_runtime", title: "Runtime session" } });
