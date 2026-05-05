@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseSlashCommand, commandHelp, commandSuggestions, completeSlashCommand } from "../src/tui/commands.js";
+import { parseSlashCommand, commandHelp, commandSuggestions, completeSlashCommand, commandMenuItems } from "../src/tui/commands.js";
 import { createInitialState, reducer } from "../src/tui/state.js";
 import { initConfig, setConfigValue } from "../src/config.js";
 
@@ -39,8 +39,39 @@ test("slash command suggestions and completion expose discoverable command palet
   assert.deepEqual(commandSuggestions("/mo").map((item) => item.command), ["mode", "model"]);
   assert.ok(commandSuggestions("/").some((item) => item.command === "doctor" && /health/.test(item.description)));
   assert.ok(commandSuggestions("/tools ").some((item) => item.command === "tools" && /read grep/.test(item.hint)));
+  assert.deepEqual(commandMenuItems("/do").map((item) => item.command), ["doctor"]);
+  assert.deepEqual(commandMenuItems("/mo").map((item) => item.command), ["mode", "model"]);
+  assert.deepEqual(commandMenuItems("/tools "), []);
   assert.equal(completeSlashCommand("/mo"), "/mode ");
   assert.equal(completeSlashCommand("/doctor"), "/doctor");
+});
+
+test("slash command menu filters, navigates, selects, and closes without submitting", () => {
+  const initial = createInitialState({ cwd: "/tmp/alphafoundry", provider: "runtime", model: "default-model" });
+
+  const opened = reducer(initial, { type: "SET_INPUT", value: "/" });
+  assert.equal(opened.commandMenu.open, true);
+  assert.ok(opened.commandMenu.items.length > 8);
+  assert.equal(opened.commandMenu.cursor, 0);
+
+  const filtered = reducer(opened, { type: "SET_INPUT", value: "/do" });
+  assert.equal(filtered.commandMenu.open, true);
+  assert.deepEqual(filtered.commandMenu.items.map((item) => item.command), ["doctor"]);
+  assert.equal(filtered.commandMenu.cursor, 0);
+
+  const multi = reducer(filtered, { type: "SET_INPUT", value: "/mo" });
+  assert.deepEqual(multi.commandMenu.items.map((item) => item.command), ["mode", "model"]);
+  const moved = reducer(multi, { type: "COMMAND_MENU_CURSOR_MOVE", direction: "down" });
+  assert.equal(moved.commandMenu.cursor, 1);
+  const selected = reducer(moved, { type: "COMMAND_MENU_SELECT" });
+  assert.equal(selected.input, "/model ");
+  assert.equal(selected.commandMenu.open, false);
+  assert.deepEqual(selected.events, []);
+
+  const reopened = reducer(selected, { type: "SET_INPUT", value: "/" });
+  const closed = reducer(reopened, { type: "COMMAND_MENU_CLOSE" });
+  assert.equal(closed.commandMenu.open, false);
+  assert.equal(closed.input, "/");
 });
 
 test("Ink slash command parser recognizes all supported commands without legacy TUI", () => {

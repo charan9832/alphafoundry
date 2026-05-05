@@ -1,5 +1,5 @@
 import { detectRuntime } from "./runtime.js";
-import { commandHelp, commandSuggestions, sessionId, allCommands } from "./commands.js";
+import { commandHelp, commandSuggestions, sessionId, commandMenuItems } from "./commands.js";
 import { redactText } from "../redaction.js";
 import { mapPiToolPolicy } from "../runtime/pi-tool-policy.js";
 
@@ -240,6 +240,7 @@ function submitPromptDraft(state, value, { readyOnly = true } = {}) {
   const remembered = rememberPrompt(state, clean);
   return appendEvent({
     ...remembered,
+    commandMenu: { open: false, cursor: 0, items: [] },
     view: "workspace",
     goal: clean,
     intent: { prompt: clean },
@@ -269,17 +270,41 @@ function applyToolRequest(state, tools = []) {
   return appendEvent({ ...state, tools: requested, pendingToolApproval: null }, { type: "tool", text: `runtime tools enabled: ${requested.join(", ") || "none"}` });
 }
 
+function createCommandMenu(input, previous = {}) {
+  const items = commandMenuItems(input);
+  if (!items.length) return { open: false, cursor: 0, items: [] };
+  const previousCommand = previous.items?.[previous.cursor]?.command;
+  const retainedIndex = previousCommand ? items.findIndex((item) => item.command === previousCommand) : -1;
+  const cursor = retainedIndex >= 0 ? retainedIndex : Math.min(previous.cursor ?? 0, items.length - 1);
+  return { open: true, cursor, items };
+}
+
+function selectCommandMenuItem(state) {
+  if (!state.commandMenu.open) return state;
+  const item = state.commandMenu.items[state.commandMenu.cursor];
+  if (!item) return { ...state, commandMenu: { open: false, cursor: 0, items: [] } };
+  const value = `/${item.command} `;
+  return {
+    ...state,
+    input: value,
+    commandSuggestions: commandSuggestions(value),
+    commandMenu: { open: false, cursor: 0, items: [] },
+    promptHistoryIndex: null,
+  };
+}
+
 export function reducer(state, action) {
   switch (action.type) {
-    case "SET_INPUT":
+    case "SET_INPUT": {
       const suggestions = commandSuggestions(action.value);
-      const menuOpen = action.value.trim() === "/" ? { open: true, cursor: 0, items: allCommands() } : state.commandMenu.open ? { ...state.commandMenu, open: false, cursor: 0, items: [] } : state.commandMenu;
-      return { ...state, input: action.value, commandSuggestions: suggestions, commandMenu: menuOpen, ...(action.fromHistory ? {} : { promptHistoryIndex: null }) };
+      const commandMenu = createCommandMenu(action.value, state.commandMenu);
+      return { ...state, input: action.value, commandSuggestions: suggestions, commandMenu, ...(action.fromHistory ? {} : { promptHistoryIndex: null }) };
+    }
     case "COMPLETE_INPUT": {
       const suggestion = state.commandSuggestions?.[0];
       if (!suggestion) return state;
       const value = `/${suggestion.command} `;
-      return { ...state, input: value, commandSuggestions: commandSuggestions(value), promptHistoryIndex: null };
+      return { ...state, input: value, commandSuggestions: commandSuggestions(value), commandMenu: { open: false, cursor: 0, items: [] }, promptHistoryIndex: null };
     }
     case "SCROLL_TRANSCRIPT": {
       const amount = Number.isInteger(action.amount) ? action.amount : 5;
@@ -290,11 +315,13 @@ export function reducer(state, action) {
       return { ...state, transcript: { offset: nextOffset, follow: nextOffset === 0 } };
     }
     case "COMMAND_MENU_OPEN":
-      return { ...state, commandMenu: { open: true, cursor: 0, items: action.items } };
+      return { ...state, commandMenu: createCommandMenu(action.input ?? state.input, state.commandMenu) };
+    case "COMMAND_MENU_SELECT":
+      return selectCommandMenuItem(state);
     case "COMMAND_MENU_CLOSE":
       return { ...state, commandMenu: { open: false, cursor: 0, items: [] } };
     case "COMMAND_MENU_CURSOR_MOVE": {
-      if (!state.commandMenu.open) return state;
+      if (!state.commandMenu.open || !state.commandMenu.items.length) return state;
       const items = state.commandMenu.items;
       const delta = action.direction === "down" ? 1 : -1;
       const cursor = (state.commandMenu.cursor + delta + items.length) % items.length;
@@ -345,6 +372,7 @@ export function reducer(state, action) {
         goal: action.prompt ?? state.goal,
         intent: action.prompt ? { prompt: action.prompt } : state.intent,
         lastPrompt: action.prompt ?? state.lastPrompt,
+        commandMenu: { open: false, cursor: 0, items: [] },
         status: "running",
         terminalState: "running",
         action: "Runtime request running",

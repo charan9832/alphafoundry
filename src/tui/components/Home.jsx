@@ -23,22 +23,36 @@ function setupLines(state) {
 }
 
 function CommandSuggestions({ input, dispatch, commandMenu }) {
-  // When command menu is open, show the menu overlay
+  // When command menu is open, show a bounded, filtered command palette.
   if (commandMenu?.open && commandMenu.items?.length) {
+    const maxVisible = 8;
+    const start = Math.min(
+      Math.max(0, commandMenu.cursor - Math.floor(maxVisible / 2)),
+      Math.max(0, commandMenu.items.length - maxVisible),
+    );
+    const visibleItems = commandMenu.items.slice(start, start + maxVisible);
+    const hiddenBefore = start;
+    const hiddenAfter = Math.max(0, commandMenu.items.length - start - visibleItems.length);
     return (
       <Box flexDirection="column" marginTop={1}>
-        <Text color={theme.fg.quiet}>Command menu  ·  ↑/↓ navigate  ·  Enter select  ·  Esc close</Text>
-        {commandMenu.items.map((item, index) => (
-          <Box key={item.command}>
-            <Text color={index === commandMenu.cursor ? theme.accent.brand : theme.fg.tertiary}>
-              {index === commandMenu.cursor ? "▸ " : "  "}/{item.command}
-            </Text>
-            <Text> </Text>
-            <Text color={index === commandMenu.cursor ? theme.fg.secondary : theme.fg.tertiary}>
-              {item.description}
-            </Text>
-          </Box>
-        ))}
+        <Text color={theme.fg.quiet}>Command palette · ↑/↓ choose · Enter insert · Esc close</Text>
+        {hiddenBefore > 0 && <Text color={theme.fg.quiet}>  ↑ {hiddenBefore} more</Text>}
+        {visibleItems.map((item, visibleIndex) => {
+          const index = start + visibleIndex;
+          const selected = index === commandMenu.cursor;
+          return (
+            <Box key={item.command}>
+              <Text color={selected ? theme.accent.brand : theme.fg.tertiary}>
+                {selected ? "▸ " : "  "}/{item.command}
+              </Text>
+              <Text> </Text>
+              <Text color={selected ? theme.fg.secondary : theme.fg.tertiary}>
+                {item.description}
+              </Text>
+            </Box>
+          );
+        })}
+        {hiddenAfter > 0 && <Text color={theme.fg.quiet}>  ↓ {hiddenAfter} more</Text>}
       </Box>
     );
   }
@@ -109,7 +123,13 @@ export function Home({ state, dispatch, columns, rows, onSubmit }) {
             <TextInput
               value={state.input ?? ""}
               onChange={(value) => dispatch({ type: "SET_INPUT", value })}
-              onSubmit={(input) => input.trim() && onSubmit(input.trim())}
+              onSubmit={(input) => {
+                if (state.commandMenu?.open) {
+                  dispatch({ type: "COMMAND_MENU_SELECT" });
+                  return;
+                }
+                if (input.trim()) onSubmit(input.trim());
+              }}
               placeholder={'Type a prompt or / command'}
             />
           </Box>

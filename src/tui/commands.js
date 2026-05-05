@@ -67,8 +67,12 @@ export function commandSuggestions(raw, limit = 8) {
     .map((command) => ({ command, ...COMMAND_META[command] }));
 }
 
-export function allCommands() {
-  return COMMAND_NAMES.map((command) => ({ command, ...COMMAND_META[command] }));
+export function commandMenuItems(raw) {
+  const value = String(raw ?? "");
+  if (!value.startsWith("/")) return [];
+  const afterSlash = value.slice(1);
+  if (/\s/.test(afterSlash)) return [];
+  return commandSuggestions(value, COMMAND_NAMES.length);
 }
 
 export function completeSlashCommand(raw) {

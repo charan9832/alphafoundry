@@ -195,20 +195,12 @@ export function App() {
         return;
       }
       if (key.return) {
-        const item = current.commandMenu.items[current.commandMenu.cursor];
-        if (item) {
-          dispatch({ type: "SET_INPUT", value: `/${item.command} ` });
-          dispatch({ type: "COMMAND_MENU_CLOSE" });
-        }
+        dispatch({ type: "COMMAND_MENU_SELECT" });
         return;
       }
-      if (key.escape || input === "/") {
+      if (key.escape) {
         dispatch({ type: "COMMAND_MENU_CLOSE" });
         return;
-      }
-      // Any other key closes the menu (user starts typing a filter)
-      if (input && !key.ctrl) {
-        dispatch({ type: "COMMAND_MENU_CLOSE" });
       }
       return;
     }
