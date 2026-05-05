@@ -1,5 +1,5 @@
 import { detectRuntime } from "./runtime.js";
-import { commandHelp, commandSuggestions, sessionId } from "./commands.js";
+import { commandHelp, commandSuggestions, sessionId, allCommands } from "./commands.js";
 import { redactText } from "../redaction.js";
 import { mapPiToolPolicy } from "../runtime/pi-tool-policy.js";
 
@@ -149,6 +149,7 @@ export function createInitialState(overrides = {}) {
     effectRequests: overrides.effectRequests ?? [],
     transcript: overrides.transcript ?? { offset: 0, follow: true },
     commandSuggestions: overrides.commandSuggestions ?? [],
+    commandMenu: overrides.commandMenu ?? { open: false, cursor: 0, items: [] },
     tokenUsage: { tokens: 0, percent: 0, cost: "$0.00", ...overrides.tokenUsage },
     runtimeStats: overrides.runtimeStats ?? null,
     evidence: overrides.evidence ?? [],
@@ -271,7 +272,9 @@ function applyToolRequest(state, tools = []) {
 export function reducer(state, action) {
   switch (action.type) {
     case "SET_INPUT":
-      return { ...state, input: action.value, commandSuggestions: commandSuggestions(action.value), ...(action.fromHistory ? {} : { promptHistoryIndex: null }) };
+      const suggestions = commandSuggestions(action.value);
+      const menuOpen = action.value.trim() === "/" ? { open: true, cursor: 0, items: allCommands() } : state.commandMenu.open ? { ...state.commandMenu, open: false, cursor: 0, items: [] } : state.commandMenu;
+      return { ...state, input: action.value, commandSuggestions: suggestions, commandMenu: menuOpen, ...(action.fromHistory ? {} : { promptHistoryIndex: null }) };
     case "COMPLETE_INPUT": {
       const suggestion = state.commandSuggestions?.[0];
       if (!suggestion) return state;
@@ -285,6 +288,17 @@ export function reducer(state, action) {
       const maxOffset = Math.max(0, (state.events?.length ?? 0) - 1);
       const nextOffset = action.direction === "up" ? Math.min(maxOffset, current + amount) : Math.max(0, current - amount);
       return { ...state, transcript: { offset: nextOffset, follow: nextOffset === 0 } };
+    }
+    case "COMMAND_MENU_OPEN":
+      return { ...state, commandMenu: { open: true, cursor: 0, items: action.items } };
+    case "COMMAND_MENU_CLOSE":
+      return { ...state, commandMenu: { open: false, cursor: 0, items: [] } };
+    case "COMMAND_MENU_CURSOR_MOVE": {
+      if (!state.commandMenu.open) return state;
+      const items = state.commandMenu.items;
+      const delta = action.direction === "down" ? 1 : -1;
+      const cursor = (state.commandMenu.cursor + delta + items.length) % items.length;
+      return { ...state, commandMenu: { ...state.commandMenu, cursor } };
     }
     case "PROMPT_HISTORY_PREV":
       return recallPromptHistory(state, "prev");

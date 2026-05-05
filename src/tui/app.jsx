@@ -184,8 +184,36 @@ export function App() {
   }, [cancelActiveRun, exit]);
 
   useInput((input, key) => {
+    const current = stateRef.current;
+    if (current.commandMenu.open) {
+      if (key.upArrow) {
+        dispatch({ type: "COMMAND_MENU_CURSOR_MOVE", direction: "up" });
+        return;
+      }
+      if (key.downArrow) {
+        dispatch({ type: "COMMAND_MENU_CURSOR_MOVE", direction: "down" });
+        return;
+      }
+      if (key.return) {
+        const item = current.commandMenu.items[current.commandMenu.cursor];
+        if (item) {
+          dispatch({ type: "SET_INPUT", value: `/${item.command} ` });
+          dispatch({ type: "COMMAND_MENU_CLOSE" });
+        }
+        return;
+      }
+      if (key.escape || input === "/") {
+        dispatch({ type: "COMMAND_MENU_CLOSE" });
+        return;
+      }
+      // Any other key closes the menu (user starts typing a filter)
+      if (input && !key.ctrl) {
+        dispatch({ type: "COMMAND_MENU_CLOSE" });
+      }
+      return;
+    }
     if (key.tab) {
-      dispatch({ type: "SET_INPUT", value: completeSlashCommand(stateRef.current.input ?? "") });
+      dispatch({ type: "SET_INPUT", value: completeSlashCommand(current.input ?? "") });
       return;
     }
     if (key.pageUp) {
@@ -209,7 +237,7 @@ export function App() {
       return;
     }
     if (key.escape || (key.ctrl && input === "c")) {
-      if (stateRef.current.status === "running" || stateRef.current.status === "cancelling") {
+      if (current.status === "running" || current.status === "cancelling") {
         cancelActiveRun(key.escape ? "escape" : "ctrl+c");
       } else {
         exit();

@@ -10,6 +10,11 @@ export async function runPromptWithEvents(runner, prompt, options, onEvent) {
     for await (const event of result) onEvent(event);
     return { ok: true };
   }
-  for (const event of normalizeResultEvents(result)) onEvent(event);
+  // Streaming adapter already emitted events inline via onEvent during the run.
+  // Events in result.events are the same array — re-emitting them would double
+  // every event in the TUI. Only emit synthetic events for non-streaming results.
+  if (!result || !Array.isArray(result.events) || result.events.length === 0) {
+    for (const event of normalizeResultEvents(result)) onEvent(event);
+  }
   return result ?? { ok: true };
 }

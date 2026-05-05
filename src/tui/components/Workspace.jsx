@@ -22,7 +22,26 @@ function promptPlaceholder(state, safety) {
   return "Describe the change, investigation, or review…";
 }
 
-function CommandSuggestions({ input, suggestions }) {
+function CommandSuggestions({ input, suggestions, dispatch, commandMenu }) {
+  // When command menu is open, show the menu overlay
+  if (commandMenu?.open && commandMenu.items?.length) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text color={theme.fg.quiet}>Command menu  ·  ↑/↓ navigate  ·  Enter select  ·  Esc close</Text>
+        {commandMenu.items.map((item, index) => (
+          <Box key={item.command}>
+            <Text color={index === commandMenu.cursor ? theme.accent.brand : theme.fg.tertiary}>
+              {index === commandMenu.cursor ? "▸ " : "  "}/{item.command}
+            </Text>
+            <Text> </Text>
+            <Text color={index === commandMenu.cursor ? theme.fg.secondary : theme.fg.tertiary}>
+              {item.description}
+            </Text>
+          </Box>
+        ))}
+      </Box>
+    );
+  }
   const items = suggestions?.length ? suggestions : commandSuggestions(input);
   if (!String(input ?? "").startsWith("/") || !items.length) return null;
   return (
@@ -94,7 +113,7 @@ export function Workspace({
               </Text>
             </Box>
 
-            <CommandSuggestions input={state.input} suggestions={state.commandSuggestions} />
+            <CommandSuggestions input={state.input} suggestions={state.commandSuggestions} dispatch={dispatch} commandMenu={state.commandMenu} />
           </Box>
         </Box>
 

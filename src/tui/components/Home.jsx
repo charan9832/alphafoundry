@@ -22,7 +22,26 @@ function setupLines(state) {
   ];
 }
 
-function CommandSuggestions({ input }) {
+function CommandSuggestions({ input, dispatch, commandMenu }) {
+  // When command menu is open, show the menu overlay
+  if (commandMenu?.open && commandMenu.items?.length) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text color={theme.fg.quiet}>Command menu  ·  ↑/↓ navigate  ·  Enter select  ·  Esc close</Text>
+        {commandMenu.items.map((item, index) => (
+          <Box key={item.command}>
+            <Text color={index === commandMenu.cursor ? theme.accent.brand : theme.fg.tertiary}>
+              {index === commandMenu.cursor ? "▸ " : "  "}/{item.command}
+            </Text>
+            <Text> </Text>
+            <Text color={index === commandMenu.cursor ? theme.fg.secondary : theme.fg.tertiary}>
+              {item.description}
+            </Text>
+          </Box>
+        ))}
+      </Box>
+    );
+  }
   const items = commandSuggestions(input);
   if (!String(input ?? "").startsWith("/") || !items.length) return null;
   return (
@@ -95,7 +114,7 @@ export function Home({ state, dispatch, columns, rows, onSubmit }) {
             />
           </Box>
 
-          <CommandSuggestions input={state.input} />
+          <CommandSuggestions input={state.input} dispatch={dispatch} commandMenu={state.commandMenu} />
 
           <Box marginTop={1}>
             <Text color={theme.fg.quiet}>Mode </Text>

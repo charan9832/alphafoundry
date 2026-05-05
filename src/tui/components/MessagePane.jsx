@@ -64,12 +64,13 @@ function TextEvent({ event, width }) {
 
 function windowEvents(events, transcript) {
   const offset = transcript?.offset ?? 0;
-  const end = Math.max(0, events.length - offset);
+  const visible = events.filter((e) => e.type !== "run_start" && e.type !== "run_end");
+  const end = Math.max(0, visible.length - offset);
   const start = Math.max(0, end - 40);
   return {
-    visible: events.slice(start, end),
-    hiddenBefore: start,
-    hiddenAfter: Math.max(0, events.length - end),
+    visible: visible.slice(start, end),
+    hiddenBefore: Math.max(0, start),
+    hiddenAfter: Math.max(0, visible.length - end),
     offset,
   };
 }

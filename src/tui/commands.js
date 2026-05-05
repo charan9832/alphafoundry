@@ -67,6 +67,10 @@ export function commandSuggestions(raw, limit = 8) {
     .map((command) => ({ command, ...COMMAND_META[command] }));
 }
 
+export function allCommands() {
+  return COMMAND_NAMES.map((command) => ({ command, ...COMMAND_META[command] }));
+}
+
 export function completeSlashCommand(raw) {
   const value = String(raw ?? "");
   const suggestions = commandSuggestions(value, 1);
